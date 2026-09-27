@@ -12,6 +12,7 @@ import { t } from '../../../strings/index.js';
 import { RunHeroSection } from './RunHeroSection.jsx';
 import SinceBaselinePanel, { baselineDateLabel } from './SinceBaselinePanel.jsx';
 import { sumSinceBaseline } from '../headlineStats.js';
+import { useSeeFindings } from '../hooks/useSeeFindings.js';
 import { useRunReportSpecs } from './runReportSpecs.jsx';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
@@ -89,18 +90,23 @@ function useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, 
 
 // The run's derived view data: summary, worst files, hero-card navigation and
 // the per-dimension deltas; also registers this run's report specs.
-function useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate }) {
+function useRunOverviewModel({ dashboard, selectedRunId, selectedProject, projectName, onNavigate }) {
   const runSummary = useMemo(() => buildRunSummary(dashboard?.dimensions), [dashboard]);
+  const since = sumSinceBaseline(dashboard?.sinceBaseline);
+  const selectedRun = dashboard?.selectedRun;
+  const { seeFindings } = useSeeFindings({
+    project: selectedProject, runId: selectedRun?.runId, dateLabel: selectedRun?.dateLabel, since, onNavigate,
+  });
   const runTopFiles = useMemo(() => withDimensionsStr(buildTopOffendingFiles(dashboard?.dimensions || [])), [dashboard]);
   const runDateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
   const onCardNavigate = useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, onNavigate });
   useRunReportSpecs({ dashboard, runSummary, selectedRunId, projectName });
   const trendDeltas = useTrendDeltas(dashboard);
-  return { runSummary, runTopFiles, onCardNavigate, trendDeltas };
+  return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings };
 }
 
-export default function RunOverviewPanel({ dashboard, selectedRunId, projectName, availableRuns = [], onDimensionClick, onFileClick, onNavigate }) {
-  const { runSummary, runTopFiles, onCardNavigate, trendDeltas } = useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate });
+export default function RunOverviewPanel({ dashboard, selectedRunId, selectedProject, projectName, availableRuns = [], onDimensionClick, onFileClick, onNavigate }) {
+  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings } = useRunOverviewModel({ dashboard, selectedRunId, selectedProject, projectName, onNavigate });
 
   const isLoading = !dashboard || !dashboard.dimensions;
   if (isLoading) {
@@ -111,12 +117,11 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, projectName
     );
   }
   const dimCount = (dashboard?.dimensions || []).length;
-  const since = sumSinceBaseline(dashboard?.sinceBaseline);
 
   return (
     <div className="run-overview-fade run-overview-ready">
       <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} baselineDate={baselineDateLabel(since, availableRuns)} />
-      <SinceBaselinePanel since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns} />
+      <SinceBaselinePanel since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns} onSeeFindings={seeFindings} />
       <section className="quality-dimensions" aria-label={t('overview.qualityDimensionsAria')}>
         <div className="quality-dimensions__head">
           <SectionLabel>{t('overview.qualityDimensionsLabel')} · {dimCount}</SectionLabel>
