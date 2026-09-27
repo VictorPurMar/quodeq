@@ -1,6 +1,7 @@
 """POST /api/findings/dismiss-by-type closes a requirement in one request."""
 from __future__ import annotations
 
+import json
 from http import HTTPStatus
 from pathlib import Path
 
@@ -19,14 +20,21 @@ _ROUTE = "/api/findings/dismiss-by-type"
 
 
 def _seed(evals: Path) -> None:
+    """A run with both the event log (rescore) and the report (what the UI counts)."""
     run_dir = evals / _PROJECT / _RUN
-    run_dir.mkdir(parents=True)
+    (run_dir / "evaluation").mkdir(parents=True)
     writer = EventLogWriter(run_dir / "events.jsonl")
-    for i, req in enumerate(["S-1", "S-1", "S-2"]):
+    reqs = ["S-1", "S-1", "S-2"]
+    for i, req in enumerate(reqs):
         writer.emit(JudgmentCreatedEvent(payload=JudgmentPayload(
             practice_id="Integrity", verdict="violation", dimension=_DIM, file=f"f{i}.py",
             line=10 + i, reason="r", req=req, severity="critical", snippet=f"c{i}")))
     SqliteFindingsRepository(run_dir).list_by_dimension(_DIM)
+    (run_dir / "evaluation" / f"{_DIM}.json").write_text(json.dumps({
+        "dimension": _DIM, "principles": [], "compliance": [],
+        "violations": [{"principle": "Integrity", "file": f"f{i}.py", "line": 10 + i, "req": req,
+                        "severity": "critical", "snippet": f"c{i}", "reason": "r"} for i, req in enumerate(reqs)],
+    }), encoding="utf-8")
 
 
 @pytest.fixture

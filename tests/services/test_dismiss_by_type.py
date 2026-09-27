@@ -1,11 +1,9 @@
 """dismiss_by_type closes every active finding of one requirement in a scope, once."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from quodeq.core.events.models import JudgmentCreatedEvent, JudgmentPayload
-from quodeq.data.events.writer import EventLogWriter
-from quodeq.data.projection.projector import Projector
 from quodeq.services.dismiss_by_type import DismissScope, dismiss_by_type, select_findings
 from quodeq.services.dismissed import dismissed_keys
 from quodeq.services.wiring import read_action_events
@@ -15,18 +13,17 @@ _RUN = "run-1"
 
 
 def _finding(i: int, *, req: str, practice: str = "Modifiability", file: str | None = None) -> dict:
-    return dict(practice_id=practice, verdict="violation", dimension=_DIM, file=file or f"f{i}.py",
-                line=10 + i, reason="r", req=req, severity="minor", snippet=f"code {i}")
+    return dict(principle=practice, file=file or f"f{i}.py", line=10 + i, reason="r", req=req,
+                severity="minor", snippet=f"code {i}")
 
 
 def _seed(project_dir: Path, findings: list[dict]) -> Path:
+    """A run as the CLI writes it: the evaluation report only, no event log."""
     run_dir = project_dir / _RUN
-    run_dir.mkdir(parents=True)
-    log = run_dir / "events.jsonl"
-    writer = EventLogWriter(log)
-    for f in findings:
-        writer.emit(JudgmentCreatedEvent(payload=JudgmentPayload(**f)))
-    Projector().project(log, run_dir)
+    (run_dir / "evaluation").mkdir(parents=True)
+    (run_dir / "evaluation" / "maintainability.json").write_text(json.dumps({
+        "dimension": _DIM, "principles": [], "violations": findings, "compliance": [],
+    }), encoding="utf-8")
     return run_dir
 
 
@@ -67,3 +64,10 @@ def test_dismiss_by_type_is_idempotent(tmp_path: Path) -> None:
     assert dismiss_by_type(tmp_path, run_dir, DismissScope("M-MDF-1", _DIM)) == 2
     assert dismiss_by_type(tmp_path, run_dir, DismissScope("M-MDF-1", _DIM)) == 0
     assert len(list(read_action_events(tmp_path))) == 2
+
+
+def test_legacy_run_without_event_log_is_dismissed_and_left_alone(tmp_path: Path) -> None:
+    run_dir = _seed(tmp_path, [_finding(1, req="M-MDF-1")])
+    assert dismiss_by_type(tmp_path, run_dir, DismissScope("M-MDF-1", _DIM)) == 1
+    assert not (run_dir / "evaluation.db").exists()
+    assert not (run_dir / "events.jsonl").exists()
