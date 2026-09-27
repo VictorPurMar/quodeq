@@ -103,9 +103,8 @@ function useProjects({ onNoProjects }) {
       handleProjectChange: projectState.handleProjectChange,
       loadProjects: projectState.loadProjects,
     },
-    // Route project-action failures through the toast (SidePaneProvider
-    // precedent, e.g. EvaluationForm's onValidationFail) instead of a
-    // blocking alert() -- render the message here so useProjectActions
+    // Route project-action failures through the toast instead of a
+    // blocking alert(). The message is rendered here so useProjectActions
     // stays presentation-agnostic.
     { onError: (messageKey, vars) => showToast(t(messageKey, vars)) },
   );
