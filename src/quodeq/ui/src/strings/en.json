@@ -1614,5 +1614,7 @@
   "history.tooltipCounts": "{critical} critical · {majors} majors · {openTypes} open types",
   "history.tooltipCountsNoCritical": "{majors} majors · {openTypes} open types",
   "history.tooltipCountsRun": "latest run {date}: {critical} critical · {majors} majors · {openTypes} open types",
-  "history.tooltipCountsRunNoCritical": "latest run {date}: {majors} majors · {openTypes} open types"
+  "history.tooltipCountsRunNoCritical": "latest run {date}: {majors} majors · {openTypes} open types",
+  "history.colMajors": "MAJORS",
+  "history.colTypes": "TYPES"
 }
