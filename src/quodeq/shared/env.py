@@ -54,11 +54,15 @@ def _env_number(
                 var, raw, "integer" if kind is int else "number", default,
             )
         return default
-    if not math.isfinite(value):
+    # An int is always finite (arbitrary precision, never inf/nan): only a
+    # float parse can produce a non-finite value, and math.isfinite itself
+    # raises OverflowError on an int too large to convert to float, so this
+    # check must not run for kind is int.
+    if kind is float and not math.isfinite(value):
         if warn:
             logging.getLogger(__name__).warning(
-                "Invalid %s=%r (expected a finite %s), using default %r",
-                var, raw, "integer" if kind is int else "number", default,
+                "Invalid %s=%r (expected a finite number), using default %r",
+                var, raw, default,
             )
         return default
     if minimum is not None and value < minimum:

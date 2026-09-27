@@ -58,6 +58,23 @@ def test_non_dict_violation_entry_is_skipped(tmp_path: Path):
     assert len(result.violations) == 1
 
 
+def test_non_list_violations_field_is_skipped(tmp_path: Path):
+    """A non-list, truthy ``violations`` value (e.g. an int) must not reach
+    the ``for violation in ...`` loop: ``or []`` only substitutes on a
+    falsy value, so a non-list truthy value needs its own isinstance check."""
+    evidence_path = tmp_path / "security_evidence.json"
+    evidence_path.write_text(json.dumps({
+        "principles": {
+            "p1": {"display_name": "P1", "violations": 5},
+        },
+    }), encoding="utf-8")
+
+    result = parse_violations_from_evidence(evidence_path, _ctx())
+
+    assert result is not None
+    assert result.violations == []
+
+
 def test_well_formed_evidence_is_unaffected(tmp_path: Path):
     evidence_path = tmp_path / "security_evidence.json"
     evidence_path.write_text(json.dumps({

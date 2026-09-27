@@ -37,6 +37,15 @@ class TestEnvInt:
     def test_at_minimum_is_accepted(self):
         assert env_int("X", 5, minimum=1, env={"X": "1"}) == 1
 
+    def test_extremely_large_value_is_accepted_not_treated_as_non_finite(self):
+        """Ints are always finite (arbitrary precision); the finiteness
+        check added for env_float must not run for env_int, since
+        math.isfinite raises OverflowError on an int too large to convert
+        to a float. A huge int parses and is returned like any other int,
+        matching int()'s own contract (no upper bound)."""
+        huge = "9" * 400
+        assert env_int("X", 5, env={"X": huge}) == int(huge)
+
 
 class TestEnvFloat:
     def test_valid_value(self):

@@ -49,7 +49,9 @@ def _extract_violations_from_principles(principles: dict) -> list[Finding]:
         if not isinstance(pdata, dict):
             continue
         label = pdata.get("display_name") or raw_key
-        for violation in pdata.get("violations") or []:
+        raw_violations = pdata.get("violations")
+        raw_violations = raw_violations if isinstance(raw_violations, list) else []
+        for violation in raw_violations:
             if not isinstance(violation, dict):
                 continue
             violations.append(_build_violation_from_principle(violation, label))
