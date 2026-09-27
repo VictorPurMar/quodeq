@@ -192,7 +192,10 @@ class TestFileJobStore:
         store = FileJobStore(persist_dir=tmp_path)
         job = Job("j1", "done", ["echo"], "now", "later", 0)
 
-        def fail_write(*a, **kw):
+        def fail_write(fd, *a, **kw):
+            # dump_json_and_replace closes fd on error; Windows cannot
+            # unlink a file that is still open.
+            os.close(fd)
             raise OSError("disk full")
 
         monkeypatch.setattr("quodeq.services._job_file_store.dump_json_and_replace", fail_write)

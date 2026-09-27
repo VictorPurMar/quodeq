@@ -1,3 +1,7 @@
+// The jittered delay lands in [JITTER_FLOOR, 1] x the capped delay.
+const JITTER_FLOOR = 0.5;
+const JITTER_SPAN = 1 - JITTER_FLOOR;
+
 /**
  * Jittered exponential backoff delay, in milliseconds, for a retry attempt.
  * `attempt` is 0 for the first retry. The result is capped at `maxMs` and
@@ -11,5 +15,5 @@
  * @returns {number}
  */
 export function backoffDelay(attempt, baseMs, maxMs) {
-  return Math.min(baseMs * 2 ** attempt, maxMs) * (0.5 + Math.random() * 0.5);
+  return Math.min(baseMs * 2 ** attempt, maxMs) * (JITTER_FLOOR + Math.random() * JITTER_SPAN);
 }
