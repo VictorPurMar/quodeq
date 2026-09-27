@@ -113,9 +113,6 @@
   margin-bottom: 28px;
 }
 
-/* Convergence strip under the primary tiles: criticals, majors, open types,
-   density and one since-baseline line. */
-
 /* --- Trend Section --- */
 .trend-section.panel {
   overflow: hidden;

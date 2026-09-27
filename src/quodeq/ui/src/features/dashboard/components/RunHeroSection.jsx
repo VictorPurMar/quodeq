@@ -1,6 +1,6 @@
 import { TermHeader, Stat } from '../../../components/terminal/index.js';
-import { HeroPanel, ComplianceAndRatioStats, ScoreStat, heroCardHandlers } from './heroSectionParts.jsx';
-import { formatRunId, complianceRatio } from '../../../utils/formatters.js';
+import { HeroPanel, ComplianceAndRatioStats, ScoreStat, heroCardHandlers, ratioDisplay } from './heroSectionParts.jsx';
+import { formatRunId } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import SeverityBadgeRow from './SeverityBadgeRow.jsx';
 import { t } from '../../../strings/index.js';
@@ -36,7 +36,7 @@ export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNav
   const compliance = runSummary.totalCompliance || 0;
   const suppressed = runSummary.suppressed || 0;
   const totalChecks = violations + compliance;
-  const ratio = complianceRatio(violations, compliance);
+  const ratio = ratioDisplay(violations, compliance);
 
   const { handleViolations, handleCompliance, handleSeverity } = heroCardHandlers(onCardNavigate, { violations, compliance });
 

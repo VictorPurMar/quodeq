@@ -1495,13 +1495,7 @@
   "heatGrid.severityCellAriaOne": "{severity}: 1 violation in {label}",
   "heatGrid.violationsCellAriaOne": "1 violation in {label}, open details",
   "heatGrid.unnamedRow": "row",
-  "overview.statMajors": "MAJORS",
   "overview.statDensity": "DENSITY",
-  "overview.majorsHintCritical": "{count} critical",
-  "overview.majorsHintCriticalOne": "1 critical",
-  "overview.openTypesClosed": "{count} closed",
-  "overview.openTypesClosedOne": "1 closed",
-  "overview.openTypesSince": "since {date}",
   "helpHint.learnMore": "Learn more",
   "help.navWhyThisGrade": "Why This Grade",
   "helpFigure.stageTypes": "violation types, weighted",
@@ -1581,5 +1575,5 @@
   "history.colTypes": "TYPES",
   "sidebar.majorsTitleOne": "{count} major",
   "sidebar.majorsTitleMany": "{count} majors",
-  "overview.densityUnitHint": "violations /100 files"
+  "overview.densityUnitHint": "findings /100 files read"
 }

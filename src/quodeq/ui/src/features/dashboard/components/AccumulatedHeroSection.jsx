@@ -1,8 +1,8 @@
 import TrendBadge from '../../../components/TrendBadge.jsx';
-import { complianceRatio, extDisplayName } from '../../../utils/formatters.js';
+import { extDisplayName } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import { TermHeader, Stat } from '../../../components/terminal/index.js';
-import { HeroPanel, ComplianceAndRatioStats, ScoreStat, heroCardHandlers } from './heroSectionParts.jsx';
+import { HeroPanel, ComplianceAndRatioStats, ScoreStat, heroCardHandlers, ratioDisplay } from './heroSectionParts.jsx';
 import LastFetchedLine from '../../../components/LastFetchedLine.jsx';
 import SharedReadOnlyBadge from '../../../components/SharedReadOnlyBadge.jsx';
 import SeverityBadgeRow from './SeverityBadgeRow.jsx';
@@ -55,7 +55,7 @@ function accumulatedStats(summary) {
     violations,
     compliance,
     totalChecks: violations + compliance,
-    ratio: complianceRatio(violations, compliance),
+    ratio: ratioDisplay(violations, compliance),
     severity: summary?.severity,
   };
 }

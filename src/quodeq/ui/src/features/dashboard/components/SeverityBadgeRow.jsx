@@ -1,4 +1,11 @@
 import { SevBadge } from '../../../components/terminal/index.js';
+import { SEVERITY } from '../../../vocab/severity.js';
+
+// A chip shows when it has a count, or when its count dropped to zero since
+// the baseline: "0 crit ▾3" is the news, so the zero keeps its chip.
+function shows(sev, deltas, level) {
+  return sev[level] > 0 || Boolean(deltas?.[level]);
+}
 
 // Shared by AccumulatedHeroSection and RunHeroSection -- byte-identical
 // markup/behavior in both, deduped into one component. `deltas` (from
@@ -6,13 +13,20 @@ import { SevBadge } from '../../../components/terminal/index.js';
 // major chips; without it the chips read as plain counts.
 export default function SeverityBadgeRow({ severity, onSeverityClick, deltas = null }) {
   const sev = severity || {};
-  if (!(sev.critical || sev.major || sev.minor)) return null;
-  const onClickFor = (level) => onSeverityClick ? () => onSeverityClick(level) : undefined;
+  const levels = [SEVERITY.CRITICAL, SEVERITY.MAJOR, SEVERITY.MINOR].filter((level) => shows(sev, deltas, level));
+  if (levels.length === 0) return null;
   return (
     <span className="acc-eval-sev-row">
-      {sev.critical > 0 && <SevBadge level="critical" count={sev.critical} delta={deltas?.critical} format="count-abbr" onClick={onClickFor('critical')} />}
-      {sev.major > 0    && <SevBadge level="major"    count={sev.major}    delta={deltas?.major}    format="count-abbr" onClick={onClickFor('major')} />}
-      {sev.minor > 0    && <SevBadge level="minor"    count={sev.minor}    format="count-abbr" onClick={onClickFor('minor')} />}
+      {levels.map((level) => (
+        <SevBadge
+          key={level}
+          level={level}
+          count={sev[level] || 0}
+          delta={deltas?.[level]}
+          format="count-abbr"
+          onClick={onSeverityClick ? () => onSeverityClick(level) : undefined}
+        />
+      ))}
     </span>
   );
 }

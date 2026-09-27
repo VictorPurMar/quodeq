@@ -7,7 +7,7 @@
  */
 import { StatStrip, Stat, StatBody } from '../../../components/terminal/index.js';
 import HelpHint from '../../../components/HelpHint.jsx';
-import { scoreColorClass } from '../../../utils/formatters.js';
+import { scoreColorClass, complianceRatio } from '../../../utils/formatters.js';
 import { t } from '../../../strings/index.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 
@@ -24,6 +24,17 @@ export function HeroPanel({ header, children }) {
 }
 
 const DENSITY_DECIMALS = 1;
+const NO_VIOLATIONS_RATIO_PREFIX = '0:';
+
+/**
+ * The RATIO tile's value: "1:N" from complianceRatio, or "0:N" when there
+ * are no violations at all (the shared helper's placeholder is for tables;
+ * a tile never shows a bare dash).
+ */
+export function ratioDisplay(violations, compliance) {
+  if (violations === 0) return `${NO_VIOLATIONS_RATIO_PREFIX}${compliance}`;
+  return complianceRatio(violations, compliance);
+}
 
 /**
  * The fourth tile: RATIO on the left and, when the run recorded a files-read

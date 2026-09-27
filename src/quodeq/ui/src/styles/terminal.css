@@ -106,14 +106,18 @@
     padding: var(--term-space-2);
   }
   .term-stat__value { --stat-value-max: 22px; }
-  /* A card split in two: RATIO beside DENSITY. Overrides the card's column flex. */
+.term-stat__label { margin-bottom: 0; }
+}
+
+/* A card split in two: RATIO beside DENSITY. Both card containers (the
+   overview strip and the dimension page's 2x2 grid) set the card to a column
+   flex, so the pair rule names both to win on specificity. */
+.term-stat-strip--cards .term-stat.term-stat--pair,
+.qd-stats-2x2 .term-stat.term-stat--pair,
 .term-stat.term-stat--pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--term-space-3); }
 .term-stat__half { min-width: 0; display: flex; flex-direction: column; gap: var(--term-space-1); }
 .term-stat__half + .term-stat__half { border-left: 1px solid var(--color-border); padding-left: var(--term-space-3); }
 .term-stat--pair .term-stat__value { --stat-value-max: 22px; }
-
-.term-stat__label { margin-bottom: 0; }
-}
 
 /* `count-abbr` sev badge variant used in the VIOLATIONS stat cell */
 .term-sev-badge--count-abbr {
