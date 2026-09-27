@@ -21,6 +21,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import HelpFigure from '../../../components/HelpFigure.jsx';
 import GradeFormulaCurveFigure from './figures/GradeFormulaCurveFigure.jsx';
+import GradeExplainFigure from './figures/GradeExplainFigure.jsx';
 import ScoreGroupingFigure from './figures/ScoreGroupingFigure.jsx';
 import gradeFormulaDark from '../../../assets/help/grade-formula.dark.webp';
 import gradeFormulaLight from '../../../assets/help/grade-formula.light.webp';
@@ -34,6 +35,7 @@ import { FINDING_TYPE } from '../../../vocab/findingType.js';
 // decorative (informative: false / omitted), described only by the caption.
 const FIGURES = {
   GradeFormulaCurveFigure: { Component: GradeFormulaCurveFigure, informative: true },
+  GradeExplainFigure: { Component: GradeExplainFigure, informative: true },
   ScoreGroupingFigure: { Component: ScoreGroupingFigure },
 };
 const IMAGES = { gradeFormulaDark, gradeFormulaLight };

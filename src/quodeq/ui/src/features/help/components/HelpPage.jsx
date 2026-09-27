@@ -37,6 +37,7 @@ const SECTIONS = [
   { id: 'map', labelKey: 'help.navMap' },
   { id: 'history', labelKey: 'help.navHistory' },
   { id: HELP_SECTION.GRADE_FORMULA, labelKey: 'help.navGradeFormula' },
+  { id: HELP_SECTION.WHY_THIS_GRADE, labelKey: 'help.navWhyThisGrade' },
   { id: 'standards', labelKey: 'help.navStandards' },
   { id: 'assistant', labelKey: 'help.navAssistant' },
   { id: 'terminal', labelKey: 'help.navTerminal' },
