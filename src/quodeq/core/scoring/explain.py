@@ -4,13 +4,10 @@ from __future__ import annotations
 from typing import Any
 
 from quodeq.core.scoring._tallies import weighted_sum
-from quodeq.core.scoring.constants import MAX_SCORE
 from quodeq.core.scoring.internals import (
-    clamp_principle_score,
-    compliance_lift,
+    principle_stages,
     score_to_grade_label,
     severity_grade_floor,
-    violation_base,
     violation_ceiling,
 )
 from quodeq.core.scoring.params import DEFAULT_PARAMS, ScoringParams
@@ -26,10 +23,7 @@ def explain_principle(
 
     Same functions, same order, so ``final`` and ``grade`` equal what the
     grade tables hold for the same tallies and parameters."""
-    base = violation_base(vt_counts, params=params)
-    lift = compliance_lift(ct_counts, vt_counts, params=params)
-    raw = base + (MAX_SCORE - base) * lift
-    final = clamp_principle_score(raw, vt_counts, params=params)
+    base, lift, raw, final = principle_stages(vt_counts, ct_counts, params=params)
     return {
         "types": {sev: int(vt_counts.get(sev, 0)) for sev in _SEVERITIES},
         "complianceTypes": int(sum(ct_counts.values())),
