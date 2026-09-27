@@ -139,7 +139,11 @@ test('updateStandardField: returns the original standard unchanged when the path
   assert.deepEqual(result, original);
 });
 
-test('updateStandardField: does not throw when the path walks off the end of an array', () => {
+test('updateStandardField: returns the original standard unchanged when a path segment after an out-of-bounds array index would otherwise throw', () => {
+  // path[3]=99 reads requirements[99] -> undefined (a plain `arr[99] = x`
+  // would not throw); the guard is what stops the walk before path[4]
+  // ('text') tries to set a property ON that undefined, which does throw.
   const original = makeStandard();
-  assert.doesNotThrow(() => updateStandardField(original, ['principles', 0, 'requirements', 99, 'text'], 'x'));
+  const result = updateStandardField(original, ['principles', 0, 'requirements', 99, 'text'], 'x');
+  assert.deepEqual(result, original);
 });

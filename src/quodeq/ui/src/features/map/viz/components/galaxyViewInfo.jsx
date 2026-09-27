@@ -154,7 +154,7 @@ function computePrincipleLevelInfo(scene, nav, navRef, onNavigate) {
       onNavigate?.(NAV_TAB.EVAL_PRINCIPLE, {
         evalPrincipal: {
           principle: p.name,
-          score: p.rawScore || (p.score != null ? p.score.toFixed(1) : null),
+          score: p.rawScore ?? (p.score != null ? p.score.toFixed(1) : null),
           grade: p.grade,
           dimension: d.name,
           // Carry the originating run id so PrincipleDetail's dismiss POST

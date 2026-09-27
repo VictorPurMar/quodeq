@@ -89,6 +89,22 @@ describe('computeLevelInfo', () => {
     }));
   });
 
+  it('depth 2 detailAction keeps a genuine rawScore of 0 as the number 0, not "0.0" or null', () => {
+    // `p.rawScore || fallback` would treat a real 0 as absent and fall
+    // through to `p.score.toFixed(1)` (a string like "5.5"); the fix uses
+    // `??` so only null/undefined fall through.
+    const scene = makeScene();
+    scene.principles[0][0].rawScore = 0;
+    const nav = { depth: 2, dim: 0, prin: 0, clusterCx: null, clusterCy: null };
+    const onNavigate = vi.fn();
+    const navRef = { current: nav };
+    const info = computeLevelInfo(scene, nav, 'Demo', onNavigate, navRef);
+    info.detailAction();
+    expect(onNavigate).toHaveBeenCalledWith('evalprinciple', expect.objectContaining({
+      evalPrincipal: expect.objectContaining({ score: 0 }),
+    }));
+  });
+
   it('depth 1 returns null instead of throwing when nav.dim is stale after the dimension list shrinks', () => {
     // Drill into dim=1 while the scene has 2 stars.
     const bigScene = makeScene();

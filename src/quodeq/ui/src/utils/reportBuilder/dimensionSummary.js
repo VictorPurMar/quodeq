@@ -22,7 +22,7 @@ export function buildDimensionSummaryTable(accumulatedDimensions) {
   lines.push('|-----------|-------|-------|------------|------------|');
   for (const dim of accumulatedDimensions) {
     const name = (dim.dimension || '—').charAt(0).toUpperCase() + (dim.dimension || '').slice(1);
-    const dScore = dim.overallScore || '—';
+    const dScore = dim.overallScore ?? '—';
     const dGrade = dim.overallGrade || '—';
     const vCount = (dim.violations || []).length;
     const cCount = (dim.compliance || []).length;
