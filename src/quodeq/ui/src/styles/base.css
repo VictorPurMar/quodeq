@@ -1571,6 +1571,18 @@ textarea:focus {
   white-space: normal;
 }
 
+.help-hint-learn {
+  display: block;
+  margin-top: 6px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .help-hint-popover p {
   margin: 0;
 }

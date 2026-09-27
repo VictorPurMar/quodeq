@@ -150,7 +150,10 @@ function ExplorerPageBody({
 }) {
   return (
     <div className={`explorer-page dashboard-fade${isRefreshing ? ' dashboard-refreshing' : ''}`}>
-      <TermHeader name={dim} description={standardDescription} sub={activeDateLabel || activeRunId || null} />
+      <TermHeader
+        name={dim} description={standardDescription} sub={activeDateLabel || activeRunId || null}
+        learnMore={onNavigate ? { label: t('helpHint.learnMore'), onClick: () => onNavigate(NAV_TAB.HELP, { section: HELP_SECTION.WHY_THIS_GRADE }) } : undefined}
+      />
 
       <ExplorerTopGrid
         overallScoreNum={overallScoreNum} d={d} sinceBaseline={sinceBaseline} onSeverityBadge={onSeverityBadge} onNavigate={onNavigate}

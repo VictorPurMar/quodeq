@@ -1543,5 +1543,6 @@
   "sinceBaseline.resolved": "resolved {count}",
   "sinceBaseline.empty": "No changes since {date}. Same commit, same majors, no types closed or opened.",
   "sinceBaseline.seeFindings": "see findings",
-  "explorer.whyThisGrade": "why this grade?"
+  "explorer.whyThisGrade": "why this grade?",
+  "helpHint.learnMore": "Learn more"
 }

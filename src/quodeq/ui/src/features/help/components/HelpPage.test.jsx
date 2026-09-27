@@ -115,3 +115,15 @@ describe('HelpPage violations section', () => {
     expect(screen.queryByText(/Heatgrid/)).toBeNull();
   });
 });
+
+describe('HelpPage deep link', () => {
+  it('opens on the requested section', () => {
+    render(<HelpPage initialSection="grade-formula" />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Grade Formula' })).toBeInTheDocument();
+  });
+
+  it('falls back to philosophy on an unknown section', () => {
+    render(<HelpPage initialSection="nope" />);
+    expect(screen.getByRole('button', { name: 'Philosophy' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});

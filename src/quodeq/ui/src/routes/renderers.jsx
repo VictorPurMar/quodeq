@@ -199,7 +199,16 @@ export const ROUTE_RENDERERS = {
     />
   ),
   standards: (params, props) => <StandardsPage onRescan={(dims) => props.navigation.navTab(NAV_TAB.EVALUATE, { preselectDims: dims })} />,
-  help: () => <HelpPage />,
+  help: (params, props) => (
+    <HelpPage
+      initialSection={params.section}
+      scope={{
+        project: props.navigation.selectedProject,
+        runId: props.dashboardData.dashboard?.selectedRun?.runId ?? null,
+        dimensions: (props.dashboardData.dashboard?.dimensions || []).map((d) => d.dimension),
+      }}
+    />
+  ),
   compare: compareRoute,
 };
 
