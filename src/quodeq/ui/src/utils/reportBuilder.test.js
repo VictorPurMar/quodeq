@@ -177,6 +177,13 @@ test('buildPrincipleReport with no violations shows "No violations found"', () =
   assert.match(md, /No violations found\./);
 });
 
+test('buildPrincipleReport: a genuine score of 0 renders "0/10", not the em-dash placeholder', () => {
+  const md = buildPrincipleReport({
+    principle: 'X', score: 0, grade: 'F', violations: [], compliance: [], principleData: null,
+  });
+  assert.match(md, /\*\*Score:\*\* 0\/10 F/);
+});
+
 const principleFixture = {
   principle: 'SRP',
   dimension: 'maintainability',
@@ -233,6 +240,16 @@ test('existing buildOverviewReport and buildDimensionReport still produce output
     runId: 'abc12345',
   });
   assert.match(md2, /^# performance report/);
+});
+
+test('buildDimensionReport: a genuine overall score of 0 renders as 0, not the em-dash placeholder', () => {
+  const md = buildDimensionReport({
+    evalData: { dimension: 'performance', compliance: [] },
+    principleGrades: [],
+    allViolations: [],
+    overallGrade: { score: 0, grade: 'F' },
+  });
+  assert.match(md, /\*\*Score:\*\* 0 F/);
 });
 
 test('buildRunReport ratio matches complianceRatio when compliance is zero but violations exist', () => {

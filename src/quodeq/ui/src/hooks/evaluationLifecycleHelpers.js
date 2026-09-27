@@ -30,7 +30,13 @@ export function safeGetItem(storage, key) {
  * nothing is stored or the store throws.
  */
 export function readAnalysisPower(storage) {
-  try { return Number(storage.getItem(POWER_KEY)) || DEFAULT_ANALYSIS_POWER; } catch (e) { warnStorageUnavailable(e); return DEFAULT_ANALYSIS_POWER; }
+  try {
+    const n = Number(storage.getItem(POWER_KEY));
+    return Number.isInteger(n) && n >= 1 && n <= TIER_NAMES.length ? n : DEFAULT_ANALYSIS_POWER;
+  } catch (e) {
+    warnStorageUnavailable(e);
+    return DEFAULT_ANALYSIS_POWER;
+  }
 }
 
 /**

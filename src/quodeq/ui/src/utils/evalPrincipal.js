@@ -32,7 +32,7 @@ export function buildEvalPrincipalFn(evalData, complianceByPrinciple, project, r
     const principleData = principlesByName.get(principleId);
     const pg = gradesByPrinciple.get(principleId);
     return {
-      principle: principleId, score: pg?.score || null, grade: pg?.grade || null,
+      principle: principleId, score: pg?.score ?? null, grade: pg?.grade ?? null,
       dimension: evalData.dimension || '',
       project: project || '', runId: runId || '', dateLabel: dateLabel || '',
       principleData, dimViolations: principleData?.violations || [],

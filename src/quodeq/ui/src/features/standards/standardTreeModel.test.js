@@ -128,3 +128,18 @@ test('updateStandardField: walks a nested path to set a deep field', () => {
   assert.equal(next.principles[0].requirements[0].text, 'updated text');
   assert.equal(original.principles[0].requirements[0].text, 'x');
 });
+
+// ---------------------------------------------------------------------------
+// updateStandardField: guarded walk
+// ---------------------------------------------------------------------------
+
+test('updateStandardField: returns the original standard unchanged when the path walks through a missing node', () => {
+  const original = makeStandard();
+  const result = updateStandardField(original, ['principles', 99, 'name'], 'x');
+  assert.deepEqual(result, original);
+});
+
+test('updateStandardField: does not throw when the path walks off the end of an array', () => {
+  const original = makeStandard();
+  assert.doesNotThrow(() => updateStandardField(original, ['principles', 0, 'requirements', 99, 'text'], 'x'));
+});

@@ -25,7 +25,7 @@ import {
  */
 export function buildDimensionReport({ evalData, principleGrades, allViolations, overallGrade, dateLabel, runId }) {
   const dim = (evalData?.dimension || 'unknown').toLowerCase();
-  const score = overallGrade?.score || EMPTY_VALUE_PLACEHOLDER;
+  const score = overallGrade?.score ?? EMPTY_VALUE_PLACEHOLDER;
   const grade = overallGrade?.grade || EMPTY_VALUE_PLACEHOLDER;
   const compliance = evalData?.compliance || [];
   const date = dateLabel || formatDate();

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ViolationsRoute, violationsLookupsFor } from './violationsRoute.jsx';
+import { ViolationsRoute, violationsLookupsFor, buildEvalPrincipal } from './violationsRoute.jsx';
 
 function dims() {
   return [
@@ -50,5 +50,12 @@ describe('ViolationsRoute', () => {
   it('renders with no accumulated payload', () => {
     const el = ViolationsRoute({ params: {}, props: routeProps(null) });
     expect(el.props.data.accumulatedDimensions).toEqual([]);
+  });
+});
+
+describe('buildEvalPrincipal', () => {
+  it('keeps a genuine score of 0, not coercing it to null', () => {
+    const result = buildEvalPrincipal({ principle: 'P1', dimension: 'security' }, { score: 0, grade: 'F' }, 'run-1');
+    expect(result.score).toBe(0);
   });
 });

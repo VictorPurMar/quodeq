@@ -25,7 +25,7 @@ export function buildEvalPrincipal(principleObj, principleGrade, runId) {
   const compliance = principleObj.compliance || [];
   return {
     principle: principleObj.principle,
-    score: principleGrade?.score || null,
+    score: principleGrade?.score ?? null,
     grade: principleGrade?.grade || null,
     dimension: principleObj.dimension || '',
     runId: runId || '',

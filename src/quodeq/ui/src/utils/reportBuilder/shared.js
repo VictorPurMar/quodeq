@@ -86,7 +86,7 @@ export function formatPrincipleTable(principleGrades) {
     '|-----------|-------|-------|',
   ];
   for (const pg of principleGrades) {
-    lines.push(`| ${pg.principle || '—'} | ${pg.score || '—'} | ${pg.grade || '—'} |`);
+    lines.push(`| ${pg.principle || '—'} | ${pg.score ?? '—'} | ${pg.grade || '—'} |`);
   }
   return lines.join('\n');
 }
