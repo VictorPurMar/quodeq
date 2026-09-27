@@ -145,3 +145,12 @@ describe('HelpPage overview header stats', () => {
     }
   });
 });
+
+describe('HelpPage violations by type', () => {
+  it('documents the by-type sub-tab and dismissing a type', () => {
+    render(<HelpPage initialSection="violations" />);
+    expect(screen.getByRole('heading', { level: 3, name: /Four sub-tabs, one dataset/ })).toBeInTheDocument();
+    expect(screen.getAllByText(/by-type/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Dismiss all/).length).toBeGreaterThan(0);
+  });
+});
