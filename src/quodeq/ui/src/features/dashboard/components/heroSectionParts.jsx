@@ -6,6 +6,7 @@
  * the header above them. What is common lives here.
  */
 import { StatStrip, Stat } from '../../../components/terminal/index.js';
+import { scoreColorClass } from '../../../utils/formatters.js';
 import { t } from '../../../strings/index.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 
@@ -59,4 +60,14 @@ export function heroCardHandlers(onCardNavigate, { violations, compliance }) {
     handleCompliance: onCardNavigate && compliance > 0 ? () => onCardNavigate(HERO_CARD_KIND.COMPLIANCE) : undefined,
     handleSeverity: onCardNavigate ? (level) => onCardNavigate(level) : undefined,
   };
+}
+
+/**
+ * The grade as a chip next to the score value (EXEMPLARY, GOOD, ...), coloured
+ * like the score, so the grade is read at a glance rather than in a hint.
+ * @param {{grade: string|null|undefined, score: number|string|null}} props
+ */
+export function GradeChip({ grade, score }) {
+  if (!grade) return null;
+  return <span className={`chip small ${scoreColorClass(parseFloat(score))}`}>{String(grade).toUpperCase()}</span>;
 }

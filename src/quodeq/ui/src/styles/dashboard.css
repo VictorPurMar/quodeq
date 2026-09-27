@@ -120,7 +120,7 @@
 .term-strip__label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; }
 .term-strip__value { color: var(--color-text); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .term-strip__value--critical { color: var(--color-sev-critical-text); }
-.term-strip__hint { color: var(--color-text-muted); }
+.term-strip__hint, .term-strip__note { color: var(--color-text-muted); }
 .term-strip__since { margin-left: auto; }
 .term-strip__link { margin-left: var(--space-2); background: none; border: 0; padding: 0; color: var(--color-accent); font: inherit; cursor: pointer; text-decoration: underline; }
 

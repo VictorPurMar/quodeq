@@ -1,6 +1,6 @@
 import { TermHeader, Stat } from '../../../components/terminal/index.js';
-import { HeroPanel, ComplianceAndRatioStats, heroCardHandlers } from './heroSectionParts.jsx';
-import { formatRunId, gradeLetter, complianceRatio } from '../../../utils/formatters.js';
+import { HeroPanel, ComplianceAndRatioStats, GradeChip, heroCardHandlers } from './heroSectionParts.jsx';
+import { formatRunId, complianceRatio } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import SeverityBadgeRow from './SeverityBadgeRow.jsx';
 import { t } from '../../../strings/index.js';
@@ -11,7 +11,7 @@ function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed,
       <Stat
         label={t('overview.statScore')}
         value={scoreDisplay}
-        hint={grade ? t('overview.gradeHint', { letter: gradeLetter(grade) }) : null}
+        trailing={<GradeChip grade={grade} score={scoreDisplay} />}
       />
       <Stat
         label={t('overview.statViolations')}

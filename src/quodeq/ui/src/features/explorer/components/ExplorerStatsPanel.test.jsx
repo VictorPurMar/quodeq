@@ -80,4 +80,9 @@ describe('ExplorerStatsPanel severity badges', () => {
     expect(strip.previousElementSibling.className).toContain('qd-stats-2x2');
     expect(strip.nextElementSibling.dataset.testid).toBe('history-panel');
   });
+
+  it('shows the grade as a chip on the score tile', () => {
+    render(<ExplorerStatsPanel {...baseProps} overallGrade={{ grade: 'Exemplary', score: '9.6' }} />);
+    expect(screen.getByText('EXEMPLARY').className).toContain('chip');
+  });
 });

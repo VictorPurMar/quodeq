@@ -72,7 +72,8 @@ describe('RunHeroSection primary tiles', () => {
   it('shows SCORE, VIOLATIONS, COMPLIANCE and RATIO with the grade in the hint', () => {
     render(<RunHeroSection dashboard={dashboard} selectedRunId="r1" runSummary={baseSummary} />);
     expect(screen.getAllByText(/^(SCORE|VIOLATIONS|COMPLIANCE|RATIO)$/).map((n) => n.textContent)).toEqual(['SCORE', 'VIOLATIONS', 'COMPLIANCE', 'RATIO']);
-    expect(screen.getByText(/^grade /)).toBeTruthy();
+    expect(screen.getByText('FAIR').className).toContain('chip');
+    expect(screen.queryByText(/^grade /)).toBeNull();
     expect(screen.queryByText('MAJORS')).toBeNull();
   });
 });

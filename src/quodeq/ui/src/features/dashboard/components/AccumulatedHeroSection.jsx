@@ -1,8 +1,8 @@
 import TrendBadge from '../../../components/TrendBadge.jsx';
-import { gradeLetter, complianceRatio, extDisplayName } from '../../../utils/formatters.js';
+import { complianceRatio, extDisplayName } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import { TermHeader, Stat } from '../../../components/terminal/index.js';
-import { HeroPanel, ComplianceAndRatioStats, heroCardHandlers } from './heroSectionParts.jsx';
+import { HeroPanel, ComplianceAndRatioStats, GradeChip, heroCardHandlers } from './heroSectionParts.jsx';
 import LastFetchedLine from '../../../components/LastFetchedLine.jsx';
 import SharedReadOnlyBadge from '../../../components/SharedReadOnlyBadge.jsx';
 import SeverityBadgeRow from './SeverityBadgeRow.jsx';
@@ -27,14 +27,11 @@ function AccumulatedStatStrip({ scoreDisplay, scoreDelta, grade, customFormula, 
       <Stat
         label={t('overview.statScore')}
         value={scoreDisplay}
-        trailing={scoreDelta !== null ? <TrendBadge delta={scoreDelta} showLabel={false} /> : null}
+        trailing={<>{<GradeChip grade={grade} score={scoreDisplay} />}{scoreDelta !== null ? <TrendBadge delta={scoreDelta} showLabel={false} /> : null}</>}
         // A tuned formula shifts every score at once with no other trace, so
         // say so where the grade is read rather than only on the settings
         // page that changed it.
-        hint={grade
-          ? t(customFormula ? 'overview.gradeHintCustomFormula' : 'overview.gradeHint',
-              { letter: gradeLetter(grade) })
-          : null}
+        hint={customFormula ? t('overview.customFormulaNote') : null}
       />
       <Stat
         label={t('overview.statViolations')}

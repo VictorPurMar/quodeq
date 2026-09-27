@@ -10,14 +10,17 @@ import { formatDensity } from '../headlineStats.js';
 import { sinceLineParts } from '../sinceLine.js';
 import { t } from '../../../strings/index.js';
 import { pluralKey } from '../../../utils/plural.js';
+import { SCOPE_MIXED } from '../headlineStats.js';
 import { HELP_SECTION } from '../../../vocab/helpSection.js';
 
-function StripItem({ label, value, tone, trailing, hint, help, onLearnMore }) {
+function StripItem({ label, value, note, tone, trailing, hint, help, onLearnMore }) {
   const learnMore = onLearnMore ? { label: t('helpHint.learnMore'), onClick: () => onLearnMore(HELP_SECTION.OVERVIEW) } : undefined;
   return (
     <span className="term-strip__item">
       <span className="term-strip__label">{label}</span>
-      <span className={`term-strip__value${tone ? ` term-strip__value--${tone}` : ''}`}>{value}</span>
+      {note
+        ? <span className="term-strip__note">{note}</span>
+        : <span className={`term-strip__value${tone ? ` term-strip__value--${tone}` : ''}`}>{value}</span>}
       {trailing}
       {hint && <span className="term-strip__hint">{hint}</span>}
       <HelpHint label={t('overview.hintAbout', { name: label })} learnMore={learnMore}>{help}</HelpHint>
@@ -31,7 +34,7 @@ function SinceLine({ since, selectedRun, availableRuns, onSeeFindings }) {
   if (parts.unchanged) return <span className="term-strip__since">{t('sinceBaseline.unchanged', { date: parts.date })}</span>;
   return (
     <span className="term-strip__since">
-      {t('sinceBaseline.line', { date: parts.date, scope: parts.scope })}
+      {t(since.scope === SCOPE_MIXED ? 'sinceBaseline.lineMixed' : 'sinceBaseline.line', { date: parts.date, scope: parts.scope })}
       {' · '}
       {t('sinceBaseline.newCount', { label: parts.newLabel, count: parts.newCount })}
       {' · '}
@@ -43,8 +46,8 @@ function SinceLine({ since, selectedRun, availableRuns, onSeeFindings }) {
   );
 }
 
-function DensityValue({ headline }) {
-  if (headline.density === null || headline.density === undefined) return t('overview.densityMissing');
+function densityValue(headline) {
+  if (headline.density === null || headline.density === undefined) return null;
   return `${formatDensity(headline.density)} ${t('overview.densityPer100')}`;
 }
 
@@ -68,7 +71,11 @@ export default function ConvergenceStrip({ headline, since, selectedRun, availab
         hint={closed > 0 ? t(pluralKey(closed, 'overview.openTypesClosedOne', 'overview.openTypesClosed'), { count: closed }) : null}
         help={t('overview.hintOpenTypes')} onLearnMore={onLearnMore}
       />
-      <StripItem label={t('overview.statDensity')} value={<DensityValue headline={headline} />} help={t('overview.hintDensity')} onLearnMore={onLearnMore} />
+      <StripItem
+        label={t('overview.statDensity')} value={densityValue(headline)}
+        note={densityValue(headline) === null ? t('overview.densityMissing') : null}
+        help={t('overview.hintDensity')} onLearnMore={onLearnMore}
+      />
       {showSince && <SinceLine since={since} selectedRun={selectedRun} availableRuns={availableRuns} onSeeFindings={onSeeFindings} />}
     </div>
   );

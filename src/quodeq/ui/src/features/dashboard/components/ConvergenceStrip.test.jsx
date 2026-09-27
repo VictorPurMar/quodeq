@@ -55,4 +55,17 @@ describe('ConvergenceStrip', () => {
     expect(screen.queryByText(/since/)).toBeNull();
     expect(screen.getByText('-3')).toBeInTheDocument();
   });
+
+  it('mixed baselines read as one sentence', () => {
+    render(<ConvergenceStrip headline={headline} since={{ ...since, scope: 'mixed', changedFiles: null, againstRunIds: ['r0', 'rX'] }} selectedRun={selected} availableRuns={runs} />);
+    expect(screen.getByText(/^against 2 baseline runs · in all files \x28baselines differ per dimension\x29/)).toBeInTheDocument();
+    expect(screen.queryByText(/since against/)).toBeNull();
+  });
+
+  it('the missing-density sentence is muted, not a value', () => {
+    const { container } = render(<ConvergenceStrip headline={{ ...headline, density: null, coveragePct: null }} since={null} />);
+    const sentence = screen.getByText('density needs a files-read count: not shown for this run');
+    expect(sentence.className).toContain('term-strip__note');
+    expect(container.querySelectorAll('.term-strip__value')).toHaveLength(3);
+  });
 });

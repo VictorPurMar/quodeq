@@ -1605,7 +1605,7 @@
   "overview.densityMissing": "density needs a files-read count: not shown for this run",
   "overview.hintAbout": "About {name}",
   "overview.hintCritical": "Findings that block: critical severity. Zero is the only good number.",
-  "overview.hintMajors": "Major findings. With criticals they are the count that only moves when the code moves; the delta is against the baseline run.",
+  "overview.hintMajors": "Major findings. The delta counts criticals and majors together, against the baseline run: the blocking findings, the count that only moves when the code moves.",
   "overview.hintOpenTypes": "Distinct requirement codes with at least one open finding. Fixing every finding of one code closes a type.",
   "overview.hintDensity": "Open findings per 100 files read across the dimensions shown.",
   "overview.stripAria": "Convergence numbers",
@@ -1613,5 +1613,7 @@
   "sinceBaseline.unchanged": "no changes since {date}",
   "sinceBaseline.newInChangedLabel": "new in changed files",
   "sinceBaseline.newInAllLabel": "new in all files",
-  "sinceBaseline.newCount": "{label} {count}"
+  "sinceBaseline.newCount": "{label} {count}",
+  "overview.customFormulaNote": "custom formula",
+  "sinceBaseline.lineMixed": "{date} · {scope}"
 }
