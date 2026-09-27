@@ -34,3 +34,11 @@ def test_trend_counts_zero_for_a_clean_dimension() -> None:
     (row,) = build_accumulated_trend(runs, lambda rid: [_dim("security", [])])
     assert (row["violations"], row["majors"], row["openTypes"]) == (0, 0, 0)
     assert row["dimensionDetails"][0]["openTypes"] == 0
+
+
+def test_trend_row_carries_criticals_next_to_majors() -> None:
+    runs = [_make_run("r1", "2026-09-26")]
+    dims = {"r1": [_dim("security", [("S-INJ-1", "critical"), ("S-INJ-2", _MAJOR), ("S-LOG-1", _MINOR)])]}
+    (row,) = build_accumulated_trend(runs, lambda rid: dims[rid])
+    assert (row["critical"], row["majors"]) == (1, 2)
+    assert row["dimensionDetails"][0]["critical"] == 1
