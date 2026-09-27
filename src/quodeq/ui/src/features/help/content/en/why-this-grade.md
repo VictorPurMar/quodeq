@@ -11,10 +11,7 @@ A principle's score comes from four stages. Each stage reads one part of the gra
 
 The grade label is the threshold band the final score falls in. A principle with too little evidence for its project size is *Insufficient* and has no score.
 
-```figure
-component: GradeExplainFigure
-caption: One principle of your latest run, stage by stage. Pick a dimension and a principle; each line names the formula parameter that moves it and the editor tab where it lives.
-```
+**Settings**, *Grade formula* shows these stages on your own run, with the parameters that move each one: pick a dimension and a principle, and the numbers follow the sliders.
 
 > **What moves the score**
 >

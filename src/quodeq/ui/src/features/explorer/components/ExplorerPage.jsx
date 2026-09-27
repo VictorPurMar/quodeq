@@ -173,7 +173,7 @@ function ExplorerPageBody({
       <section className="qd-cards-panel" aria-label={t('explorer.principlesAria')}>
         <div className="qd-cards-panel__head">
           <SectionLabel>{t('explorer.principlesLabel')} · {radialPrinciples.length}</SectionLabel>
-          <HelpLink onNavigate={onNavigate} section={HELP_SECTION.WHY_THIS_GRADE} params={{ dimension: dim }} label={t('explorer.whyThisGrade')} />
+          <HelpLink onNavigate={onNavigate} target={NAV_TAB.GRADE_FORMULA} params={{ dimension: dim }} label={t('explorer.whyThisGrade')} />
         </div>
         <PrinciplesCardsRow
           principles={enrichedPrinciples}

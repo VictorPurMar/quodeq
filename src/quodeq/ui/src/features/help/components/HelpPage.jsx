@@ -3,7 +3,6 @@ import HelpMarkdown from './HelpMarkdown.jsx';
 import { TermHeader } from '../../../components/terminal/index.js';
 import BrandCarousel from '../../../components/BrandCarousel.jsx';
 import { t } from '../../../strings/index.js';
-import { HelpScopeContext, EMPTY_SCOPE } from './helpScope.js';
 import { HELP_SECTION } from '../../../vocab/helpSection.js';
 
 // Help content is per-locale markdown. Swapping languages later means adding
@@ -63,16 +62,14 @@ function SectionNav({ active, onSelect }) {
 }
 
 /**
- * @param {{initialSection?: string, scope?: {project: string|null, runId: string|null, dimensions: string[]}}} props
- *   `initialSection` deep-links to one section (unknown ids land on the default);
- *   `scope` is what figures may read to show the reader's own run.
+ * @param {{initialSection?: string}} props
+ *   `initialSection` deep-links to one section (unknown ids land on the default).
  */
-export default function HelpPage({ initialSection, scope = EMPTY_SCOPE }) {
+export default function HelpPage({ initialSection }) {
   const known = SECTIONS.some((s) => s.id === initialSection);
   const [activeSection, setActiveSection] = useState(known ? initialSection : DEFAULT_SECTION);
 
   return (
-    <HelpScopeContext.Provider value={scope}>
     <div className="help-page help-page--terminal">
       <div className="help-header">
         <TermHeader
@@ -88,6 +85,5 @@ export default function HelpPage({ initialSection, scope = EMPTY_SCOPE }) {
         </div>
       </div>
     </div>
-    </HelpScopeContext.Provider>
   );
 }

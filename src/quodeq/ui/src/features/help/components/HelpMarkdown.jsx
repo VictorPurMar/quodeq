@@ -21,10 +21,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import HelpFigure from '../../../components/HelpFigure.jsx';
 import GradeFormulaCurveFigure from './figures/GradeFormulaCurveFigure.jsx';
-import GradeExplainFigure from './figures/GradeExplainFigure.jsx';
 import ScoreGroupingFigure from './figures/ScoreGroupingFigure.jsx';
-import gradeFormulaDark from '../../../assets/help/grade-formula.dark.webp';
-import gradeFormulaLight from '../../../assets/help/grade-formula.light.webp';
 import { t } from '../../../strings/index.js';
 import { severityLabel } from '../../../strings/labels.js';
 import { FINDING_TYPE } from '../../../vocab/findingType.js';
@@ -35,10 +32,11 @@ import { FINDING_TYPE } from '../../../vocab/findingType.js';
 // decorative (informative: false / omitted), described only by the caption.
 const FIGURES = {
   GradeFormulaCurveFigure: { Component: GradeFormulaCurveFigure, informative: true },
-  GradeExplainFigure: { Component: GradeExplainFigure, informative: true },
   ScoreGroupingFigure: { Component: ScoreGroupingFigure },
 };
-const IMAGES = { gradeFormulaDark, gradeFormulaLight };
+// Screenshots a markdown figure may name with `@key`; none ship today (the
+// editor's shot was retired when the editor changed, see assets/help/CAPTURE.md).
+const IMAGES = {};
 
 // Registry lookups must consider OWN keys only. A plain object inherits from
 // Object.prototype, so `FIGURES['toString']` is a truthy function -- which
