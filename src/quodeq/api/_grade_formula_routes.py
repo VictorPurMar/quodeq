@@ -30,7 +30,7 @@ def _invalid_input(message: str) -> tuple[Response, int]:
     return json_error(message, HTTPStatus.BAD_REQUEST, CODE_INVALID_INPUT)
 
 
-def _parse_params(data: dict) -> tuple:
+def parse_params(data: dict) -> tuple:
     """Returns (params, None) or (None, (response, status)) on validation error."""
     err = params_error(data or {})
     if err is not None:
@@ -68,7 +68,7 @@ def _preview_response() -> Response | tuple[Response, int]:
     err = validate_segment(project, message="Invalid project")
     if err is not None:
         return err
-    params, err = _parse_params(payload.get("params") or {})
+    params, err = parse_params(payload.get("params") or {})
     if err:
         return err
     result = grade_formula.preview_scores(Path(reports_dir()), project, params)
@@ -103,7 +103,7 @@ def register_grade_formula_routes(
         body = optional_json_object_or_error(CODE_INVALID_INPUT)
         if not isinstance(body, dict):
             return body
-        params, err = _parse_params(body)
+        params, err = parse_params(body)
         if err:
             return err
         # Save first: a pass that starts after the generation bump loads these.
