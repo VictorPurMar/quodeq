@@ -1,6 +1,8 @@
 """Shapes and URL handling shared by the local model-server bridges (Ollama, llama.cpp, omlx)."""
 from __future__ import annotations
 
+import json
+
 _HTTP_SCHEME = "http://"  # dropped from the address shown to the user
 _OPENAI_PATH = "/v1"  # OpenAI-compatible prefix; the native endpoints sit one level up
 
@@ -21,6 +23,22 @@ def normalize_base(base_url: str) -> str:
 def server_address(base_url: str) -> str:
     """*base_url* as the status payload shows it: without the ``http://`` scheme."""
     return base_url.replace(_HTTP_SCHEME, "")
+
+
+def parse_health_response(raw: bytes | None, address: str, *, ok_status: str) -> dict:
+    """The "running" status payload for a /health probe's raw response body.
+
+    A body that parses to something other than a JSON object (or an empty
+    body) degrades to *ok_status* instead of crashing on ``.get``.
+    """
+    data = json.loads(raw or b"{}")
+    if not isinstance(data, dict):
+        data = {}
+    return {
+        "running": True,
+        "status": data.get("status", ok_status),
+        "address": address,
+    }
 
 
 def bare_model_entry(name: str) -> dict:

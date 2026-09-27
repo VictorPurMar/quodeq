@@ -58,6 +58,20 @@ class TestGetLlamacppStatus:
         assert result["running"] is False
         assert "error" in result
 
+    def test_non_object_health_body_falls_back_to_default_status(self):
+        """A /health body that parses to a JSON array (not an object) must
+        not crash on ``.get``; the status falls back to the default."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"[1, 2, 3]"
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("quodeq.llm_bridge._llamacpp.urllib.request.urlopen", return_value=mock_resp):
+            result = get_llamacpp_status("http://localhost:8080")
+
+        assert result["running"] is True
+        assert result["status"] == "ok"
+
 
 class TestListLlamacppModels:
     def test_returns_loaded_model(self):
@@ -94,6 +108,32 @@ class TestListLlamacppModels:
     def test_server_offline(self):
         with patch("quodeq.llm_bridge._llamacpp.urllib.request.urlopen", side_effect=ConnectionRefusedError):
             assert list_llamacpp_models() == []
+
+    def test_non_object_body_returns_no_models(self):
+        """A /v1/models body that parses to a bare JSON array (not an
+        object) must not crash; it yields no models instead."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps([{"id": "real.gguf"}]).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("quodeq.llm_bridge._llamacpp.urllib.request.urlopen", return_value=mock_resp):
+            assert list_llamacpp_models() == []
+
+    def test_non_dict_entry_in_data_list_is_skipped(self):
+        """An entry in "data" that isn't itself an object must not crash on
+        ``.get("id")``; it is skipped like an entry with no id."""
+        mock_data = {"data": ["not-a-model", {"id": "real.gguf"}]}
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(mock_data).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("quodeq.llm_bridge._llamacpp.urllib.request.urlopen", return_value=mock_resp):
+            models = list_llamacpp_models()
+
+        assert len(models) == 1
+        assert models[0]["name"] == "real.gguf"
 
 
 class TestConcurrency:

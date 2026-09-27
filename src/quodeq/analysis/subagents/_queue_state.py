@@ -55,6 +55,8 @@ def read_state(path: Path) -> dict:
         state = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise FileQueueError(f"Queue file is corrupted: {exc}") from exc
+    if not isinstance(state, dict):
+        raise FileQueueError("Queue file is not a JSON object")
     version = state.get("version")
     if version != QUEUE_VERSION:
         raise FileQueueError(f"Unsupported queue version: {version} (expected {QUEUE_VERSION})")

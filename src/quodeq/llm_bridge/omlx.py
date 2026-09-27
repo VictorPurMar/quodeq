@@ -24,6 +24,7 @@ from quodeq.llm_bridge._local_server import (
     bare_model_entry,
     concurrency_result,
     normalize_base,
+    parse_health_response,
     server_address,
 )
 from quodeq.llm_bridge._ollama import DEFAULT_MEMORY_FRACTION, HEALTH_OK, detect_memory, estimate_max_agents
@@ -48,15 +49,17 @@ def read_omlx_api_key(env: Mapping[str, str] | None = None) -> str:
         return env_key
     try:
         cfg = json.loads((_omlx_home() / "settings.json").read_text(encoding="utf-8"))
-        api_key = cfg.get("auth", {}).get("api_key", "")
-        if api_key:
-            _log.warning(
-                "OMLX API key read from ~/.omlx/settings.json in cleartext; "
-                "prefer setting OMLX_API_KEY instead."
-            )
-        return api_key
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError):  # ValueError covers JSONDecodeError and UnicodeDecodeError
         return ""
+    auth = cfg.get("auth") if isinstance(cfg, dict) else None
+    api_key = auth.get("api_key") if isinstance(auth, dict) else ""
+    api_key = api_key if isinstance(api_key, str) else ""
+    if api_key:
+        _log.warning(
+            "OMLX API key read from ~/.omlx/settings.json in cleartext; "
+            "prefer setting OMLX_API_KEY instead."
+        )
+    return api_key
 
 
 def _safe_request(url: str) -> urllib.request.Request:
@@ -78,14 +81,7 @@ def get_omlx_status(base_url: str | None = None) -> dict:
     try:
         req = _safe_request(f"{root}/health")
         with urllib.request.urlopen(req, timeout=LOCAL_SERVER_PROBE_TIMEOUT_S) as resp:
-            data = json.loads(resp.read() or b"{}")
-            if not isinstance(data, dict):
-                data = {}
-            return {
-                "running": True,
-                "status": data.get("status", HEALTH_OK),
-                "address": server_address(root),
-            }
+            return parse_health_response(resp.read(), server_address(root), ok_status=HEALTH_OK)
     except (urllib.error.URLError, ConnectionRefusedError, OSError, ValueError) as exc:
         _log.warning("omlx status check failed: %s", exc)
         return {"running": False, "error": "Connection failed"}

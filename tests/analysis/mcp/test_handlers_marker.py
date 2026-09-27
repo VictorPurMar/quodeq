@@ -34,6 +34,18 @@ class TestToolsCallNullArguments:
         assert "result" in result
         router.receive.assert_called_once_with({})
 
+    def test_non_object_arguments_is_an_error_reply_and_reports_nothing(self) -> None:
+        """A non-object 'arguments' (e.g. a list) must not fall back to {} --
+        that would make report_finding record an empty finding."""
+        router = MagicMock()
+        result = handle_tools_call(
+            request_id=3,
+            params={"name": "report_finding", "arguments": [1, 2, 3]},
+            router=router,
+        )
+        assert result["result"].get("isError") is True
+        router.receive.assert_not_called()
+
 
 class TestToolsListIncludesMarker:
     def test_marker_listed(self):

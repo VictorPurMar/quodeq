@@ -72,6 +72,18 @@ class TestNeedsRebuild:
         (static / HASH_FILE).write_text(current_hash)
         assert needs_rebuild(src, static, True) is True
 
+    def test_unreadable_hash_file_needs_rebuild(self, tmp_path):
+        """A non-UTF8 (corrupted) hash file must not crash needs_rebuild; it
+        forces a rebuild instead."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "package.json").write_text('{}')
+        static = tmp_path / "static"
+        static.mkdir()
+        (static / "index.html").write_text("ok")
+        (static / HASH_FILE).write_bytes(b"\xff\xfe not valid utf8")
+        assert needs_rebuild(src, static, False) is True
+
 
 class TestSyncSourceToWorkdir:
     def test_copies_source_files_preserving_node_modules(self, tmp_path):

@@ -66,6 +66,17 @@ class TestTallyEvidenceMarkers:
         )
         assert tally_evidence_markers(path) == (1, 0)
 
+    def test_non_object_json_line_is_skipped(self, tmp_path):
+        """A line that parses to a JSON array (not an object) must not crash
+        ``.get`` lookups; it is skipped like a malformed line."""
+        path = tmp_path / "d_evidence.jsonl"
+        path.write_text(
+            "[1, 2, 3]\n"
+            + json.dumps({"_marker": "file_done", "file": "a.py", "status": "ok"}) + "\n",
+            encoding="utf-8",
+        )
+        assert tally_evidence_markers(path) == (1, 0)
+
     def test_non_marker_rows_and_skipped_status_are_ignored(self, tmp_path):
         path = tmp_path / "d_evidence.jsonl"
         path.write_text(

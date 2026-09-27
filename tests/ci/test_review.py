@@ -136,6 +136,34 @@ def test_run_gh_passes_a_60s_timeout():
     assert kwargs["timeout"] == 60
 
 
+@pytest.mark.parametrize("stdout, match", [
+    ("not json {{{", "invalid JSON"),
+    (json.dumps([1, 2, 3]), "not an object"),
+])
+def test_detect_pr_raises_on_bad_gh_json(stdout, match):
+    mock_result = MagicMock()
+    mock_result.stdout = stdout
+    with patch("quodeq.ci.review.subprocess.run", return_value=mock_result):
+        with pytest.raises(ReviewError, match=match):
+            detect_pr()
+
+
+def test_detect_pr_raises_when_gh_json_missing_expected_keys():
+    mock_result = MagicMock()
+    mock_result.stdout = json.dumps({"number": 42})  # no baseRefName
+    with patch("quodeq.ci.review.subprocess.run", return_value=mock_result):
+        with pytest.raises(ReviewError, match="unexpected JSON"):
+            detect_pr()
+
+
+def test_get_repo_info_raises_on_non_object_gh_json():
+    mock_result = MagicMock()
+    mock_result.stdout = json.dumps("just a string")
+    with patch("quodeq.ci.review.subprocess.run", return_value=mock_result):
+        with pytest.raises(ReviewError, match="not an object"):
+            get_repo_info()
+
+
 def test_gh_is_spawned_from_one_place():
     tree = ast.parse(Path(review_module.__file__).read_text(encoding="utf-8"))
     runs = [

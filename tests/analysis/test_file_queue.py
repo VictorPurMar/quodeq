@@ -160,6 +160,14 @@ class TestCorruptionHandling:
         with pytest.raises(FileQueueError, match="taken"):
             FileQueue(qp).remaining()
 
+    def test_non_object_json_raises(self, tmp_path: Path) -> None:
+        """Valid JSON that isn't an object (e.g. an array) must not crash on
+        the first ``.get`` lookup; it is reported as a queue-file error."""
+        qp = tmp_path / "q.json"
+        qp.write_text(json.dumps([1, 2, 3]))
+        with pytest.raises(FileQueueError, match="not a JSON object"):
+            FileQueue(qp).remaining()
+
 
 class TestLockNeverUnlinkedWhileHeld:
     def test_constructing_a_queue_never_unlinks_a_held_lock(self, tmp_path: Path) -> None:

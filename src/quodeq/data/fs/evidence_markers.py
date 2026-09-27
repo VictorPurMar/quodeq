@@ -7,10 +7,10 @@ measures fresh progress a run made itself, never carried-forward data (see
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from quodeq.core.evidence.markers import JSONL_MARKER_FILE_DONE, FileDoneStatus
+from quodeq.data.fs.stream_files import decode_jsonl_objects
 
 
 def tally_evidence_markers(jsonl_path: Path) -> tuple[int, int]:
@@ -23,17 +23,10 @@ def tally_evidence_markers(jsonl_path: Path) -> tuple[int, int]:
     last_status: dict[str, str] = {}
     try:
         # errors="replace" so a corrupt (non-UTF8) evidence file degrades to
-        # unparseable lines (dropped by the json.loads guard) instead of
+        # unparseable lines (dropped by decode_jsonl_objects) instead of
         # raising UnicodeDecodeError out of an otherwise-successful run.
         with jsonl_path.open("r", encoding="utf-8", errors="replace") as fh:
-            for raw in fh:
-                raw = raw.strip()
-                if not raw:
-                    continue
-                try:
-                    entry = json.loads(raw)
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    continue
+            for entry in decode_jsonl_objects(fh):
                 if entry.get("_marker") != JSONL_MARKER_FILE_DONE:
                     continue
                 file = entry.get("file")
