@@ -135,3 +135,31 @@ export function dimensionHeadlineInput(allViolations, severity, evalData) {
     sourceFileCount: evalData?.sourceFileCount,
   };
 }
+
+function isNumber(v) {
+  return typeof v === 'number';
+}
+
+function sumDetail(details, field) {
+  const values = details.map((d) => d?.[field]).filter(isNumber);
+  return values.length > 0 ? values.reduce((a, b) => a + b, 0) : null;
+}
+
+function countOf(entry, details, field) {
+  return sumDetail(details, field) ?? (isNumber(entry?.[field]) ? entry[field] : null);
+}
+
+/**
+ * A trend row's criticals, majors and open types over the dimensions it
+ * carries: the per-dimension details (which the visible-standards filter
+ * keeps in step), else the row's own totals, else null.
+ * @returns {{critical: number|null, majors: number|null, openTypes: number|null}}
+ */
+export function runCounts(entry) {
+  const details = entry?.dimensionDetails || [];
+  return {
+    critical: countOf(entry, details, 'critical'),
+    majors: countOf(entry, details, 'majors'),
+    openTypes: countOf(entry, details, 'openTypes'),
+  };
+}
