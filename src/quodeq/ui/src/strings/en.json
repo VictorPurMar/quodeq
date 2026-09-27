@@ -1542,5 +1542,6 @@
   "sinceBaseline.newInAll": "new in all files {count}",
   "sinceBaseline.resolved": "resolved {count}",
   "sinceBaseline.empty": "No changes since {date}. Same commit, same majors, no types closed or opened.",
-  "sinceBaseline.seeFindings": "see findings"
+  "sinceBaseline.seeFindings": "see findings",
+  "explorer.whyThisGrade": "why this grade?"
 }
