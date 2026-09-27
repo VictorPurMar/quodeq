@@ -108,6 +108,17 @@ def dismiss_delta(
     return envelope
 
 
+def dismiss_many_delta(
+    evaluations_dir: str, project: str, run_id: str | None, *, req: str, dimension: str, count: int,
+) -> dict[str, Any]:
+    """Describe a dismiss-by-type mutation. The removed findings are not
+    listed (there may be hundreds), so the client invalidates the run-detail
+    lists instead of splicing, and patches scores from ``scores``."""
+    envelope = _mutation_envelope(evaluations_dir, project, run_id, "dismiss_many")
+    envelope.update({"req": req, "dimension": dimension, "count": count, "project": project})
+    return envelope
+
+
 def restore_delta(
     evaluations_dir: str, project: str, run_id: str | None, restored: dict[str, Any],
 ) -> dict[str, Any]:
