@@ -9,19 +9,10 @@ Overview shows the latest scored result for each dimension, even when those resu
 ### Header stats
 
 - **Score** the overall number and grade, with a delta against the previous run.
-- **Violations** active findings with severity badges. Click the stat, or a single badge, to open a project-wide findings view filtered to that severity.
+- **Violations** active findings with severity badges. The CRIT and MAJ badges carry their change since the baseline run (the previous finished run): down is good, up is bad, and a badge with no change shows no arrow. Click the stat, or a single badge, to open a project-wide findings view filtered to that severity.
 - **Compliance** evidence of good practice. Click it to browse the compliant findings.
-- **Ratio** compliance to violations.
-
-### The strip
-
-Under the tiles, one line carries the numbers that only move when the code moves. Each has a "?" that says what it counts, with a link into this help.
-
-- **Criticals** findings of critical severity. Zero is the only good number; the count turns red otherwise.
-- **Majors** major findings. Together with criticals they are the blocking findings; the small badge next to the number is their change since the baseline run, and down is good.
-- **Open types** distinct requirement codes with at least one open finding, with how many types closed since the baseline. Fixing every finding of one code closes a type; fixing some of them does not move this number.
-- **Density** open findings per 100 files read, over the dimensions shown. When a run recorded no files-read count, the strip says so instead of showing a number.
-- **Since baseline** at the right: which run the numbers are compared with, how many files changed in between (or "in all files" when no commit was recorded), and the new and resolved findings in that scope. **see findings** opens them. The strip names no requirement codes; the Violations tab's by-type view lists them.
+- **Ratio** violations to compliance, one decimal: `1:0.9` means fewer compliant checks than violations.
+- **Density** open findings per 100 files read across the dimensions shown, beside the ratio. A run that recorded no files-read count shows no density.
 
 ### Panels
 
@@ -32,4 +23,4 @@ Under the tiles, one line carries the numbers that only move when the code moves
 
 ### The report
 
-The **Report** button in the top bar renders the whole overview as a Markdown report in the side pane, ready to download and share outside Quodeq. The report follows the header: the four tiles (score, violations, compliance, ratio), then the strip's numbers (criticals, majors, open types, density), then one since-baseline section with counts only. The raw violations total stays in its summary at the end.
+The **Report** button in the top bar renders the whole overview as a Markdown report in the side pane, ready to download and share outside Quodeq. The report opens with the header's numbers (score, violations, compliance, ratio, then criticals, majors, open types, density) and one since-baseline section with counts only. The raw violations total also appears in its summary at the end.
