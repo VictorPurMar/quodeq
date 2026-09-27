@@ -90,12 +90,12 @@ function useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, 
 
 // The run's derived view data: summary, worst files, hero-card navigation and
 // the per-dimension deltas; also registers this run's report specs.
-function useRunOverviewModel({ dashboard, selectedRunId, selectedProject, projectName, onNavigate }) {
+function useRunOverviewModel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, onNavigate }) {
   const runSummary = useMemo(() => buildRunSummary(dashboard?.dimensions), [dashboard]);
   const since = sumSinceBaseline(dashboard?.sinceBaseline);
   const selectedRun = dashboard?.selectedRun;
   const { seeFindings } = useSeeFindings({
-    project: selectedProject, runId: selectedRun?.runId, dateLabel: selectedRun?.dateLabel, since, onNavigate,
+    project: selectedProject, runId: selectedRun?.runId, dateLabel: selectedRun?.dateLabel, since, onNavigate, selectedSource,
   });
   const runTopFiles = useMemo(() => withDimensionsStr(buildTopOffendingFiles(dashboard?.dimensions || [])), [dashboard]);
   const runDateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
@@ -105,8 +105,8 @@ function useRunOverviewModel({ dashboard, selectedRunId, selectedProject, projec
   return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings };
 }
 
-export default function RunOverviewPanel({ dashboard, selectedRunId, selectedProject, projectName, availableRuns = [], onDimensionClick, onFileClick, onNavigate }) {
-  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings } = useRunOverviewModel({ dashboard, selectedRunId, selectedProject, projectName, onNavigate });
+export default function RunOverviewPanel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, availableRuns = [], onDimensionClick, onFileClick, onNavigate }) {
+  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings } = useRunOverviewModel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, onNavigate });
 
   const isLoading = !dashboard || !dashboard.dimensions;
   if (isLoading) {

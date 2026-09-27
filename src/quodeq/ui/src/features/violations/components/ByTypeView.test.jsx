@@ -54,4 +54,13 @@ describe('ByTypeView', () => {
     render(<ByTypeView {...props} dimensions={[]} onTypeClick={() => {}} />);
     expect(screen.getByText('No requirement types with findings.')).toBeInTheDocument();
   });
+
+  it('the principle item counts only that principle\'s findings', () => {
+    const mixed = [{ dimension: 'maintainability', fromRunId: 'r1', fromDateLabel: '26 Sep',
+      violations: [v('M-MDF-3'), v('M-MDF-3', 'b.py'), { ...v('M-MDF-3', 'c.py'), principle: 'Analyzability' }] }];
+    render(<ByTypeView {...props} dimensions={mixed} onTypeClick={() => {}} onDismissType={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for M-MDF-3' }));
+    expect(screen.getByRole('menuitem', { name: 'Dismiss all 3 in this project' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Dismiss all 2 in Modifiability' })).toBeInTheDocument();
+  });
 });

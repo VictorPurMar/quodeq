@@ -1598,5 +1598,6 @@
   "sinceBaseline.newFileChanged": "new in changed files ({count})",
   "sinceBaseline.newFileAll": "new in all files ({count})",
   "sinceBaseline.newFileChangedCapped": "new in changed files (first {count})",
-  "sinceBaseline.newFileAllCapped": "new in all files (first {count})"
+  "sinceBaseline.newFileAllCapped": "new in all files (first {count})",
+  "violations.dismissTypeCountDiffers": "Dismissed {actual} of the {expected} findings shown; the rest were already dismissed or are not in this run."
 }

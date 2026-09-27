@@ -122,6 +122,7 @@ function AccumulatedOverviewSections({
   const since = sumSinceBaseline(visibleSince);
   const { seeFindings } = useSeeFindings({
     project: data.selectedProject, runId: data.selectedRun?.runId, dateLabel: data.selectedRun?.dateLabel, since, onNavigate,
+    selectedSource: data.selectedSource, dimensionNames: (filteredDimensions || []).map((d) => d.dimension),
   });
   return (
     <>

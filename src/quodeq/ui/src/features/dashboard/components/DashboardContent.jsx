@@ -93,6 +93,7 @@ export default function DashboardContent({ runMode, data, focus, callbacks }) {
         dashboard={data.dashboard}
         selectedRunId={data.selectedRunId}
         selectedProject={selectedProject}
+        selectedSource={selectedSource}
         availableRuns={data.availableRuns}
         projectName={projectInfo?.displayName || projectInfo?.name || selectedProject}
         onDimensionClick={onDimensionCardClick}

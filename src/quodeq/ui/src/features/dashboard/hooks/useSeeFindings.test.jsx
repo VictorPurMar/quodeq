@@ -10,8 +10,8 @@ const diff = { dimensions: {
   security: { sinceBaseline: { new: [{ req: 'S-1', file: 'c.py', line: 3, severity: 'critical', principle: 'Q' }] } },
 } };
 
-function Probe({ onNavigate, project = 'p' }) {
-  const { seeFindings } = useSeeFindings({ project, runId: 'r1', dateLabel: '26 Sep', since, onNavigate });
+function Probe({ onNavigate, project = 'p', selectedSource, dimensionNames }) {
+  const { seeFindings } = useSeeFindings({ project, runId: 'r1', dateLabel: '26 Sep', since, onNavigate, selectedSource, dimensionNames });
   return seeFindings ? <button type="button" onClick={seeFindings}>see</button> : <span>none</span>;
 }
 
@@ -31,6 +31,20 @@ describe('useSeeFindings', () => {
 
   it('is undefined without a project or run', () => {
     render(<ApiProvider value={{}}><Probe onNavigate={() => {}} project={null} /></ApiProvider>);
+    expect(screen.getByText('none')).toBeTruthy();
+  });
+
+  it('keeps only the dimensions on show', async () => {
+    const onNavigate = vi.fn();
+    render(<ApiProvider value={{ getRunDiff: async () => diff }}><Probe onNavigate={onNavigate} dimensionNames={['Maintainability']} /></ApiProvider>);
+    fireEvent.click(screen.getByText('see'));
+    await waitFor(() => expect(onNavigate).toHaveBeenCalled());
+    expect(onNavigate.mock.calls[0][1].file.total).toBe(2);
+    expect(onNavigate.mock.calls[0][1].file.file).toBe('new in changed files (2)');
+  });
+
+  it('is undefined on a shared project (no diff route for shared repos)', () => {
+    render(<ApiProvider value={{}}><Probe onNavigate={() => {}} selectedSource="shared" /></ApiProvider>);
     expect(screen.getByText('none')).toBeTruthy();
   });
 });

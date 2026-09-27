@@ -12,8 +12,8 @@ vi.mock('../../../utils/confirmDialog.js', () => ({ confirmDialog: (...a) => con
 const row = { req: 'M-MDF-1', dimension: 'maintainability', principle: 'Modifiability', runId: 'r1', now: 3, violations: [{}, {}, {}] };
 
 function Probe({ selectedSource, scope, onReconcile }) {
-  const { dismissType, error } = useDismissByType({ project: 'p', selectedSource, onReconcile });
-  return <><button type="button" onClick={() => dismissType(row, scope)}>go</button><span>{error}</span></>;
+  const { dismissType, error, notice } = useDismissByType({ project: 'p', selectedSource, onReconcile });
+  return <><button type="button" onClick={() => dismissType(row, scope)}>go</button><span>{error}</span><em>{notice}</em></>;
 }
 
 function mount(api, props) {
@@ -53,5 +53,12 @@ describe('useDismissByType', () => {
     mount({ dismissByType }, { selectedSource: PROJECT_SOURCE.LOCAL, scope: DISMISS_SCOPE.PROJECT });
     fireEvent.click(screen.getByText('go'));
     expect(await screen.findByText('Failed to dismiss the type. Please try again.')).toBeTruthy();
+  });
+
+  it('says so when the server dismissed a different count than the dialog promised', async () => {
+    const dismissByType = vi.fn(async () => ({ ok: true, dismissed: 1, scores: null, delta: { kind: 'dismiss_many' } }));
+    mount({ dismissByType }, { selectedSource: PROJECT_SOURCE.LOCAL, scope: DISMISS_SCOPE.PROJECT });
+    fireEvent.click(screen.getByText('go'));
+    expect(await screen.findByText('Dismissed 1 of the 3 findings shown; the rest were already dismissed or are not in this run.')).toBeTruthy();
   });
 });

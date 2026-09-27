@@ -4,12 +4,14 @@ import { useBreadcrumbDismiss } from '../../explorer/components/useBreadcrumbDis
 import { t } from '../../../strings/index.js';
 import { pluralKey } from '../../../utils/plural.js';
 import { DISMISS_SCOPE } from '../violationsVocab.js';
+import { principleCount } from '../hooks/useDismissByType.js';
 
 export default function TypeRowMenu({ row, onDismissType }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   useBreadcrumbDismiss(open ? row.key : null, () => setOpen(false), rootRef);
   const count = row.now;
+  const inPrinciple = principleCount(row);
   const pick = (scope) => { setOpen(false); onDismissType(row, scope); };
   return (
     <span className="type-row-menu" ref={rootRef}>
@@ -26,7 +28,7 @@ export default function TypeRowMenu({ row, onDismissType }) {
           </button>
           {row.principle && (
             <button type="button" role="menuitem" onClick={() => pick(DISMISS_SCOPE.PRINCIPLE)}>
-              {t(pluralKey(count, 'violations.dismissAllPrincipleOne', 'violations.dismissAllPrinciple'), { count, principle: row.principle })}
+              {t(pluralKey(inPrinciple, 'violations.dismissAllPrincipleOne', 'violations.dismissAllPrinciple'), { count: inPrinciple, principle: row.principle })}
             </button>
           )}
         </div>
