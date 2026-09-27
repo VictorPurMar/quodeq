@@ -94,6 +94,7 @@ _UI_ONLY_VOCAB_MODULES = {
     "vocab/pointerEvent.js",   # pointer-drag DOM event names (DOM spec, not Python)
     "vocab/sortDirection.js",  # sort-toggle direction: purely client-side UI concept
     "vocab/dialogVariant.js",  # dialog action-button style: purely presentational choice
+    "vocab/stageStatus.js",    # grade-formula worked-example lifecycle: purely client-side state
 }
 
 

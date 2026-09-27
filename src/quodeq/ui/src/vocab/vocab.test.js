@@ -16,6 +16,7 @@ import { FRAME_TYPE } from './frameType.js';
 import { SCOPE_GATE_RULE } from './scopeGateRule.js';
 import { RESCORE_STATE } from './rescoreState.js';
 import { LOG_STREAM_STATUS } from './logStreamStatus.js';
+import { STAGE_STATUS } from './stageStatus.js';
 import { KEY } from './keyboard.js';
 import { NAV_TAB } from './navTab.js';
 
@@ -48,10 +49,11 @@ test('vocab modules spell the wire values', () => {
   assert.equal(DEFAULT_PROJECT_SOURCE, 'local');
   assert.deepEqual(RESCORE_STATE, { IDLE: 'idle', RUNNING: 'running', ERROR: 'error' });
   assert.deepEqual(LOG_STREAM_STATUS, { IDLE: 'idle', STREAMING: 'streaming', DONE: 'done', ERROR: 'error' });
+  assert.deepEqual(STAGE_STATUS, { IDLE: 'idle', LOADING: 'loading', READY: 'ready', UNAVAILABLE: 'unavailable' });
 });
 
 test('vocab modules are frozen', () => {
-  for (const obj of [RUN_STATE, JOB_STATUS, EXIT_REASON, SEVERITY, GRADE, DIM_STATE, FINDING_TYPE, PROJECT_SOURCE, FRAME_TYPE, SCOPE_GATE_RULE, RESCORE_STATE, LOG_STREAM_STATUS]) {
+  for (const obj of [RUN_STATE, JOB_STATUS, EXIT_REASON, SEVERITY, GRADE, DIM_STATE, FINDING_TYPE, PROJECT_SOURCE, FRAME_TYPE, SCOPE_GATE_RULE, RESCORE_STATE, LOG_STREAM_STATUS, STAGE_STATUS]) {
     assert.equal(Object.isFrozen(obj), true);
   }
 });
