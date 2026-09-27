@@ -78,7 +78,7 @@ describe("applyMutationDelta — restore/delete/bulk kinds (slice 2)", () => {
     );
   }
 
-  for (const kind of ["restore", "delete", "restore_all", "delete_all"]) {
+  for (const kind of ["restore", "delete", "restore_all", "delete_all", "dismiss_many"]) {
     it(`${kind}: patches dashboard dim score`, () => {
       const { client, store } = makeClient();
       const key = projectKeys.dashboard(PROJECT, RUN);

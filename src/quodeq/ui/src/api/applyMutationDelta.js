@@ -66,11 +66,12 @@ function patchDimScore(dim, scoreByDim) {
 }
 
 // Kinds this writer understands. dismiss splices the violation locally; the
-// rest (restore/delete and their -all bulk forms) can't cheaply/correctly
-// reconstruct the violation-list change, so they invalidate the run-detail
-// violation source and let it refetch on next view.
+// rest (restore/delete and their -all bulk forms, and dismiss_many for a
+// whole requirement type, whose removed keys are not in the delta) can't
+// cheaply/correctly reconstruct the violation-list change, so they
+// invalidate the run-detail violation source and let it refetch on next view.
 const MUTATION_KIND_DISMISS = "dismiss"; // the one kind that splices the cached violation list locally
-const KNOWN_KINDS = new Set([MUTATION_KIND_DISMISS, "restore", "delete", "restore_all", "delete_all"]);
+const KNOWN_KINDS = new Set([MUTATION_KIND_DISMISS, "restore", "delete", "restore_all", "delete_all", "dismiss_many"]);
 
 // Patch dim score/grade in place, preserving referential identity for
 // untouched dims. ``spliceDismissed`` additionally removes the dismissed
