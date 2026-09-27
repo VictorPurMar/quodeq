@@ -121,3 +121,17 @@ export function sinceBaselineFor(sinceBaseline, dimension, { runId, baselineRunI
   const key = Object.keys(sinceBaseline).find((k) => k.toLowerCase() === String(dimension).toLowerCase());
   return key ? sinceBaseline[key] : undefined;
 }
+
+/**
+ * One dimension as `buildHeadline` expects it, from what the dimension page
+ * holds: its own violation list, severity counts and the eval report's file
+ * counts.
+ */
+export function dimensionHeadlineInput(allViolations, severity, evalData) {
+  return {
+    totals: { violationCount: (allViolations || []).length, severity: severity || {} },
+    violations: allViolations || [],
+    filesRead: evalData?.filesRead,
+    sourceFileCount: evalData?.sourceFileCount,
+  };
+}

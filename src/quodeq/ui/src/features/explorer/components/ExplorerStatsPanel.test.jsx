@@ -73,4 +73,11 @@ describe('ExplorerStatsPanel severity badges', () => {
     fireEvent.click(stat);
     expect(onCardNavigate).toHaveBeenCalledWith('violations');
   });
+
+  it('renders the strip slot between the tiles and the history chart', () => {
+    render(<ExplorerStatsPanel {...baseProps} strip={<div data-testid="strip">strip</div>} />);
+    const strip = screen.getByTestId('strip');
+    expect(strip.previousElementSibling.className).toContain('qd-stats-2x2');
+    expect(strip.nextElementSibling.dataset.testid).toBe('history-panel');
+  });
 });

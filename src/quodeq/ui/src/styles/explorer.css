@@ -755,3 +755,4 @@
   text-decoration: underline dotted;
 }
 .help-link:hover { text-decoration-style: solid; }
+.qd-cards-panel__head .help-link { margin-left: auto; }
