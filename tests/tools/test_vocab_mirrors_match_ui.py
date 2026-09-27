@@ -89,6 +89,7 @@ _SPECIAL_VOCAB_MODULES = {"vocab/provider.js", "vocab/logStreamStatus.js", "voca
 _UI_ONLY_VOCAB_MODULES = {
     "vocab/keyboard.js",       # KeyboardEvent .key/.code spellings (DOM spec, not Python)
     "vocab/navTab.js",         # nav-stack page ids: purely client-side routing
+    "vocab/helpSection.js",    # help page section ids: purely client-side routing
     "vocab/theme.js",          # theme mode/family: purely presentational choice
     "vocab/pointerEvent.js",   # pointer-drag DOM event names (DOM spec, not Python)
     "vocab/sortDirection.js",  # sort-toggle direction: purely client-side UI concept
