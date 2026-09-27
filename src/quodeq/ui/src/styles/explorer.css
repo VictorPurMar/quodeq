@@ -744,15 +744,3 @@
 .card-list-skeleton__bar--card { height: 160px; }
 
 /* Text link into a help section (e.g. "why this grade?" beside the principle cards). */
-.help-link {
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--color-accent);
-  font: inherit;
-  font-size: var(--text-xs);
-  cursor: pointer;
-  text-decoration: underline dotted;
-}
-.help-link:hover { text-decoration-style: solid; }
-.qd-cards-panel__head .help-link { margin-left: auto; }

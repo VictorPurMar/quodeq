@@ -74,11 +74,11 @@ describe('ExplorerStatsPanel severity badges', () => {
     expect(onCardNavigate).toHaveBeenCalledWith('violations');
   });
 
-  it('renders the strip slot between the tiles and the history chart', () => {
-    render(<ExplorerStatsPanel {...baseProps} strip={<div data-testid="strip">strip</div>} />);
-    const strip = screen.getByTestId('strip');
-    expect(strip.previousElementSibling.className).toContain('qd-stats-2x2');
-    expect(strip.nextElementSibling.dataset.testid).toBe('history-panel');
+  it('the history chart follows the tiles directly: no strip in between', () => {
+    render(<ExplorerStatsPanel {...baseProps} />);
+    const grid = document.querySelector('.qd-stats-2x2');
+    expect(grid.nextElementSibling.dataset.testid).toBe('history-panel');
+    expect(document.querySelector('.term-strip')).toBeNull();
   });
 
   it('shows the grade as a chip on the score tile', () => {

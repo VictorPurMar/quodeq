@@ -8,12 +8,11 @@ import { SEVERITY_ORDER } from '../../../vocab/severity.js';
 import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
 import { GradeChip, RatioDensityStat } from '../../dashboard/components/heroSectionParts.jsx';
 
-/** The score/violations/compliance/ratio stat grid, the convergence strip
- * (`strip`) under it, and the run-history bar chart: the left column of the
- * dimension page's top grid. */
+/** The score/violations/compliance/ratio stat grid and the run-history bar
+ * chart: the left column of the dimension page's top grid. */
 export default function ExplorerStatsPanel({
   overallScoreNum, overallGrade, allViolations, totalCompliant, sev, onSeverityBadge,
-  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, strip = null, deltas = null, density = null, learnMore,
+  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, deltas = null, density = null, learnMore,
 }) {
   return (
     <div className="qd-top-left">
@@ -51,8 +50,6 @@ export default function ExplorerStatsPanel({
         />
         <RatioDensityStat ratio={complianceRatio(allViolations.length, totalCompliant)} density={density} learnMore={learnMore} />
       </StatGrid2x2>
-
-      {strip}
 
       <DimensionScoreHistoryPanel
         trend={trend}

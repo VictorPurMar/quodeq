@@ -52,11 +52,6 @@ export function buildHeadline(dimensions) {
   };
 }
 
-/** One decimal, or "-" when there is no density. */
-export function formatDensity(density) {
-  return density === null || density === undefined ? '-' : density.toFixed(1);
-}
-
 function unique(values) {
   return [...new Set(values)];
 }
