@@ -3,7 +3,7 @@
  * counts have, and the labels for the new findings. Counts only, never the
  * requirement codes; those live on the Violations by-type tab.
  */
-import { SCOPE_CHANGED, SCOPE_MIXED } from './headlineStats.js';
+import { SCOPE_CHANGED, SCOPE_MIXED, isUnchangedSince } from './headlineStats.js';
 import { t } from '../../strings/index.js';
 import { pluralKey } from '../../utils/plural.js';
 import { formatRunId } from '../../utils/formatters.js';
@@ -16,11 +16,6 @@ function runLabel(runId, availableRuns) {
 export function baselineDateLabel(since, availableRuns) {
   if (!since || since.scope === SCOPE_MIXED || since.againstRunIds.length === 0) return null;
   return runLabel(since.againstRunIds[0], availableRuns);
-}
-
-function isUnchanged(since) {
-  return since.scope === SCOPE_CHANGED && since.changedFiles === 0 && since.majorsDelta === 0
-    && since.typesClosed.length === 0 && since.typesOpened.length === 0;
 }
 
 function scopeText(since) {
@@ -43,6 +38,6 @@ export function sinceLineParts(since, selectedRun, availableRuns) {
     newLabel: t(since.scope === SCOPE_CHANGED ? 'sinceBaseline.newInChangedLabel' : 'sinceBaseline.newInAllLabel'),
     newCount: since.newCount,
     resolvedCount: since.resolvedCount,
-    unchanged: isUnchanged(since),
+    unchanged: isUnchangedSince(since),
   };
 }

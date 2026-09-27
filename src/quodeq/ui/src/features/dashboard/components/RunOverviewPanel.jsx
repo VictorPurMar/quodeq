@@ -100,13 +100,14 @@ function useRunOverviewModel({ dashboard, selectedRunId, selectedProject, select
   const runTopFiles = useMemo(() => withDimensionsStr(buildTopOffendingFiles(dashboard?.dimensions || [])), [dashboard]);
   const runDateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
   const onCardNavigate = useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, onNavigate });
-  useRunReportSpecs({ dashboard, runSummary, selectedRunId, projectName });
+  const headline = useMemo(() => buildHeadline(dashboard?.dimensions), [dashboard]);
+  useRunReportSpecs({ dashboard, runSummary, selectedRunId, projectName, headline, since });
   const trendDeltas = useTrendDeltas(dashboard);
-  return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings };
+  return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings, headline };
 }
 
 export default function RunOverviewPanel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, availableRuns = [], onDimensionClick, onFileClick, onNavigate }) {
-  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings } = useRunOverviewModel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, onNavigate });
+  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings, headline } = useRunOverviewModel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, onNavigate });
 
   const isLoading = !dashboard || !dashboard.dimensions;
   if (isLoading) {
@@ -122,7 +123,7 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, selectedPro
     <div className="run-overview-fade run-overview-ready">
       <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} />
       <ConvergenceStrip
-        headline={buildHeadline(dashboard?.dimensions)} since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns}
+        headline={headline} since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns}
         onSeeFindings={seeFindings} onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
       />
       <section className="quality-dimensions" aria-label={t('overview.qualityDimensionsAria')}>

@@ -102,6 +102,13 @@ export function sumSinceBaseline(sinceBaseline) {
   };
 }
 
+/** True when a folded since-baseline summary says the tree did not move:
+ * changed-files scope, no files changed, nothing closed, opened, or shifted. */
+export function isUnchangedSince(since) {
+  return since.scope === SCOPE_CHANGED && since.changedFiles === 0 && since.majorsDelta === 0
+    && since.typesClosed.length === 0 && since.typesOpened.length === 0;
+}
+
 /** The map restricted to the named dimensions (case-insensitive), so a
  * headline over visible dimensions never counts a hidden one. */
 export function filterSinceBaseline(sinceBaseline, dimensionNames) {
