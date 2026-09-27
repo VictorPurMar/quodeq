@@ -8,4 +8,4 @@ export const ROW_TYPE = Object.freeze({ DIMENSION: 'dimension', PRINCIPLE: 'prin
 // not a nav-stack page). Lives here, not on ViolationsPage.jsx, since that
 // component is lazy-loaded (routes/violationsRoute.jsx) and the route's own
 // default-param logic needs this value without pulling in the lazy chunk.
-export const VIOLATIONS_SUB_TAB = Object.freeze({ DIMENSION: 'dimension', FILE: 'file', DISMISSED: 'dismissed' });
+export const VIOLATIONS_SUB_TAB = Object.freeze({ DIMENSION: 'dimension', TYPE: 'type', FILE: 'file', DISMISSED: 'dismissed' });
