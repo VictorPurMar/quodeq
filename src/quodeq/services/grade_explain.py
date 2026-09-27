@@ -27,10 +27,11 @@ def _run_dir(reports_root: Path, project: str, run_id: str) -> Path:
 
 
 def _keys_for(inputs: GradeInputs, dimension: str) -> list[tuple[str, str]]:
-    """(dimension, principle) keys of *dimension*, matched case-insensitively."""
+    """(dimension, principle) keys of *dimension*, matched case-insensitively.
+    Findings with no principle have no card to explain and are skipped."""
     wanted = dimension.lower()
     keys = set(inputs.violations_by) | set(inputs.compliance_by)
-    return sorted(k for k in keys if k[0].lower() == wanted)
+    return sorted(k for k in keys if k[0].lower() == wanted and k[1])
 
 
 def _explain_one(inputs: GradeInputs, key: tuple[str, str], params: ScoringParams) -> dict[str, Any]:

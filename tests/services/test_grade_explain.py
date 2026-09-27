@@ -35,6 +35,7 @@ def _seed(reports_root: Path, findings: list[dict]) -> None:
 def seeded(tmp_path: Path) -> Path:
     findings = [_finding(i, practice="P1") for i in range(_SCORABLE)]
     findings.append(_finding(99, practice="P2"))  # one finding: Insufficient
+    findings.append(_finding(98, practice=""))    # no principle: not a card, not a row
     _seed(tmp_path, findings)
     return tmp_path
 
@@ -67,3 +68,8 @@ def test_unknown_dimension_is_not_found(seeded: Path) -> None:
 def test_unknown_run_is_not_found(seeded: Path) -> None:
     with pytest.raises(FileNotFoundError):
         explain_dimension(seeded, _PROJECT, "nope", _DIM)
+
+
+def test_findings_without_a_principle_are_not_listed(seeded: Path) -> None:
+    ids = [p["principleId"] for p in explain_dimension(seeded, _PROJECT, _RUN, _DIM)["principles"]]
+    assert ids == ["P1", "P2"]
