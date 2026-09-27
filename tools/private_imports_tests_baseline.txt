@@ -1115,10 +1115,10 @@ tests/shared/test_resource_sampler.py:18:private-name:quodeq.shared.resource_sam
 tests/shared/test_security.py:4:private-module:quodeq.shared._security.sanitize_sensitive
 tests/shared/test_sqlite_kill_switch.py:60:private-module:quodeq.data.fs.report_parser._evidence.load_evidence_map
 tests/shared/test_utils.py:11:private-module:quodeq.shared._diff.show_diff
-tests/terminal/test_pty_unix.py:107:private-module:quodeq.terminal._pty_unix.resolve_shell
+tests/terminal/test_pty_unix.py:128:private-module:quodeq.terminal._pty_unix.resolve_shell
 tests/terminal/test_pty_unix.py:34:private-module:quodeq.terminal._pty_unix.UnixPty
 tests/terminal/test_pty_unix.py:48:private-module:quodeq.terminal._pty_unix.UnixPty
-tests/terminal/test_pty_unix.py:91:private-module:quodeq.terminal._pty_unix.UnixPty
+tests/terminal/test_pty_unix.py:112:private-module:quodeq.terminal._pty_unix.UnixPty
 tests/terminal/test_pty_windows.py:62:private-module:quodeq.terminal._pty_windows.mod
 tests/terminal/test_pty_windows_smoke.py:12:private-module:quodeq.terminal._pty_windows.WindowsPty
 tests/terminal/test_pty_windows_smoke.py:12:private-module:quodeq.terminal._pty_windows.resolve_shell
