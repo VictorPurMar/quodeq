@@ -2296,6 +2296,29 @@ textarea:focus {
 .gf-tab--active { color: var(--color-accent); background: var(--color-surface-alt); }
 .gf-tab-body { border: 1px solid var(--color-border); border-radius: 0 4px 4px 4px; padding: 14px; }
 .gf-preview { border: 1px solid var(--color-border); border-radius: 4px; padding: 8px; margin-top: 12px; }
+
+/* Grade formula: one row per scoring stage, knobs left, the run's numbers right. */
+.gf-stages { display: flex; flex-direction: column; gap: 6px; }
+.gf-stage { display: grid; grid-template-columns: 26px 1fr 1.2fr; gap: 10px; align-items: start;
+  padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; }
+.gf-stage__n { color: var(--color-accent); font-family: var(--font-mono, monospace); font-size: 16px; line-height: 1.2; }
+.gf-stage__title { margin: 0; font-size: 13px; font-weight: 500; color: var(--color-text); }
+.gf-stage__meaning { margin: 2px 0 8px; font-size: 11px; color: var(--color-text-muted); }
+.gf-stage__live { font-family: var(--font-mono, monospace); font-size: 11px; color: var(--color-text-muted);
+  border-left: 1px solid var(--color-border); padding-left: 10px; align-self: stretch; }
+.gf-stage__line { margin-bottom: 4px; }
+.gf-stage__line b { color: var(--color-text); font-weight: 500; }
+.gf-stage__line b.gf-stage__final { color: var(--color-accent); font-size: 14px; }
+.gf-stage__was { color: var(--color-text-muted); }
+.gf-stage__note { color: var(--color-text-muted); }
+.gf-labels { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; }
+.gf-pickers { display: inline-flex; gap: 6px; margin-left: 10px; }
+.gf-picker { font-family: var(--font-mono, monospace); font-size: 11px; background: var(--color-surface-alt);
+  color: var(--color-text); border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 4px; }
+@media (max-width: 720px) {
+  .gf-stage { grid-template-columns: 26px 1fr; }
+  .gf-stage__live { grid-column: 2; border-left: none; padding-left: 0; }
+}
 .gf-gauges { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
 .gf-gauge { border: 1px dashed var(--color-border); border-radius: 4px; padding: 6px 10px; text-align: center; }
 .gf-gauge-was { color: var(--color-text-muted); text-decoration: line-through; font-size: 11px; margin-right: 4px; }

@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { TermHeader } from '../../components/terminal/index.js';
 import useGradeFormula from './useGradeFormula.js';
+import { useStageExplain } from './hooks/useStageExplain.js';
+import { liveStages, pickPrincipleId } from './stages/liveStages.js';
 import PreviewStrip from './PreviewStrip.jsx';
-import {
-  SeverityTab, CurveTab, BoundariesTab, DimensionsTab,
-} from './tabs.jsx';
+import FormulaTab from './FormulaTab.jsx';
+import TypesTab from './TypesTab.jsx';
+import GradeFormulaHeader from './GradeFormulaHeader.jsx';
+import { FormulaActions, makeOnApply, makeOnReset } from './formulaActions.jsx';
+import { DimensionsTab } from './tabs.jsx';
 import { t } from '../../strings/index.js';
 
 // labelKey, not label: the catalog is read at render so the tab strip picks
 // up the active locale like every other visible string on the page.
 const TABS = [
-  { id: 'severity', labelKey: 'gradeFormula.tabSeverity', Body: SeverityTab },
-  { id: 'curve', labelKey: 'gradeFormula.tabCurve', Body: CurveTab },
-  { id: 'boundaries', labelKey: 'gradeFormula.tabBoundaries', Body: BoundariesTab },
+  { id: 'formula', labelKey: 'gradeFormula.tabFormula', Body: FormulaTab },
+  { id: 'types', labelKey: 'gradeFormula.tabTypes', Body: TypesTab },
   { id: 'dimensions', labelKey: 'gradeFormula.tabDimensions', Body: DimensionsTab },
 ];
 
@@ -23,6 +26,9 @@ const DEFAULT_TAB_ID = TABS[0].id;
 // button controls the same panel id; the panel in turn is labelled by
 // whichever tab button is currently active.
 const TAB_PANEL_ID = 'gf-tabpanel';
+
+/** What the page knows about the reader's project when it opens outside a run. */
+export const EMPTY_SCOPE = Object.freeze({ project: null, runId: null, dimensions: [], dimension: null });
 
 function tabButtonId(tabId) {
   return `gf-tab-${tabId}`;
@@ -62,7 +68,7 @@ function TabButtons({ tab, setTab }) {
 // The fieldset is disabled only while the PUT/DELETE request itself is
 // in flight, not while the background rescore pass runs after it lands:
 // sliders stay usable and a second Apply restarts the pass.
-function TabBody({ busy, ActiveBody, draft, update, activeTabId }) {
+function TabBody({ busy, ActiveBody, activeTabId, bodyProps }) {
   return (
     <fieldset
       id={TAB_PANEL_ID}
@@ -72,102 +78,75 @@ function TabBody({ busy, ActiveBody, draft, update, activeTabId }) {
       disabled={busy}
       style={{ margin: 0, minInlineSize: 'auto' }}
     >
-      <ActiveBody draft={draft} update={update} />
+      <ActiveBody {...bodyProps} />
     </fieldset>
   );
 }
 
-function rescoreMessage(progress) {
-  if (!progress) return null;
-  // total stays 0 until the pass has listed its runs; "0 of 0" reads as done.
-  if (progress.total === 0) return t('gradeFormula.rescoringStarting');
-  return t('gradeFormula.rescoring', { done: progress.done, total: progress.total });
+// The dimension the worked example shows: the one the caller asked for when
+// the run has it, else the run's first.
+function knownDimension(scope, picked) {
+  const wanted = picked || scope.dimension;
+  if (wanted && scope.dimensions.includes(wanted)) return wanted;
+  return scope.dimensions[0] || null;
 }
 
-// Pre-mounted live region: screen readers announce text changes inside a
-// region that already exists, not one that mounts with its first message.
-function RescoreStatus({ progress }) {
-  return (
-    <span className="gf-dirty-hint" role="status">
-      {rescoreMessage(progress)}
-    </span>
-  );
+// The worked example beside the sliders: the picked dimension and principle
+// of the reader's run, with the stages under the saved and the draft formula.
+function useWorkedExample(scope, draft) {
+  const [pickedDimension, setDimension] = useState(null);
+  const [pickedPrinciple, setPrincipleId] = useState(null);
+  const dimension = knownDimension(scope, pickedDimension);
+  const explain = useStageExplain({
+    project: scope.project, runId: scope.runId, dimension, draft, enabled: Boolean(scope.runId),
+  });
+  const principleId = pickPrincipleId(explain.principles, pickedPrinciple);
+  return {
+    dimension, setDimension, principleId, setPrincipleId,
+    principles: explain.principles, stages: liveStages(explain, principleId),
+  };
 }
 
-function FormulaActions({
-  isDirty, busy, isCustom, error, partialNotice, rescoreProgress, onApply, onReset,
-}) {
+function LoadingPage({ error }) {
   return (
-    <div className="gf-actions">
-      <button
-        type="button"
-        className="settings-pill settings-pill--active"
-        disabled={!isDirty || busy}
-        onClick={onApply}
-      >
-        {t('gradeFormula.apply')}
-      </button>
-      <button type="button" className="settings-pill" disabled={busy} onClick={onReset}>
-        {t('gradeFormula.resetQ')}
-      </button>
-      <span className="gf-dirty-hint">
-        {isDirty ? t('gradeFormula.unsavedHint')
-          : isCustom ? t('gradeFormula.customActive') : t('gradeFormula.defaultsActive')}
-      </span>
-      <RescoreStatus progress={rescoreProgress} />
-      {error ? <span className="gf-dirty-hint">{error}</span> : null}
-      {partialNotice ? <span className="gf-dirty-hint" role="alert">{partialNotice}</span> : null}
+    <div className="settings-page settings-page--terminal">
+      <TermHeader name={t('gradeFormula.headerName')} sub={t('gradeFormula.headerLoading')} />
+      {error ? <p className="settings-description">{error}</p> : null}
     </div>
   );
 }
 
-// Both formula actions rescore every run, so each asks first and does
-// nothing when the user declines.
-function confirmThen(messageKey, action) {
-  return async () => {
-    if (window.confirm(t(messageKey))) await action();
-  };
-}
-
-function makeOnApply(apply) {
-  return confirmThen('gradeFormula.confirmApply', apply);
-}
-
-function makeOnReset(resetToDefaults) {
-  return confirmThen('gradeFormula.confirmReset', resetToDefaults);
-}
-
-export default function GradeFormulaPage({ navigation }) {
+/**
+ * Settings › Grade formula: the four scoring stages with the reader's own
+ * numbers, the types table, the dimension weights, and APPLY / RESET.
+ * @param {object} props.navigation - the app's navigation state (selectedProject)
+ * @param {{project: string|null, runId: string|null, dimensions: string[], dimension: string|null}} props.scope
+ * @param {string|null} props.runLabel - the run's date for the header, when there is a run
+ */
+export default function GradeFormulaPage({ navigation, scope = EMPTY_SCOPE, runLabel = null }) {
   const projectId = navigation?.selectedProject || null;
   const [tab, setTab] = useState(DEFAULT_TAB_ID);
   const {
     draft, isCustom, isDirty, preview, busy, error, partialNotice, rescoreProgress,
     update, apply, resetToDefaults,
   } = useGradeFormula(projectId);
+  const example = useWorkedExample(scope, draft);
 
-  const onApply = makeOnApply(apply);
-  const onReset = makeOnReset(resetToDefaults);
-
-  if (!draft) {
-    return (
-      <div className="settings-page settings-page--terminal">
-        <TermHeader name={t('gradeFormula.headerName')} sub={t('gradeFormula.headerLoading')} />
-        {error ? <p className="settings-description">{error}</p> : null}
-      </div>
-    );
-  }
+  if (!draft) return <LoadingPage error={error} />;
 
   // Fall back to the first tab rather than indexing into undefined if `tab`
   // ever holds a value that doesn't match any TABS entry.
   const ActiveBody = (TABS.find((entry) => entry.id === tab) ?? TABS[0]).Body;
   return (
     <div className="settings-page settings-page--terminal">
-      <TermHeader
-        name={t('gradeFormula.headerName')}
-        sub={projectId ? t('gradeFormula.previewOf', { project: projectId }) : t('gradeFormula.noPreviewProject')}
+      <GradeFormulaHeader
+        scope={scope} runLabel={runLabel}
+        dimension={example.dimension} setDimension={example.setDimension}
+        principleId={example.principleId} setPrincipleId={example.setPrincipleId}
+        principles={example.principles}
       />
       <TabButtons tab={tab} setTab={setTab} />
-      <TabBody busy={busy} ActiveBody={ActiveBody} draft={draft} update={update} activeTabId={tab} />
+      <TabBody busy={busy} ActiveBody={ActiveBody} activeTabId={tab} bodyProps={{ draft, update, stages: example.stages, scope }} />
       <PreviewStrip
         preview={preview}
         emptyHint={projectId
@@ -176,7 +155,7 @@ export default function GradeFormulaPage({ navigation }) {
       />
       <FormulaActions
         isDirty={isDirty} busy={busy} isCustom={isCustom} error={error} partialNotice={partialNotice}
-        rescoreProgress={rescoreProgress} onApply={onApply} onReset={onReset}
+        rescoreProgress={rescoreProgress} onApply={makeOnApply(apply)} onReset={makeOnReset(resetToDefaults)}
       />
       <p className="settings-description" style={{ marginTop: 8 }}>
         {t('gradeFormula.insufficientNote')}
