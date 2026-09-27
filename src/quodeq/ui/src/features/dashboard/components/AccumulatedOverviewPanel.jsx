@@ -9,6 +9,8 @@ import { SectionLabel } from '../../../components/terminal/index.js';
 import { t } from '../../../strings/index.js';
 import { DEFAULT_SCORE_HISTORY_GRANULARITY } from '../../../constants.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
+import SinceBaselinePanel, { baselineDateLabel } from './SinceBaselinePanel.jsx';
+import { filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { useAccumulatedComputations, computeAccumulatedStats } from '../hooks/useAccumulatedComputations.js';
 import { AccumulatedHeroSection } from './AccumulatedHeroSection.jsx';
@@ -114,10 +116,15 @@ function AccumulatedOverviewSections({
   filteredAccumulated, filteredStats, chartMountable, dimTrends, topFiles, onCardNavigate,
 }) {
   const { onRunClick, onDimensionClick, onNavigate } = callbacks;
+  // Only the dimensions on show: a hidden standard must not move the headline.
+  const visibleSince = filterSinceBaseline(data.sinceBaseline, (filteredDimensions || []).map((d) => d.dimension));
+  const since = sumSinceBaseline(visibleSince);
   return (
     <>
       <AccumulatedHeroSection
         accumulated={filteredAccumulated}
+        sinceBaseline={visibleSince}
+        baselineDate={baselineDateLabel(since, data.availableRuns)}
         scoreDelta={filteredStats.scoreDelta}
         lastDate={filteredStats.lastRun.date}
         projectInfo={data.projectInfo}
@@ -125,6 +132,7 @@ function AccumulatedOverviewSections({
         selectedSource={data.selectedSource}
         customFormula={data.customFormula}
       />
+      <SinceBaselinePanel since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns} />
 
       <HistoryPanelsRow
         chartMountable={chartMountable}

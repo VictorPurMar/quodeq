@@ -8,9 +8,15 @@ Overview shows the latest scored result for each dimension, even when those resu
 
 ### Header stats
 
+- **Majors** critical plus major findings that are still open. The badge is the change since the baseline run; down is good. The hint counts the criticals.
+- **Open types** distinct requirement codes with at least one open finding. The hint says how many types closed since the baseline. Fixing every finding of one code closes a type; fixing some of them does not move this number.
 - **Score** the overall number and grade, with a delta against the previous run.
-- **Violations** active findings with severity badges. Click the stat, or a single badge, to open a project-wide findings view filtered to that severity.
-- **Compliance** evidence of good practice. Click it to browse the compliant findings.
+- **Density** open findings per 100 files read, summed over the dimensions shown. The hint is coverage: files read over source files.
+- **Footer** compliance, the compliance to violations ratio, and the raw violations total with severity badges. Click the total, or a badge, to open a project-wide findings view filtered to that severity. Click compliance to browse the compliant findings.
+
+### Since baseline
+
+Under the header, the panel names the baseline run and the current run with their commits, how many files changed between them, the majors delta, the types closed and opened, and the new and resolved findings in the changed files. When no commit was recorded, or the tree had uncommitted changes, the counts cover all files and the panel says so. An unchanged tree gets one sentence instead of numbers.
 
 ### Panels
 

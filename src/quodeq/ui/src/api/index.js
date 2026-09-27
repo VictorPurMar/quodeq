@@ -49,6 +49,8 @@ export {
   getGradeFormula, saveGradeFormula, resetGradeFormula, previewGradeFormula,
 } from './gradeFormula.js';
 
+export { getGradeExplain } from './gradeExplain.js';
+
 export {
   getAiClients, getClientModels, checkCmdPath, testProviderConnection,
   getKnownModels, getProviderConfigs,

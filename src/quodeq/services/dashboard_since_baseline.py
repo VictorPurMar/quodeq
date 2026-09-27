@@ -34,12 +34,14 @@ _UNREADABLE = (FileNotFoundError, OSError, ValueError, AttributeError, TypeError
 def _reduce(entry: dict[str, Any]) -> dict[str, Any]:
     since = entry.get("sinceBaseline") or {}
     types = entry.get("types") or {}
+    counts = entry.get("counts") or {}
     return {
         "againstRunId": entry.get("againstRunId"),
         "againstCommitSha": entry.get("againstCommitSha"),
         "sinceBaseline": {key: since.get(key) for key in _SCOPED_KEYS},
         "all": {
             "majorsDelta": entry.get("majorsDelta"),
+            "counts": {"new": counts.get("new", 0), "resolved": counts.get("resolved", 0)},
             "types": {"closed": types.get("closed") or [], "opened": types.get("opened") or []},
         },
     }

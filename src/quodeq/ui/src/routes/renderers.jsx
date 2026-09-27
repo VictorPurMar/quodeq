@@ -98,6 +98,8 @@ export const ROUTE_RENDERERS = {
       onNavigate={props.navigation.handleNavigate}
       refreshSignal={props.dashboardData.dashboard}
       trend={props.dashboardData.dashboard?.trend || []}
+      sinceBaseline={params.fromProject ? undefined : props.dashboardData.dashboard?.sinceBaseline}
+      sinceBaselineRunId={props.dashboardData.dashboard?.selectedRun?.runId}
       granularity={props.dashboardData.granularity}
       onGranularityChange={props.dashboardData.onGranularityChange}
     />
@@ -198,7 +200,17 @@ export const ROUTE_RENDERERS = {
     />
   ),
   standards: (params, props) => <StandardsPage onRescan={(dims) => props.navigation.navTab(NAV_TAB.EVALUATE, { preselectDims: dims })} />,
-  help: () => <HelpPage />,
+  help: (params, props) => (
+    <HelpPage
+      initialSection={params.section}
+      scope={{
+        project: props.navigation.selectedProject,
+        runId: props.dashboardData.dashboard?.selectedRun?.runId ?? null,
+        dimensions: (props.dashboardData.dashboard?.dimensions || []).map((d) => d.dimension),
+        dimension: params.dimension ?? null,
+      }}
+    />
+  ),
   compare: compareRoute,
 };
 

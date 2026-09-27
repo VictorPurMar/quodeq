@@ -12,6 +12,7 @@
  * @property {TrendEntry[]}  trend
  * @property {TrendEntry[]}  partialRuns  cancelled runs with their own scores; History rows only, never chart points
  * @property {Object|null}   selectedRun
+ * @property {Object}        sinceBaseline  per-dimension since-baseline summary from the backend; {} while the run is not terminal
  */
 
 import { createDimension } from './dimension.js';
@@ -29,5 +30,6 @@ export function createDashboard(raw) {
     trend: raw.trend,
     partialRuns: raw.partialRuns || [],
     selectedRun: raw.selectedRun,
+    sinceBaseline: raw.sinceBaseline || {},
   };
 }

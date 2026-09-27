@@ -1,69 +1,31 @@
-import { TermHeader, Stat } from '../../../components/terminal/index.js';
-import { HeroPanel, ComplianceAndRatioStats, heroCardHandlers } from './heroSectionParts.jsx';
+import { TermHeader } from '../../../components/terminal/index.js';
+import { HeroPanel, heroCardHandlers } from './heroSectionParts.jsx';
+import HeadlineStatStrip, { HeadlineFooter } from './HeadlineStatStrip.jsx';
 import { formatRunId, gradeLetter, complianceRatio } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
-import SeverityBadgeRow from './SeverityBadgeRow.jsx';
+import { buildHeadline, sumSinceBaseline } from '../headlineStats.js';
 import { t } from '../../../strings/index.js';
 
-function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity }) {
-  return (
-    <>
-      <Stat
-        label={t('overview.statScore')}
-        value={scoreDisplay}
-        hint={grade ? t('overview.gradeHint', { letter: gradeLetter(grade) }) : null}
-      />
-      <Stat
-        label={t('overview.statViolations')}
-        value={violations}
-        hint={
-          <>
-            <SeverityBadgeRow severity={severity} onSeverityClick={handleSeverity} />
-            {suppressed > 0 && (
-              <span className="term-stat__suppressed-note">{t('overview.runSuppressed', { count: suppressed })}</span>
-            )}
-          </>
-        }
-        onClick={handleViolations}
-        ariaLabel={violations > 0 ? t('overview.showRunViolationsAria') : undefined}
-      />
-      <ComplianceAndRatioStats
-        compliance={compliance}
-        totalChecks={totalChecks}
-        ratio={ratio}
-        onCompliance={handleCompliance}
-        complianceAriaKey="overview.showRunComplianceAria"
-      />
-    </>
-  );
-}
-
-export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNavigate }) {
+/** The run hero: the selected run's headline and its raw totals. */
+export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNavigate, baselineDate = null }) {
   const dateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
-  const scoreDisplay = formatScoreDisplay(runSummary.numericAverage);
-  const grade = runSummary.overallGrade;
   const violations = runSummary.totalViolations || 0;
   const compliance = runSummary.totalCompliance || 0;
-  const suppressed = runSummary.suppressed || 0;
-  const totalChecks = violations + compliance;
-  const ratio = complianceRatio(violations, compliance);
-
-  const { handleViolations, handleCompliance, handleSeverity } = heroCardHandlers(onCardNavigate, { violations, compliance });
-
+  const handlers = heroCardHandlers(onCardNavigate, { violations, compliance });
+  const footer = {
+    violations, compliance, ratio: complianceRatio(violations, compliance),
+    severity: runSummary.severity, suppressed: runSummary.suppressed || 0,
+    ...handlers,
+    violationsAriaKey: 'overview.showRunViolationsAria', complianceAriaKey: 'overview.showRunComplianceAria',
+  };
+  const grade = runSummary.overallGrade;
   return (
-    <HeroPanel header={<TermHeader name={t('overview.termNameRun')} sub={dateLabel} />}>
-      <RunStatStrip
-        scoreDisplay={scoreDisplay}
-        grade={grade}
-        violations={violations}
-        compliance={compliance}
-        suppressed={suppressed}
-        totalChecks={totalChecks}
-        ratio={ratio}
-        handleViolations={handleViolations}
-        handleCompliance={handleCompliance}
-        handleSeverity={handleSeverity}
-        severity={runSummary.severity}
+    <HeroPanel header={<TermHeader name={t('overview.termNameRun')} sub={dateLabel} />} footer={<HeadlineFooter footer={footer} />}>
+      <HeadlineStatStrip
+        headline={buildHeadline(dashboard?.dimensions)}
+        since={sumSinceBaseline(dashboard?.sinceBaseline)}
+        baselineDate={baselineDate}
+        score={{ display: formatScoreDisplay(runSummary.numericAverage), hint: grade ? t('overview.gradeHint', { letter: gradeLetter(grade) }) : null }}
       />
     </HeroPanel>
   );

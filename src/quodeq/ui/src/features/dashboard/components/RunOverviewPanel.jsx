@@ -10,6 +10,8 @@ import { withDimensionsStr } from '../../../utils/dimensionUtils.js';
 import buildRunSummary from '../buildRunSummary.js';
 import { t } from '../../../strings/index.js';
 import { RunHeroSection } from './RunHeroSection.jsx';
+import SinceBaselinePanel, { baselineDateLabel } from './SinceBaselinePanel.jsx';
+import { sumSinceBaseline } from '../headlineStats.js';
 import { useRunReportSpecs } from './runReportSpecs.jsx';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
@@ -97,7 +99,7 @@ function useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate
   return { runSummary, runTopFiles, onCardNavigate, trendDeltas };
 }
 
-export default function RunOverviewPanel({ dashboard, selectedRunId, projectName, onDimensionClick, onFileClick, onNavigate }) {
+export default function RunOverviewPanel({ dashboard, selectedRunId, projectName, availableRuns = [], onDimensionClick, onFileClick, onNavigate }) {
   const { runSummary, runTopFiles, onCardNavigate, trendDeltas } = useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate });
 
   const isLoading = !dashboard || !dashboard.dimensions;
@@ -109,10 +111,12 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, projectName
     );
   }
   const dimCount = (dashboard?.dimensions || []).length;
+  const since = sumSinceBaseline(dashboard?.sinceBaseline);
 
   return (
     <div className="run-overview-fade run-overview-ready">
-      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} />
+      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} baselineDate={baselineDateLabel(since, availableRuns)} />
+      <SinceBaselinePanel since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns} />
       <section className="quality-dimensions" aria-label={t('overview.qualityDimensionsAria')}>
         <div className="quality-dimensions__head">
           <SectionLabel>{t('overview.qualityDimensionsLabel')} · {dimCount}</SectionLabel>

@@ -143,12 +143,25 @@ def principle_score_and_grade(
     to it, so a principle with violations can never reach a clean score on
     volume of compliance alone. Returns (score, grade_label).
     """
+    _base, _lift, _raw, final = principle_stages(vt_counts, ct_counts, params=params)
+    grade = score_to_grade_label(final, params=params)
+    return final, grade
+
+
+def principle_stages(
+    vt_counts: dict[str, int],
+    ct_counts: dict[str, int],
+    *, params: ScoringParams = DEFAULT_PARAMS,
+) -> tuple[float, float, float, float]:
+    """``(base, lift, raw, final)`` for one principle: the base from the
+    violation types, the compliance lift, the lifted score and the clamped
+    result. ``principle_score_and_grade`` and the help page's explain view
+    both read these."""
     base = violation_base(vt_counts, params=params)
     lift = compliance_lift(ct_counts, vt_counts, params=params)
     raw = base + (MAX_SCORE - base) * lift
     final = clamp_principle_score(raw, vt_counts, params=params)
-    grade = score_to_grade_label(final, params=params)
-    return final, grade
+    return base, lift, raw, final
 
 
 # ---------------------------------------------------------------------------

@@ -65,6 +65,7 @@ function AccumulatedContent({ data, callbacks }) {
         accumulatedDimensions, availableRuns, dailyRuns, overviewRunIndex,
         trend: dashboard?.trend || [], selectedRunId, selectedProject, projectInfo, granularity, selectedSource,
         scoresPending, customFormula,
+        sinceBaseline: dashboard?.sinceBaseline || {}, selectedRun: dashboard?.selectedRun,
       }}
       callbacks={{
         onRunClick: onRunSelect, onDimensionClick: onAccumulatedDimensionClick, onNavigate, onGranularityChange,
@@ -91,6 +92,7 @@ export default function DashboardContent({ runMode, data, focus, callbacks }) {
       <RunOverviewPanel
         dashboard={data.dashboard}
         selectedRunId={data.selectedRunId}
+        availableRuns={data.availableRuns}
         projectName={projectInfo?.displayName || projectInfo?.name || selectedProject}
         onDimensionClick={onDimensionCardClick}
         onFileClick={onFileClick}

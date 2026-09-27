@@ -9,6 +9,7 @@ bugs at the cost of a few ms per call.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from quodeq.core.scoring.params import ScoringParams
@@ -90,6 +91,37 @@ def _grade_all_principles(
     return principle_rows, principle_grades_by_dim
 
 
+@dataclass(frozen=True, slots=True)
+class GradeInputs:
+    """What the scorer reads from a run: active findings grouped by
+    (dimension, principle), dismissed counts, and the project size."""
+
+    violations_by: dict[tuple[str, str], list[Finding]]
+    compliance_by: dict[tuple[str, str], list[Finding]]
+    dismissed_counts: dict[tuple[str, str], int]
+    source_file_count: int
+
+
+def load_grade_inputs(run_dir: Path) -> GradeInputs:
+    """Read the run's findings from SQL, so dismissals (verdict='dismissed')
+    are already applied, and group them for scoring."""
+    with open_evaluation_db(run_dir) as conn:
+        dismissed_raw = conn.execute(_SELECT_DISMISSED_COUNTS).fetchall()
+        conn.row_factory = _dict_row
+        rows = conn.execute(_SELECT_NON_DISMISSED).fetchall()
+    violations_by: dict[tuple[str, str], list[Finding]] = {}
+    compliance_by: dict[tuple[str, str], list[Finding]] = {}
+    for f in (row_to_finding(r) for r in rows):
+        key = (f.dimension or "", f.practice_id or "")
+        bucket = violations_by if f.verdict == FindingType.VIOLATION else compliance_by
+        bucket.setdefault(key, []).append(f)
+    return GradeInputs(
+        violations_by=violations_by, compliance_by=compliance_by,
+        dismissed_counts={(r[0], r[1]): r[2] for r in dismissed_raw},
+        source_file_count=_read_source_file_count(run_dir),
+    )
+
+
 def compute_run_grades(
     run_dir: Path, params: ScoringParams,
 ) -> tuple[list[tuple[str, dict]], list[dict]]:
@@ -98,35 +130,14 @@ def compute_run_grades(
     principle_rows: ``[(dimension, principle_grade_dict), ...]``
     dimension_rows: ``[{"dimension":..., "score":..., "grade":...}, ...]``
 
-    Reads from SQL (so dismissals via verdict='dismissed' are applied
-    automatically) but never touches the grade tables. ``recompute_grades``
-    layers persistence on top; ``preview_scores`` uses the result directly.
+    ``recompute_grades`` layers persistence on top; ``preview_scores`` uses
+    the result directly.
     """
-    source_file_count = _read_source_file_count(run_dir)
-
-    with open_evaluation_db(run_dir) as conn:
-        # Fetch dismissed counts as plain tuples before switching row_factory.
-        dismissed_raw = conn.execute(_SELECT_DISMISSED_COUNTS).fetchall()
-        dismissed_counts = {(r[0], r[1]): r[2] for r in dismissed_raw}
-
-        conn.row_factory = _dict_row
-        rows = conn.execute(_SELECT_NON_DISMISSED).fetchall()
-
-    findings = [row_to_finding(r) for r in rows]
-
-    # Group by (dimension, principle) for violations vs compliance.
-    violations_by: dict[tuple[str, str], list[Finding]] = {}
-    compliance_by: dict[tuple[str, str], list[Finding]] = {}
-    for f in findings:
-        key = (f.dimension or "", f.practice_id or "")
-        bucket = violations_by if f.verdict == FindingType.VIOLATION else compliance_by
-        bucket.setdefault(key, []).append(f)
-
-    # Compute per-principle grades, group results by dimension.
+    inputs = load_grade_inputs(run_dir)
     principle_rows, principle_grades_by_dim = _grade_all_principles(
-        violations_by, compliance_by, dismissed_counts, source_file_count, params,
+        inputs.violations_by, inputs.compliance_by, inputs.dismissed_counts,
+        inputs.source_file_count, params,
     )
-
     dimension_rows = [
         compute_dimension_score(dimension=dim, principle_grades=p_grades, params=params)
         for dim, p_grades in principle_grades_by_dim.items()

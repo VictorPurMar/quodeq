@@ -59,14 +59,23 @@ def _classify_dimension(
         buckets.prev_run_latest_map[dim_name] = dim
 
 
-def _strip_findings(dimensions: list[DimensionResult]) -> list[DimensionResult]:
+def _open_types(dim: DimensionResult) -> int:
+    """Distinct requirement codes among the dimension's active violations."""
+    if dim.open_types is not None:
+        return dim.open_types
+    return len({f.req for f in (dim.violations or []) if f.req})
+
+
+def slim_dimensions(dimensions: list[DimensionResult]) -> list[DimensionResult]:
     """Drop the violation/compliance bodies, keeping every scalar field.
 
     Everything the accumulated walk consults -- ``overall_score``,
     ``files_read``, ``totals``, ``principles`` -- survives, so classification is
-    bit-identical to classifying the full read.
+    bit-identical to classifying the full read. The count of open requirement
+    types is taken before the findings go, because the Overview hero reads it
+    and a slim dimension has no findings left to count.
     """
-    return [replace(d, violations=[], compliance=[]) for d in dimensions]
+    return [replace(d, violations=[], compliance=[], open_types=_open_types(d)) for d in dimensions]
 
 
 def make_slim_run_fetcher(
@@ -84,7 +93,7 @@ def make_slim_run_fetcher(
     *max_size* <= 0 disables caching entirely (every call reads through).
     """
     def read_slim(run_id: str) -> list[DimensionResult]:
-        return _strip_findings(_read_run_data_safely(reports_root, project, run_id, log=log))
+        return slim_dimensions(_read_run_data_safely(reports_root, project, run_id, log=log))
 
     def get_slim(run_id: str) -> list[DimensionResult]:
         if max_size <= 0:

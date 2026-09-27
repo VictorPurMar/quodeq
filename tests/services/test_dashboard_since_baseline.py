@@ -49,7 +49,7 @@ def test_dashboard_carries_since_baseline_summary(tmp_path: Path) -> None:
         "types": {"closed": ["M-REU-1"], "opened": ["M-ANA-9", "M-TST-5"]},
     }
     # The unscoped numbers are labelled as such, never mixed in.
-    assert since["all"] == {"majorsDelta": 0,
+    assert since["all"] == {"majorsDelta": 0, "counts": {"new": 2, "resolved": 1},
                             "types": {"closed": ["M-REU-1"], "opened": ["M-ANA-9", "M-TST-5"]}}
     assert "new" not in since["sinceBaseline"]
 

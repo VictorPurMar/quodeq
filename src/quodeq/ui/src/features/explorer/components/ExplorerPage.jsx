@@ -15,6 +15,9 @@ import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
+import { HELP_SECTION } from '../../../vocab/helpSection.js';
+import HelpLink from '../../../components/HelpLink.jsx';
+import { sinceBaselineFor } from '../../dashboard/headlineStats.js';
 
 /** Empty/loading/error states, checked in order — extracted so the main
  * render stays a single happy-path return. */
@@ -107,7 +110,7 @@ function buildExplorerCardNavigation({ dimFile, onNavigate, project, activeRunId
 /** Top grid: the stats panel (score/violations/compliance/history) plus
  * the principles radial. */
 function ExplorerTopGrid({
-  overallScoreNum, d, onSeverityBadge, onNavigate, handleCardNavigate, trend, granularity,
+  overallScoreNum, d, sinceBaseline, onSeverityBadge, onNavigate, handleCardNavigate, trend, granularity,
   onGranularityChange, setActiveRunId, setActiveDateLabel, activeRunId, radialPrinciples, onPrincipleClick,
 }) {
   return (
@@ -118,6 +121,8 @@ function ExplorerTopGrid({
         allViolations={d.allViolations}
         totalCompliant={d.totalCompliant}
         sev={d.severityCounts}
+        evalData={d.evalData}
+        sinceBaseline={sinceBaseline}
         onSeverityBadge={onSeverityBadge}
         onNavigate={onNavigate}
         onCardNavigate={handleCardNavigate}
@@ -142,14 +147,17 @@ function ExplorerPageBody({
   isRefreshing, dim, standardDescription, activeDateLabel, activeRunId, overallScoreNum, d,
   onSeverityBadge, onNavigate, handleCardNavigate, trend, granularity, onGranularityChange,
   setActiveRunId, setActiveDateLabel, radialPrinciples, onPrincipleClick, enrichedPrinciples,
-  sourceTab, project,
+  sourceTab, project, sinceBaseline,
 }) {
   return (
     <div className={`explorer-page dashboard-fade${isRefreshing ? ' dashboard-refreshing' : ''}`}>
-      <TermHeader name={dim} description={standardDescription} sub={activeDateLabel || activeRunId || null} />
+      <TermHeader
+        name={dim} description={standardDescription} sub={activeDateLabel || activeRunId || null}
+        learnMore={onNavigate ? { label: t('helpHint.learnMore'), onClick: () => onNavigate(NAV_TAB.HELP, { section: HELP_SECTION.WHY_THIS_GRADE, dimension: dim }) } : undefined}
+      />
 
       <ExplorerTopGrid
-        overallScoreNum={overallScoreNum} d={d} onSeverityBadge={onSeverityBadge} onNavigate={onNavigate}
+        overallScoreNum={overallScoreNum} d={d} sinceBaseline={sinceBaseline} onSeverityBadge={onSeverityBadge} onNavigate={onNavigate}
         handleCardNavigate={handleCardNavigate} trend={trend} granularity={granularity}
         onGranularityChange={onGranularityChange} setActiveRunId={setActiveRunId} setActiveDateLabel={setActiveDateLabel}
         activeRunId={activeRunId} radialPrinciples={radialPrinciples} onPrincipleClick={onPrincipleClick}
@@ -158,6 +166,7 @@ function ExplorerPageBody({
       <section className="qd-cards-panel" aria-label={t('explorer.principlesAria')}>
         <div className="qd-cards-panel__head">
           <SectionLabel>{t('explorer.principlesLabel')} · {radialPrinciples.length}</SectionLabel>
+          <HelpLink onNavigate={onNavigate} section={HELP_SECTION.WHY_THIS_GRADE} params={{ dimension: dim }} label={t('explorer.whyThisGrade')} />
         </div>
         <PrinciplesCardsRow
           principles={enrichedPrinciples}
@@ -208,6 +217,8 @@ export default function ExplorerPage({
   trend = [],
   granularity = 'day',
   onGranularityChange,
+  sinceBaseline,
+  sinceBaselineRunId,
 }) {
   const {
     d, standardDescription, activeRunId, setActiveRunId, activeDateLabel, setActiveDateLabel,
@@ -239,6 +250,7 @@ export default function ExplorerPage({
       setActiveRunId={setActiveRunId} setActiveDateLabel={setActiveDateLabel}
       radialPrinciples={radialPrinciples} onPrincipleClick={onPrincipleClick} enrichedPrinciples={enrichedPrinciples}
       sourceTab={sourceTab} project={project}
+      sinceBaseline={sinceBaselineFor(sinceBaseline, dim, { runId: activeRunId, baselineRunId: sinceBaselineRunId })}
     />
   );
 }
