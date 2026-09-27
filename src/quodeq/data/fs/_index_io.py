@@ -1,13 +1,13 @@
 """Filesystem I/O for the project index file."""
 from __future__ import annotations
 
-import json
 import logging
 import os
 import tempfile
 from pathlib import Path
 
 from quodeq.data.fs._index_cache import IndexCache, index_cache
+from quodeq.data.fs.run_artifacts import read_json_object
 from quodeq.shared.json_state import dump_json_and_replace
 
 _INDEX_FILE = "project_index.json"
@@ -30,9 +30,8 @@ def load_index(reports_dir: Path, *, cache: IndexCache | None = None) -> dict[st
     cached = cache.get(index_path)
     if cached is not None and cached[0] == mtime:
         return dict(cached[1])  # return a copy so callers can mutate safely
-    try:
-        data = json.loads(index_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    data = read_json_object(index_path)
+    if data is None:
         return {}
     cache.set(index_path, (mtime, dict(data)))
     return data

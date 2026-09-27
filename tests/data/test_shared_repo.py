@@ -60,6 +60,33 @@ def test_clone_and_refresh_are_not_shallow(tmp_path, monkeypatch):
     assert not (repo / ".git" / "shallow").exists()
 
 
+def test_unshallow_failure_falls_through_to_plain_fetch_and_is_logged(tmp_path, monkeypatch, caplog):
+    """A transient failure unshallowing a legacy clone must not abort the
+    refresh: the plain fetch + reset below still runs, and the failure is
+    logged so a discarded (best-effort) reason doesn't vanish silently."""
+    monkeypatch.setenv("QUODEQ_CACHE_ROOT", str(tmp_path / "cache"))
+    url = _make_origin(tmp_path)
+    repo = ensure_shared_clone(url)
+    assert repo is not None
+    (repo / ".git" / "shallow").write_text("")  # simulate a legacy shallow clone
+
+    real_run_git = run_git
+
+    def flaky_unshallow(args, cwd=None, timeout=None):
+        if "--unshallow" in args:
+            return False, "fatal: could not read from remote repository"
+        return real_run_git(args, cwd=cwd, timeout=timeout)
+
+    monkeypatch.setattr("quodeq.data.fs.shared_repo.run_git", flaky_unshallow)
+
+    with caplog.at_level("DEBUG", logger="quodeq.data.fs.shared_repo"):
+        ok, reason = refresh_shared_clone(url)
+
+    assert ok is True
+    assert reason == ""
+    assert "unshallow failed" in caplog.text
+
+
 def test_refresh_shared_clone_passes_explicit_timeout_to_both_git_calls(tmp_path, monkeypatch):
     """Finding 4 regression: refresh_shared_clone must not inherit run_git's
     300s default -- it's called in-request (GET /api/shared/projects?refresh=1,

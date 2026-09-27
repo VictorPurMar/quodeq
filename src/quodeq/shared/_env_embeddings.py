@@ -16,9 +16,7 @@ def get_embedding_model(env: dict[str, str] | None = None) -> str:
     Independent of the chat provider: CLI providers have no HTTP endpoint and
     llama.cpp serves one model per process, so embeddings get their own model.
     """
-    return resolve_env(env).get(
-        "QUODEQ_EMBEDDING_MODEL", _DEFAULT_EMBEDDING_MODEL
-    )
+    return resolve_env(env).get("QUODEQ_EMBEDDING_MODEL") or _DEFAULT_EMBEDDING_MODEL
 
 
 def get_embedding_base_url(env: dict[str, str] | None = None) -> str:

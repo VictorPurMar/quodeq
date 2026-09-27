@@ -741,7 +741,7 @@ tests/data/fs/report_parser/test_eval_parsing_standard_guard.py:13:private-modul
 tests/data/fs/report_parser/test_evidence_sqlite_first.py:4:private-module:quodeq.data.fs.report_parser._evidence.load_evidence_map
 tests/data/fs/report_parser/test_evidence_sqlite_first.py:5:private-name:quodeq.data.fs.report_parser._evidence_sqlite._load_run_metadata
 tests/data/fs/report_parser/test_list_runs_index_date.py:5:private-module:quodeq.data.fs.report_parser._date_utils.normalize_date
-tests/data/fs/report_parser/test_report_parsing_exit_reason.py:7:private-module:quodeq.data.fs.report_parser._report_parsing.parse_report_json
+tests/data/fs/report_parser/test_report_parsing_exit_reason.py:10:private-module:quodeq.data.fs.report_parser._report_parsing.parse_report_json
 tests/data/fs/report_parser/test_report_parsing_scope_downgrade.py:6:private-module:quodeq.data.fs.report_parser._report_parsing.build_finding
 tests/data/fs/report_parser/test_repository.py:4:private-module:quodeq.data.fs.report_parser._repository.build_repository_info
 tests/data/fs/test_index_io_except_narrowing.py:14:private-module:quodeq.data.fs._index_cache.IndexCache
@@ -996,9 +996,9 @@ tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.InM
 tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.Job
 tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.MAX_LOG_LINES
 tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.REPORT_PATH_RE
-tests/services/test_job_model_file_store.py:11:private-module:quodeq.services._job_model.Job
-tests/services/test_job_model_file_store.py:12:private-module:quodeq.services._job_file_store.FileJobStore
-tests/services/test_job_model_file_store.py:12:private-name:quodeq.services._job_file_store._default_persist_dir
+tests/services/test_job_model_file_store.py:13:private-module:quodeq.services._job_model.Job
+tests/services/test_job_model_file_store.py:14:private-module:quodeq.services._job_file_store.FileJobStore
+tests/services/test_job_model_file_store.py:14:private-name:quodeq.services._job_file_store._default_persist_dir
 tests/services/test_job_model_serialization.py:6:private-module:quodeq.services._job_model.Job
 tests/services/test_job_model_serialization.py:7:private-name:quodeq.services._job_file_store._job_from_json
 tests/services/test_job_model_serialization.py:7:private-name:quodeq.services._job_file_store._job_to_json

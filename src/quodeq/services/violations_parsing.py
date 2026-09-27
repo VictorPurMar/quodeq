@@ -36,11 +36,22 @@ def _build_violation_from_principle(violation: dict, label: str) -> Finding:
 
 
 def _extract_violations_from_principles(principles: dict) -> list[Finding]:
-    """Walk all principles and collect normalized violation findings."""
+    """Walk all principles and collect normalized violation findings.
+
+    A non-dict *principles* (a malformed evidence file) yields no
+    violations; a principle entry or violation entry that isn't a dict is
+    skipped rather than indexed into.
+    """
+    if not isinstance(principles, dict):
+        return []
     violations: list[Finding] = []
     for raw_key, pdata in principles.items():
+        if not isinstance(pdata, dict):
+            continue
         label = pdata.get("display_name") or raw_key
         for violation in pdata.get("violations") or []:
+            if not isinstance(violation, dict):
+                continue
             violations.append(_build_violation_from_principle(violation, label))
     return violations
 

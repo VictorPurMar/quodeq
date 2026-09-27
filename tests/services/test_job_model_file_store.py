@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
+import threading
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-
 
 from quodeq.core.run.job_status import JobStatus
 from quodeq.services._job_model import Job
 from quodeq.services._job_file_store import FileJobStore, _default_persist_dir
-
-
-# ---------------------------------------------------------------------------
-# FileJobStore
-# ---------------------------------------------------------------------------
 
 
 class TestFileJobStore:
@@ -191,17 +188,90 @@ class TestFileJobStore:
         assert on_disk["ended_at"], "the flip must be persisted with ended_at"
 
     def test_write_failure_does_not_crash(self, tmp_path: Path, monkeypatch):
-        """If writing to disk fails, put() should not raise."""
+        """A write failure must not raise, and must not leave a stray temp file."""
         store = FileJobStore(persist_dir=tmp_path)
         job = Job("j1", "done", ["echo"], "now", "later", 0)
-        # Make the persist dir read-only to trigger OSError
 
         def fail_write(*a, **kw):
             raise OSError("disk full")
 
-        monkeypatch.setattr(Path, "write_text", fail_write)
-        # Should log warning but not raise
+        monkeypatch.setattr("quodeq.services._job_file_store.dump_json_and_replace", fail_write)
         store.put(job)
+        assert not (tmp_path / "j1.json").exists()
+        assert list(tmp_path.glob("*.tmp")) == []
+
+    def test_non_object_job_file_skipped_without_crashing_startup(self, tmp_path: Path):
+        """A valid-JSON but non-object job file (e.g. a list) must be
+        skipped like any other corrupt file, not abort the whole load."""
+        (tmp_path / "list.json").write_text(json.dumps([1, 2, 3]))
+        (tmp_path / "ok.json").write_text(json.dumps({"job_id": "ok", "status": "done"}))
+        store = FileJobStore(persist_dir=tmp_path)
+        assert store.get("ok").status is JobStatus.DONE
+        assert len(store.list()) == 1
+
+    def test_non_utf8_job_file_skipped_without_crashing_startup(self, tmp_path: Path):
+        """Non-UTF-8 bytes in a job file must not abort startup."""
+        (tmp_path / "bad.json").write_bytes(b"\xff\xfe\x00\x01garbage")
+        (tmp_path / "ok.json").write_text(json.dumps({"job_id": "ok", "status": "done"}))
+        store = FileJobStore(persist_dir=tmp_path)
+        assert len(store.list()) == 1
+
+
+class TestConcurrentSameJobWrites:
+    """Row 2374: two writers on the same job id must never publish a torn file."""
+
+    def test_never_reuses_a_temp_path(self, tmp_path: Path, monkeypatch):
+        """A shared ``{job_id}.tmp`` lets one writer's replace publish the other's still-open file."""
+        store = FileJobStore(persist_dir=tmp_path)
+        seen: list[str] = []
+        real_replace = os.replace
+
+        def spy(src, dst):
+            seen.append(str(src))
+            return real_replace(src, dst)
+
+        monkeypatch.setattr(os, "replace", spy)
+        store.put(Job("shared", "running", ["echo"], "now", None, None))
+        store.put(Job("shared", "running", ["echo"], "now", None, None))
+        assert len(seen) == 2 and seen[0] != seen[1]
+
+    def test_concurrent_writers_never_publish_invalid_json(self, tmp_path: Path):
+        """A reader polling while two threads hammer put() on one job id must never see invalid JSON."""
+        store = FileJobStore(persist_dir=tmp_path)
+        path = tmp_path / "shared.json"
+        stop = threading.Event()
+        failures: list[str] = []
+
+        def writer(tag: str) -> None:
+            i = 0
+            while not stop.is_set():
+                job = Job("shared", "running", ["echo", tag], "now", None, None)
+                job.logs.append((tag * 200) + str(i))
+                store.put(job)
+                i += 1
+
+        def reader() -> None:
+            deadline = time.time() + 0.6
+            while time.time() < deadline:
+                try:
+                    text = path.read_text(encoding="utf-8") if path.exists() else ""
+                except OSError:
+                    continue
+                if text:
+                    try:
+                        json.loads(text)
+                    except json.JSONDecodeError as exc:
+                        failures.append(str(exc))
+
+        threads = [threading.Thread(target=writer, args=(t,)) for t in ("a", "b")]
+        threads.append(threading.Thread(target=reader))
+        for t in threads:
+            t.start()
+        stop.wait(0.6)
+        stop.set()
+        for t in threads:
+            t.join(timeout=5)
+        assert failures == []
 
 
 class TestDefaultPersistDir:

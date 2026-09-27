@@ -150,11 +150,8 @@ def dimension_report_exists(evaluation_dir: Path, dim_id: str) -> bool:
 
 
 def read_run_status_json(run_dir: Path) -> dict:
-    """Parse ``status.json`` in *run_dir*, or ``{}`` on any read/parse error."""
-    try:
-        return json.loads((run_dir / "status.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return {}
+    """Parse ``status.json`` in *run_dir*, or ``{}`` on any read/parse/shape error."""
+    return read_json_object(run_dir / "status.json") or {}
 
 
 def read_queue_state(queue_path: Path) -> dict | None:

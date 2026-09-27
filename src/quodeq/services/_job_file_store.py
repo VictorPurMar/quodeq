@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from collections import deque
 from collections.abc import Mapping
@@ -19,6 +20,7 @@ from pathlib import Path
 from quodeq.config.services_env import job_persist_dir as _resolve_job_persist_dir
 from quodeq.core.run.job_status import JobStatus, parse_job_status
 from quodeq.shared.clock import utc_now_iso
+from quodeq.shared.json_state import dump_json_and_replace
 from quodeq.services._job_model import InMemoryJobStore, Job, JobStore, MAX_LOG_LINES, logger
 
 _STALE_JOB_AGE_S = 24 * 60 * 60  # 24 hours
@@ -140,24 +142,39 @@ class FileJobStore(InMemoryJobStore):
         self._write_data(job.job_id, _job_to_json(job))
 
     def _write_data(self, job_id: str, data: dict) -> None:
-        """Write pre-serialized job data to disk. Does NOT require the lock."""
+        """Write pre-serialized job data to disk. Does NOT require the lock.
+
+        Each call gets its own temp file (``tempfile.mkstemp``, not a fixed
+        ``{job_id}.tmp``): two writers persisting the same job id concurrently
+        must never share one temp path, or one writer's in-progress content
+        can be exposed under the published name by the other's rename before
+        it finishes writing. ``_load_all`` only globs ``*.json``, so a
+        leftover ``*.tmp`` name is never picked up as a job record.
+        """
         path = self._job_path(job_id)
-        tmp = path.with_suffix(".tmp")
         try:
-            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            # SECURITY: restrict job files to owner-only read/write
-            os.chmod(tmp, 0o600)
-            tmp.replace(path)
-            os.chmod(path, 0o600)
+            fd, tmp = tempfile.mkstemp(dir=self._persist_dir, prefix=f"{job_id}.", suffix=".tmp")
         except OSError:
             logger.warning("Failed to persist job %s", job_id, exc_info=True)
-            tmp.unlink(missing_ok=True)
+            return
+        try:
+            # SECURITY: restrict job files to owner-only read/write
+            dump_json_and_replace(fd, tmp, path, data, indent=2, mode=0o600)
+        except OSError:
+            logger.warning("Failed to persist job %s", job_id, exc_info=True)
+            try:
+                os.unlink(tmp)
+            except OSError as unlink_exc:
+                logger.debug("temp job file %s not removed: %s", tmp, unlink_exc)
 
     def _load_all(self) -> None:
         """Load every .json file in the persist dir."""
         for path in self._persist_dir.glob("*.json"):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    logger.warning("Skipping non-object job file %s", path)
+                    continue
                 job = _job_from_json(data)
                 # Jobs that were 'running' when the server went down lose
                 # their monitor thread, but the subprocess itself was
@@ -177,7 +194,7 @@ class FileJobStore(InMemoryJobStore):
                     self._write(job)
                 else:
                     self._jobs[job.job_id] = job
-            except (json.JSONDecodeError, KeyError, OSError):
+            except (json.JSONDecodeError, KeyError, OSError, UnicodeDecodeError):
                 logger.warning("Skipping corrupt job file %s", path, exc_info=True)
 
     def _cleanup_stale(self) -> None:

@@ -53,6 +53,24 @@ class TestEnvFloat:
     def test_below_minimum_returns_default(self):
         assert env_float("X", 1.5, minimum=0.0, env={"X": "-3"}) == 1.5
 
+    def test_infinity_returns_default_and_warns(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="quodeq.shared.env"):
+            assert env_float("X", 1.5, env={"X": "inf"}) == 1.5
+        assert "Invalid X=" in caplog.text
+
+    def test_nan_returns_default_and_warns(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="quodeq.shared.env"):
+            assert env_float("X", 1.5, env={"X": "nan"}) == 1.5
+        assert "Invalid X=" in caplog.text
+
+    def test_infinity_rejected_even_when_above_minimum(self):
+        """`inf` always clears a `< minimum` check, so the minimum guard
+        alone would let it through; isfinite must be checked regardless."""
+        assert env_float("X", 1.5, minimum=0.0, env={"X": "inf"}) == 1.5
+
+    def test_negative_infinity_rejected_even_without_a_minimum(self):
+        assert env_float("X", 1.5, env={"X": "-inf"}) == 1.5
+
 
 _SENTINEL_PROCESS_VALUE = "__process_value_must_be_ignored__"
 

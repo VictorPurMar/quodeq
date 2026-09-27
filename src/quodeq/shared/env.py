@@ -12,6 +12,7 @@ cycle back through this module -- see that module's docstring.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable, Mapping
 from typing import TypeVar
 
@@ -50,6 +51,13 @@ def _env_number(
         if warn:
             logging.getLogger(__name__).warning(
                 "Invalid %s=%r (expected %s), using default %r",
+                var, raw, "integer" if kind is int else "number", default,
+            )
+        return default
+    if not math.isfinite(value):
+        if warn:
+            logging.getLogger(__name__).warning(
+                "Invalid %s=%r (expected a finite %s), using default %r",
                 var, raw, "integer" if kind is int else "number", default,
             )
         return default

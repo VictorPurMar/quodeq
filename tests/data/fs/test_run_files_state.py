@@ -8,7 +8,27 @@ never-raise contract.
 from __future__ import annotations
 
 from quodeq.core.run.state import RunState
-from quodeq.data.fs.run_files import read_run_state
+from quodeq.data.fs.run_files import read_run_state, read_run_status_json
+
+
+class TestReadRunStatusJson:
+    def test_missing_file_is_empty_dict(self, tmp_path):
+        assert read_run_status_json(tmp_path) == {}
+
+    def test_corrupt_json_is_empty_dict(self, tmp_path):
+        (tmp_path / "status.json").write_text("{ not valid json")
+        assert read_run_status_json(tmp_path) == {}
+
+    def test_non_object_json_is_empty_dict(self, tmp_path):
+        """A syntactically-valid but non-object status.json (e.g. a JSON
+        array) must degrade to {}, not the raw parsed value: callers do
+        ``data.get(...)``, which crashes on a list."""
+        (tmp_path / "status.json").write_text("[1, 2, 3]")
+        assert read_run_status_json(tmp_path) == {}
+
+    def test_valid_object_round_trips(self, tmp_path):
+        (tmp_path / "status.json").write_text('{"state": "done"}')
+        assert read_run_status_json(tmp_path) == {"state": "done"}
 
 
 def test_reads_state(tmp_path):
