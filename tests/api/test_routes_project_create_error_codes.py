@@ -69,6 +69,72 @@ def test_post_projects_non_string_clone_dest_returns_400(client):
     mock_create.assert_not_called()
 
 
+def test_post_projects_string_ephemeral_returns_400(client):
+    with patch(
+        "quodeq.services.filesystem.FilesystemActionProvider.create_project",
+        return_value=_created_result(),
+    ) as mock_create:
+        resp = client.post(
+            "/api/projects",
+            json={"repo": "https://x/y.git", "ephemeral": "false"},
+            headers=_ORIGIN,
+        )
+    assert resp.status_code == 400
+    assert resp.is_json
+    body = resp.get_json()
+    assert body["code"] == "INVALID_PARAM"
+    assert "ephemeral" in body["error"]
+    mock_create.assert_not_called()
+
+
+def test_post_projects_real_bool_ephemeral_true_is_unaffected(client):
+    with patch(
+        "quodeq.services.filesystem.FilesystemActionProvider.create_project",
+        return_value=_created_result(),
+    ) as mock_create:
+        resp = client.post(
+            "/api/projects",
+            json={"repo": "https://x/y.git", "ephemeral": True},
+            headers=_ORIGIN,
+        )
+    assert resp.status_code == 200
+    mock_create.assert_called_once()
+
+
+def test_post_projects_real_bool_ephemeral_false_is_unaffected(client, tmp_path):
+    # cloneDest must be an existing dir under home; the shared `client`
+    # fixture patches Path.home to tmp_path.
+    clone_dest = tmp_path / "code"
+    clone_dest.mkdir()
+    with patch(
+        "quodeq.services.filesystem.FilesystemActionProvider.create_project",
+        return_value=_created_result(),
+    ) as mock_create:
+        resp = client.post(
+            "/api/projects",
+            json={"repo": "https://x/y.git", "ephemeral": False, "cloneDest": str(clone_dest)},
+            headers=_ORIGIN,
+        )
+    assert resp.status_code == 200
+    mock_create.assert_called_once()
+
+
+def test_post_projects_null_ephemeral_is_treated_as_absent(client, tmp_path):
+    clone_dest = tmp_path / "code"
+    clone_dest.mkdir()
+    with patch(
+        "quodeq.services.filesystem.FilesystemActionProvider.create_project",
+        return_value=_created_result(),
+    ) as mock_create:
+        resp = client.post(
+            "/api/projects",
+            json={"repo": "https://x/y.git", "ephemeral": None, "cloneDest": str(clone_dest)},
+            headers=_ORIGIN,
+        )
+    assert resp.status_code == 200
+    mock_create.assert_called_once()
+
+
 def test_post_projects_non_string_discipline_returns_400(client):
     # ephemeral: True avoids the unrelated "cloneDest is required" branch, so
     # this isolates the discipline-specific type check.

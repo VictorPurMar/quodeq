@@ -17,6 +17,7 @@ from flask import Response, jsonify
 from quodeq.api._constants import (
     CODE_INVALID_CLONE_DEST, CODE_INVALID_DISCIPLINE, CODE_INVALID_INPUT, CODE_INVALID_REPO,
     CODE_PROJECT_EXISTS)
+from quodeq.api._llm_bridge_validation import bool_fields_error
 from quodeq.api.helpers import (
     json_error,
     jsonify_error,
@@ -70,6 +71,9 @@ def _parse_create_project_request(
     if clone_dest is not None and not isinstance(clone_dest, str):
         return None, json_error("cloneDest must be a string", HTTPStatus.BAD_REQUEST, CODE_INVALID_CLONE_DEST)
     clone_dest = clone_dest or None
+    bool_error = bool_fields_error(data, ("ephemeral",))
+    if bool_error is not None:
+        return None, bool_error
     ephemeral = bool(data.get("ephemeral", False))
     reports_root = _reports_dir()
 
