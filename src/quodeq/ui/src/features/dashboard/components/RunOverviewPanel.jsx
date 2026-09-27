@@ -10,7 +10,7 @@ import { withDimensionsStr } from '../../../utils/dimensionUtils.js';
 import buildRunSummary from '../buildRunSummary.js';
 import { t } from '../../../strings/index.js';
 import { RunHeroSection } from './RunHeroSection.jsx';
-import SinceBaselinePanel, { baselineDateLabel } from './SinceBaselinePanel.jsx';
+import SinceBaselinePanel from './SinceBaselinePanel.jsx';
 import { sumSinceBaseline } from '../headlineStats.js';
 import { useSeeFindings } from '../hooks/useSeeFindings.js';
 import { useRunReportSpecs } from './runReportSpecs.jsx';
@@ -120,7 +120,7 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, selectedPro
 
   return (
     <div className="run-overview-fade run-overview-ready">
-      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} baselineDate={baselineDateLabel(since, availableRuns)} />
+      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} />
       <SinceBaselinePanel since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns} onSeeFindings={seeFindings} />
       <section className="quality-dimensions" aria-label={t('overview.qualityDimensionsAria')}>
         <div className="quality-dimensions__head">
