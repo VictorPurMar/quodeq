@@ -11,8 +11,9 @@ from quodeq.core.scoring.internals import (
     violation_ceiling,
 )
 from quodeq.core.scoring.params import DEFAULT_PARAMS, ScoringParams
+from quodeq.core.types.severity import Severity
 
-_SEVERITIES = ("critical", "major", "minor")
+_SEVERITIES = (Severity.CRITICAL, Severity.MAJOR, Severity.MINOR)
 
 
 def explain_principle(
@@ -25,7 +26,7 @@ def explain_principle(
     grade tables hold for the same tallies and parameters."""
     base, lift, raw, final = principle_stages(vt_counts, ct_counts, params=params)
     return {
-        "types": {sev: int(vt_counts.get(sev, 0)) for sev in _SEVERITIES},
+        "types": {str(sev): int(vt_counts.get(sev, 0)) for sev in _SEVERITIES},
         "complianceTypes": int(sum(ct_counts.values())),
         "weightedViolations": weighted_sum(vt_counts, params.severity_weight),
         "base": base,

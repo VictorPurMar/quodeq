@@ -11,8 +11,7 @@ from quodeq.core.scoring.params import ScoringParams, params_to_dict
 from quodeq.core.scoring.principle import compute_tallies
 from quodeq.core.types.finding import Finding
 from quodeq.core.utils.io import resolve_child_dir
-from quodeq.data.fs.grade_formula_store import load_params
-from quodeq.data.projection.grade_projector import GradeInputs, load_grade_inputs
+from quodeq.services.wiring import GradeInputs, load_grade_inputs, load_params
 
 
 def _run_dir(reports_root: Path, project: str, run_id: str) -> Path:

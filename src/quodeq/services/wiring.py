@@ -295,6 +295,5 @@ from quodeq.data.fs.grade_formula_store import (  # noqa: F401
     save_params,
 )
 from quodeq.data.projection.grade_projector import (  # noqa: F401
-    compute_run_grades,
-    recompute_grades,
+    GradeInputs, compute_run_grades, load_grade_inputs, recompute_grades,
 )
