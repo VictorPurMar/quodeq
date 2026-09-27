@@ -127,3 +127,21 @@ describe('HelpPage deep link', () => {
     expect(screen.getByRole('button', { name: 'Philosophy' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
+
+describe('HelpPage grade formula parameters', () => {
+  it('documents every on-the-fly parameter', () => {
+    render(<HelpPage initialSection="grade-formula" />);
+    for (const name of ['Severity weights', 'Strictness K', 'Lift compress', 'Ceiling scale', 'Severity floors', 'Grade thresholds', 'Dimension weights']) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    }
+  });
+});
+
+describe('HelpPage overview header stats', () => {
+  it('describes majors, open types, density and the since-baseline panel', () => {
+    render(<HelpPage initialSection="overview" />);
+    for (const name of ['Majors', 'Open types', 'Density', 'Since baseline']) {
+      expect(screen.getAllByText(name, { exact: false }).length).toBeGreaterThan(0);
+    }
+  });
+});
