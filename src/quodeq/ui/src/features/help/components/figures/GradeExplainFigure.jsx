@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../../../../api/ApiContext.jsx';
 import { projectKeys } from '../../../../api/queryKeys.js';
 import { useHelpScope } from '../helpScope.js';
-import { explainRows } from './gradeExplainRows.js';
+import { stageRows } from '../../../grade-formula/stages/stageRows.js';
 import { t } from '../../../../strings/index.js';
 
 function useExplain(project, runId, dimension) {
@@ -45,7 +45,7 @@ function PrincipleBody({ principle, params }) {
   if (principle.insufficient) {
     return <p className="gf-explain__note">{t('helpFigure.explainInsufficient', { principle: principle.principleId, findings: principle.findings, compliance: principle.compliance })}</p>;
   }
-  return <StageRows rows={explainRows(principle.stages, params)} />;
+  return <StageRows rows={stageRows(principle.stages, params)} />;
 }
 
 function Picker({ id, labelKey, options, value, onChange }) {

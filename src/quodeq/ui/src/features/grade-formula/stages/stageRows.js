@@ -1,8 +1,8 @@
 /**
  * One line per scoring stage, with the value and the formula parameter that
- * moves it, for the "Why this grade" worked example.
+ * moves it: the worked example beside the grade-formula sliders.
  */
-import { t } from '../../../../strings/index.js';
+import { t } from '../../../strings/index.js';
 
 const ONE_DECIMAL = 1;
 const TWO_DECIMALS = 2;
@@ -20,7 +20,7 @@ function joined(values) {
  * @param {Object} params the endpoint's params (camelCase)
  * @returns {Array<{key: string, label: string, value: string, param: string|null, paramValue: string|null, tab: string}>}
  */
-export function explainRows(stages, params) {
+export function stageRows(stages, params) {
   const w = params.severityWeight || {};
   return [
     { key: 'types', label: t('helpFigure.stageTypes'),
@@ -39,4 +39,19 @@ export function explainRows(stages, params) {
     { key: 'final', label: t('helpFigure.stageFinal'), value: t('helpFigure.stageFinalValue', { score: num(stages.final), grade: stages.grade }),
       param: t('helpFigure.paramThresholds'), paramValue: joined((params.gradeThresholds || []).map(([v]) => v)), tab: t('helpFigure.tabBoundaries') },
   ];
+}
+
+/**
+ * The rows and the final "score grade" of one principle of the explain
+ * payload, or nulls when the scorer found it insufficient.
+ * @param {{insufficient: boolean, stages: Object|null}} principle
+ * @param {Object} params the payload's params (camelCase)
+ * @returns {{insufficient: boolean, rows: Array|null, final: string|null}}
+ */
+export function stageSummary(principle, params) {
+  if (!principle || principle.insufficient || !principle.stages) {
+    return { insufficient: true, rows: null, final: null };
+  }
+  const rows = stageRows(principle.stages, params);
+  return { insufficient: false, rows, final: rows[rows.length - 1].value };
 }
