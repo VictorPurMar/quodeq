@@ -5,6 +5,7 @@
  */
 import { useMemo } from 'react';
 import TypeRowMenu from './TypeRowMenu.jsx';
+import TypeGroupRow from './TypeGroupRow.jsx';
 import { buildTypeRows, groupRows, TYPE_GROUP } from '../byTypeModel.js';
 import { activationHandlers } from '../../../utils/a11y.js';
 import { t } from '../../../strings/index.js';
@@ -14,18 +15,6 @@ const COLUMN_KEYS = ['violations.colType', 'violations.colBaseline', 'violations
 function signed(n) {
   if (n === null || n === undefined) return '';
   return n > 0 ? `+${n}` : String(n);
-}
-
-function GroupRow({ entry }) {
-  const isDim = entry.type === TYPE_GROUP.DIMENSION;
-  return (
-    <tr className={isDim ? 'heat-grid-dim-row' : 'heat-grid-principle-row'}>
-      <td className={isDim ? undefined : 'heat-grid-td-indent'}>{entry.name || t('violations.unknownPrinciple')}</td>
-      <td colSpan={COLUMN_KEYS.length - 1} className="heat-grid-td-muted">
-        {t('violations.typeGroupCounts', { open: entry.openTypes, closed: entry.closedTypes })}
-      </td>
-    </tr>
-  );
 }
 
 function TypeName({ row, onTypeClick }) {
@@ -75,7 +64,7 @@ export default function ByTypeView({ dimensions, diffsByRun, standardsByDim, loa
         <tbody>
           {grouped.map((entry) => (entry.type === TYPE_GROUP.TYPE
             ? <TypeRow key={entry.key} row={entry} onTypeClick={onTypeClick} onDismissType={onDismissType} />
-            : <GroupRow key={`${entry.type}-${entry.name}`} entry={entry} />))}
+            : <TypeGroupRow key={`${entry.type}-${entry.name}`} entry={entry} colSpan={COLUMN_KEYS.length - 1} />))}
         </tbody>
       </table>
     </div>

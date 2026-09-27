@@ -107,6 +107,19 @@ describe('GradeFormulaPage', () => {
     expect(api.getGradeExplain).not.toHaveBeenCalled();
   });
 
+  it('the TYPES tab lists the run types with the draft weight', async () => {
+    mockHook();
+    const runDimensions = [{ dimension: 'security', violations: [{ req: 'S-INJ-1', principle: 'Input', file: 'a.py', line: 1, severity: 'major' }] }];
+    mount(
+      <GradeFormulaPage navigation={{ selectedProject: 'proj-1' }} scope={{ project: 'proj-1', runId: 'r1', dimensions: ['security'], dimension: null, runDimensions, selectedSource: null }} />,
+      { getGradeExplain: vi.fn(async () => EXPLAIN), previewGradeExplain: vi.fn(async () => EXPLAIN), getRunDiff: vi.fn(async () => ({ dimensions: {} })), getStandard: vi.fn(async () => ({ principles: [] })) },
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'TYPES' }));
+    expect(await screen.findByText('S-INJ-1')).toBeInTheDocument();
+    expect(screen.getByText('3.0')).toBeInTheDocument();
+    expect(screen.getByText('no baseline')).toBeInTheDocument();
+  });
+
   it('unknown dimension falls back to the first one the scope knows', async () => {
     mockHook();
     mount(<GradeFormulaPage navigation={{ selectedProject: 'proj-1' }} scope={{ project: 'proj-1', runId: 'r1', dimensions: ['security'], dimension: 'nope' }} />);

@@ -1634,5 +1634,17 @@
   "gradeFormula.pickPrinciple": "Principle",
   "gradeFormula.yourRun": "your run {date}",
   "gradeFormula.stagesAria": "Scoring stages",
-  "gradeFormula.typesEmpty": "open a project with a finished run to see its types"
+  "gradeFormula.typesEmpty": "No requirement types with findings in this run.",
+  "gradeFormula.colType": "Type",
+  "gradeFormula.colSeverity": "Severity",
+  "gradeFormula.colWeight": "Weight",
+  "gradeFormula.colFindings": "Findings",
+  "gradeFormula.colBaseline": "Baseline",
+  "gradeFormula.colStatus": "Status",
+  "gradeFormula.typeOpen": "open",
+  "gradeFormula.typeClosed": "closed",
+  "gradeFormula.noBaseline": "no baseline",
+  "gradeFormula.typesFilterAll": "all dimensions",
+  "gradeFormula.typesAria": "Requirement types",
+  "gradeFormula.typesNoRun": "open a project with a finished run to see its types"
 }

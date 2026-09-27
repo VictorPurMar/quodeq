@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { TermHeader } from '../../components/terminal/index.js';
 import useGradeFormula from './useGradeFormula.js';
 import { useStageExplain } from './hooks/useStageExplain.js';
+import { useTypesRows } from './hooks/useTypesRows.js';
 import { liveStages, pickPrincipleId } from './stages/liveStages.js';
 import PreviewStrip from './PreviewStrip.jsx';
 import FormulaTab from './FormulaTab.jsx';
@@ -28,7 +29,9 @@ const DEFAULT_TAB_ID = TABS[0].id;
 const TAB_PANEL_ID = 'gf-tabpanel';
 
 /** What the page knows about the reader's project when it opens outside a run. */
-export const EMPTY_SCOPE = Object.freeze({ project: null, runId: null, dimensions: [], dimension: null });
+export const EMPTY_SCOPE = Object.freeze({
+  project: null, runId: null, dimensions: [], dimension: null, runDimensions: [], selectedSource: null,
+});
 
 function tabButtonId(tabId) {
   return `gf-tab-${tabId}`;
@@ -107,6 +110,17 @@ function useWorkedExample(scope, draft) {
   };
 }
 
+// The TYPES tab's rows for the reader's run, and the dimension it is
+// narrowed to.
+function useTypesTab(scope, draft) {
+  const [dimensionFilter, setDimensionFilter] = useState(null);
+  const { rows, loading } = useTypesRows({
+    project: scope.project, runId: scope.runId, dimensions: scope.runDimensions,
+    selectedSource: scope.selectedSource, draft,
+  });
+  return { rows, loading, dimensionFilter, setDimensionFilter, dimensions: scope.dimensions, noRun: !scope.runId };
+}
+
 function LoadingPage({ error }) {
   return (
     <div className="settings-page settings-page--terminal">
@@ -120,7 +134,8 @@ function LoadingPage({ error }) {
  * Settings › Grade formula: the four scoring stages with the reader's own
  * numbers, the types table, the dimension weights, and APPLY / RESET.
  * @param {object} props.navigation - the app's navigation state (selectedProject)
- * @param {{project: string|null, runId: string|null, dimensions: string[], dimension: string|null}} props.scope
+ * @param {{project: string|null, runId: string|null, dimensions: string[], dimension: string|null, runDimensions: Array, selectedSource: string|null}} props.scope
+ *   `dimensions` are names; `runDimensions` the dashboard's run dimensions with their findings.
  * @param {string|null} props.runLabel - the run's date for the header, when there is a run
  */
 export default function GradeFormulaPage({ navigation, scope = EMPTY_SCOPE, runLabel = null }) {
@@ -131,6 +146,7 @@ export default function GradeFormulaPage({ navigation, scope = EMPTY_SCOPE, runL
     update, apply, resetToDefaults,
   } = useGradeFormula(projectId);
   const example = useWorkedExample(scope, draft);
+  const types = useTypesTab(scope, draft);
 
   if (!draft) return <LoadingPage error={error} />;
 
@@ -146,7 +162,7 @@ export default function GradeFormulaPage({ navigation, scope = EMPTY_SCOPE, runL
         principles={example.principles}
       />
       <TabButtons tab={tab} setTab={setTab} />
-      <TabBody busy={busy} ActiveBody={ActiveBody} activeTabId={tab} bodyProps={{ draft, update, stages: example.stages, scope }} />
+      <TabBody busy={busy} ActiveBody={ActiveBody} activeTabId={tab} bodyProps={{ draft, update, stages: example.stages, ...types }} />
       <PreviewStrip
         preview={preview}
         emptyHint={projectId
