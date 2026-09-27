@@ -43,6 +43,8 @@ _ACTIVE_PHASES = frozenset({"downloading", "verifying", "installing", "relaunchi
 _PERCENT_COMPLETE = 100  # a phase-transition progress value, not a running download's percent
 _EXIT_DELAY_S = 0.5  # gives the HTTP response reporting "relaunching" time to flush
 _TEST_JOIN_TIMEOUT_S = 5  # _join_for_tests' cap on waiting for the update thread
+_CHECK_TIMEOUT_S = 60  # bounds _check()'s spctl/hdiutil-attach/ditto/codesign-verify calls, and codesign -dvv
+_HDIUTIL_DETACH_TIMEOUT_S = 60  # bounds unmounting the downloaded DMG
 
 _lock = threading.Lock()
 _progress: dict = {"phase": "idle", "percent": 0, "error": None}
@@ -145,7 +147,9 @@ def start(
 
 
 def _check(argv: list[str], message: str) -> None:
-    result = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(
+        argv, capture_output=True, text=True, encoding="utf-8", timeout=_CHECK_TIMEOUT_S
+    )
     if result.returncode != 0:
         _logger.warning("self-update command failed (%s): %s", argv[0], result.stderr)
         raise UpdateError(message)
@@ -166,7 +170,8 @@ def _verify_mounted_app(mnt: Path, app_name: str, team: str, target_version: str
         "The downloaded update has an invalid signature",
     )
     info = subprocess.run(
-        ["codesign", "-dvv", str(app_src)], capture_output=True, text=True, encoding="utf-8"
+        ["codesign", "-dvv", str(app_src)],
+        capture_output=True, text=True, encoding="utf-8", timeout=_CHECK_TIMEOUT_S,
     )
     if f"TeamIdentifier={team}" not in (info.stderr or "") + (info.stdout or ""):
         raise UpdateError("The downloaded update is signed by an unexpected developer")
@@ -181,8 +186,10 @@ def _verify_mounted_app(mnt: Path, app_name: str, team: str, target_version: str
 
 def _run_update(download_url: str, target_version: str, install_app: Path, team: str) -> None:
     """Thread target: isolate _do_run_update so a bug there can't crash the
-    daemon thread silently. UpdateError is already handled (and logged)
-    inside _do_run_update; this boundary only catches what escapes that."""
+    daemon thread silently. UpdateError and subprocess.SubprocessError (a
+    timed-out codesign/spctl/hdiutil/ditto call) are already handled (and
+    logged) inside _do_run_update; this boundary only catches what escapes
+    that."""
     run_isolated(
         lambda: _do_run_update(download_url, target_version, install_app, team),
         label="self-update",
@@ -218,19 +225,25 @@ def _do_run_update(download_url: str, target_version: str, install_app: Path, te
         staging = install_app.parent / f".{install_app.name}.new"
         shutil.rmtree(staging, ignore_errors=True)
         _check(["ditto", str(app_src), str(staging)], "Could not copy the update into place")
-        subprocess.run([_HDIUTIL, "detach", str(mnt)], capture_output=True, text=True, encoding="utf-8")
+        subprocess.run(
+            [_HDIUTIL, "detach", str(mnt)],
+            capture_output=True, text=True, encoding="utf-8", timeout=_HDIUTIL_DETACH_TIMEOUT_S,
+        )
         mounted = False
 
         _swap_bundle(staging, install_app)
         _set(phase="relaunching", percent=_PERCENT_COMPLETE)
         _spawn_relauncher(install_app)
         _request_app_exit()
-    except UpdateError as exc:
+    except (UpdateError, subprocess.SubprocessError) as exc:
         _logger.warning("self-update failed: %s", exc)
         _set(phase="error", error=str(exc))
     finally:
         if mounted:
-            subprocess.run([_HDIUTIL, "detach", str(mnt)], capture_output=True, text=True, encoding="utf-8")
+            subprocess.run(
+                [_HDIUTIL, "detach", str(mnt)],
+                capture_output=True, text=True, encoding="utf-8", timeout=_HDIUTIL_DETACH_TIMEOUT_S,
+            )
         shutil.rmtree(tmp, ignore_errors=True)
 
 

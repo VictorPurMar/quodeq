@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import plistlib
 import shutil
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -199,6 +200,33 @@ def test_version_mismatch_errors(tmp_path: Path) -> None:
     with patch("quodeq.update.selfupdate._mountpoint_for_tests", tmp_path / "mnt-root"):
         install_app, *_ = _run_engine(tmp_path, fake, target_version="1.12.0")
     assert selfupdate.describe(DMG_URL)["phase"] == "error"
+
+
+def test_subprocess_timeout_sets_error_without_touching_install(tmp_path: Path) -> None:
+    """A subprocess.TimeoutExpired from any guarded command (spctl, hdiutil,
+    ditto, codesign) is caught alongside UpdateError: the update step fails
+    cleanly instead of escaping to the run_isolated boundary's generic
+    message."""
+    install_app = _make_bundle(tmp_path / "Applications", version="1.10.1")
+
+    def _timeout(argv, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout", 60))
+
+    with (
+        patch("quodeq.update.selfupdate.subprocess.run", side_effect=_timeout),
+        patch("quodeq.update.selfupdate._download_file", _fake_download(tmp_path)),
+    ):
+        started = selfupdate.start(
+            DMG_URL, "1.11.0", install_app=install_app, team_id="ABCDE12345"
+        )
+        assert started is True
+        selfupdate._join_for_tests()
+
+    status = selfupdate.describe(DMG_URL)
+    assert status["phase"] == "error"
+    assert "timed out" in status["error"]
+    version = plistlib.loads((install_app / "Contents" / "Info.plist").read_bytes())
+    assert version["CFBundleShortVersionString"] == "1.10.1"
 
 
 def test_unexpected_error_sets_the_generic_error_and_thread_ends_cleanly(tmp_path: Path) -> None:
