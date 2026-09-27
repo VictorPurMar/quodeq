@@ -996,9 +996,9 @@ tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.InM
 tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.Job
 tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.MAX_LOG_LINES
 tests/services/test_job_model.py:6:private-module:quodeq.services._job_model.REPORT_PATH_RE
-tests/services/test_job_model_file_store.py:13:private-module:quodeq.services._job_model.Job
-tests/services/test_job_model_file_store.py:14:private-module:quodeq.services._job_file_store.FileJobStore
-tests/services/test_job_model_file_store.py:14:private-name:quodeq.services._job_file_store._default_persist_dir
+tests/services/test_job_model_file_store.py:11:private-module:quodeq.services._job_model.Job
+tests/services/test_job_model_file_store.py:12:private-module:quodeq.services._job_file_store.FileJobStore
+tests/services/test_job_model_file_store.py:12:private-name:quodeq.services._job_file_store._default_persist_dir
 tests/services/test_job_model_serialization.py:6:private-module:quodeq.services._job_model.Job
 tests/services/test_job_model_serialization.py:7:private-name:quodeq.services._job_file_store._job_from_json
 tests/services/test_job_model_serialization.py:7:private-name:quodeq.services._job_file_store._job_to_json
