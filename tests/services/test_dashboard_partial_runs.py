@@ -59,7 +59,7 @@ def test_cancelled_run_with_scored_dims_is_listed_with_its_own_scores(dashboard)
     assert entry["dimensionsCount"] == 1
     assert entry["dimensionDetails"] == [
         {"dimension": "security", "score": 5.0, "grade": "C", "delta": None,
-         "violations": 0, "majors": 0, "openTypes": 0},
+         "violations": 0, "majors": 0, "openTypes": 0, "critical": 0},
     ]
 
 
