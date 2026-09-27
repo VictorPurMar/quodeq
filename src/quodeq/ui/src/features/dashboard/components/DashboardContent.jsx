@@ -92,6 +92,7 @@ export default function DashboardContent({ runMode, data, focus, callbacks }) {
       <RunOverviewPanel
         dashboard={data.dashboard}
         selectedRunId={data.selectedRunId}
+        availableRuns={data.availableRuns}
         projectName={projectInfo?.displayName || projectInfo?.name || selectedProject}
         onDimensionClick={onDimensionCardClick}
         onFileClick={onFileClick}

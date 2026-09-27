@@ -1527,5 +1527,20 @@
   "overview.openTypesSince": "since {date}",
   "overview.densityHint": "{coverage}% coverage",
   "overview.densityHintNoCoverage": "per 100 files read",
-  "overview.densityUnit": "/100"
+  "overview.densityUnit": "/100",
+  "sinceBaseline.title": "SINCE BASELINE",
+  "sinceBaseline.runs": "run {from} to {to}",
+  "sinceBaseline.runsMixed": "against {count} baseline runs",
+  "sinceBaseline.changedFiles": "{count} files changed",
+  "sinceBaseline.changedFilesOne": "1 file changed",
+  "sinceBaseline.scopeAll": "in all files (no commit recorded or the tree had uncommitted changes)",
+  "sinceBaseline.majors": "majors {delta}",
+  "sinceBaseline.typesClosed": "types closed {list}",
+  "sinceBaseline.typesOpened": "types opened {list}",
+  "sinceBaseline.none": "none",
+  "sinceBaseline.newInChanged": "new in changed files {count}",
+  "sinceBaseline.newInAll": "new in all files {count}",
+  "sinceBaseline.resolved": "resolved {count}",
+  "sinceBaseline.empty": "No changes since {date}. Same commit, same majors, no types closed or opened.",
+  "sinceBaseline.seeFindings": "see findings"
 }
