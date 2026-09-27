@@ -39,6 +39,7 @@ def test_explain_route_returns_stages(client) -> None:
 def test_explain_route_unknown_dimension_is_404(client) -> None:
     resp = client.get(f"/api/projects/{_PROJECT}/runs/{_RUN}/dimensions/usability/explain")
     assert (resp.status_code, resp.get_json()["code"]) == (HTTPStatus.NOT_FOUND, "NOT_FOUND")
+    assert resp.get_json()["error"] == "Dimension not found"
 
 
 def test_explain_route_unknown_run_is_404(client) -> None:

@@ -14,6 +14,10 @@ from quodeq.core.utils.io import resolve_child_dir
 from quodeq.services.wiring import GradeInputs, load_grade_inputs, load_params
 
 
+class DimensionNotFound(FileNotFoundError):
+    """The run exists but has no findings for the requested dimension."""
+
+
 def _run_dir(reports_root: Path, project: str, run_id: str) -> Path:
     project_dir = resolve_child_dir(reports_root, project)
     run_dir = resolve_child_dir(Path(project_dir), run_id) if project_dir else None
@@ -64,7 +68,7 @@ def explain_dimension(
     inputs = load_grade_inputs(run_dir)
     keys = _keys_for(inputs, dimension)
     if not keys:
-        raise FileNotFoundError("Dimension not found")
+        raise DimensionNotFound(dimension)
     return {
         "runId": run_id,
         "dimension": dimension,
