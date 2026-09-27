@@ -4,6 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
 import ViolationsPage from './ViolationsPage.jsx';
 import { withQueryClient } from '../../../test-utils/withQueryClient.jsx';
+import { ApiProvider } from '../../../api/ApiContext.jsx';
+import { VIOLATIONS_SUB_TAB } from '../violationsVocab.js';
 
 // Covers evaluate CTA gating, teammate persona (shared selection + zero
 // local projects), and the shared read-only chip. ViolationsPage's default
@@ -242,5 +244,27 @@ describe('ViolationsPage — shared read-only chip (Finding 6)', () => {
       accumulatedDimensions: [{ dimension: 'security', violations: [], compliance: [] }],
     }));
     expect(screen.queryByText('remote · read-only')).toBeNull();
+  });
+});
+
+describe('ViolationsPage — by-type sub-tab', () => {
+  it('shows the by-type pill pressed and a row per requirement code', async () => {
+    const dim = { dimension: 'security', fromRunId: 'run-1', fromDateLabel: '26 Sep', principles: [{ name: 'Integrity', grade: 'B', score: '7.5' }],
+      violations: [{ req: 'S-1', principle: 'Integrity', file: 'a.py', line: 1, severity: 'minor' }] };
+    const api = { getRunDiff: async () => ({ dimensions: {} }), getStandard: async () => ({ principles: [] }), listDismissedFindings: async () => [] };
+    const QC = withQueryClient();
+    render(
+      <QC>
+        <ApiProvider value={api}>
+          <ViolationsPage
+            data={baseData({ selectedSource: 'local', selectedProject: 'p1', projects: [{ id: 'p1', name: 'p1' }], accumulatedDimensions: [dim] })}
+            callbacks={{ onTypeClick: vi.fn(), onReconcile: vi.fn(), onRefresh: vi.fn() }}
+            subTab={VIOLATIONS_SUB_TAB.TYPE}
+          />
+        </ApiProvider>
+      </QC>,
+    );
+    expect(screen.getByRole('button', { name: 'by-type' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByText('S-1')).toBeInTheDocument();
   });
 });
