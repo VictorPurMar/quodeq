@@ -37,6 +37,7 @@ function headerLine(since, selectedRun, availableRuns) {
 }
 
 function scopeLine(since) {
+  if (since.scope === SCOPE_MIXED) return t('sinceBaseline.scopeMixed');
   if (since.scope !== SCOPE_CHANGED) return t('sinceBaseline.scopeAll');
   return t(pluralKey(since.changedFiles, 'sinceBaseline.changedFilesOne', 'sinceBaseline.changedFiles'), { count: since.changedFiles });
 }

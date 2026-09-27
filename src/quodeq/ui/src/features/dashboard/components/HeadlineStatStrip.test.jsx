@@ -31,6 +31,8 @@ describe('HeadlineStatStrip', () => {
   it('majors delta reads lower-is-better', () => {
     const { container } = render(<HeadlineStatStrip headline={headline} since={since} score={{ display: '9.0' }} />);
     expect(container.querySelector('.trend-badge-up')).not.toBeNull();
+    expect(container.querySelector('.trend-arrow.trend-up')).not.toBeNull();
+    expect(container.querySelector('.trend-arrow.trend-down')).toBeNull();
   });
 
   it('density shows a dash when nothing was read', () => {

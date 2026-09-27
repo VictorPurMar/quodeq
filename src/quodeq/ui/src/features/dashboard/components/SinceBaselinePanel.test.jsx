@@ -36,6 +36,8 @@ describe('SinceBaselinePanel', () => {
   it('reports mixed baselines by count', () => {
     render(<SinceBaselinePanel since={since({ scope: 'mixed', againstRunIds: ['r0', 'rX'], changedFiles: null })} selectedRun={selected} availableRuns={runs} />);
     expect(screen.getByText(/against 2 baseline runs/)).toBeInTheDocument();
+    expect(screen.getByText(/in all files \(baselines differ per dimension\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/no commit recorded/)).toBeNull();
   });
 
   it('shows the empty state on an unchanged tree', () => {

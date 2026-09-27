@@ -1571,5 +1571,6 @@
   "helpFigure.paramLiftCompress": "lift compress",
   "helpFigure.paramCeilScale": "ceiling scale",
   "helpFigure.paramFloors": "severity floors",
-  "helpFigure.paramThresholds": "grade thresholds"
+  "helpFigure.paramThresholds": "grade thresholds",
+  "sinceBaseline.scopeMixed": "in all files (baselines differ per dimension)"
 }

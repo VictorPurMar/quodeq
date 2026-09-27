@@ -67,27 +67,57 @@ function foldScope(entries) {
   return scopes.includes(SCOPE_ALL) || scopes.length !== 1 ? SCOPE_ALL : scopes[0];
 }
 
+/** The block one dimension contributes under the folded scope: the scoped
+ * block when every dimension is scoped to the same changed files, else the
+ * whole-run block (whose counts fall back to the scoped ones when absent). */
+function blockFor(entry, scope) {
+  if (scope === SCOPE_CHANGED) return entry.sinceBaseline;
+  return { ...entry.all, counts: entry.all?.counts || entry.sinceBaseline.counts };
+}
+
 /**
  * Fold the dashboard's per-dimension since-baseline map into one summary.
- * Types and the majors delta come from the whole run (`all`), the new and
- * resolved counts from the scoped block, so a headline never mixes scopes
- * inside one number.
+ * Dimensions with no baseline run (a first run, a dimension new to the
+ * project) are not a baseline and are left out; with none left there is no
+ * summary. Every number comes from one block per dimension, chosen by the
+ * folded scope, so a headline never mixes scopes inside one number.
  * @returns {null|Object}
  */
 export function sumSinceBaseline(sinceBaseline) {
-  const entries = Object.values(sinceBaseline || {}).filter((e) => e && e.sinceBaseline);
+  const entries = Object.values(sinceBaseline || {}).filter((e) => e && e.sinceBaseline && e.againstRunId);
   if (entries.length === 0) return null;
   const scope = foldScope(entries);
+  const blocks = entries.map((e) => blockFor(e, scope));
   const changed = entries.map((e) => e.sinceBaseline.changedFiles);
   return {
-    majorsDelta: entries.reduce((acc, e) => acc + (e.all?.majorsDelta || 0), 0),
-    typesClosed: unique(entries.flatMap((e) => e.all?.types?.closed || [])),
-    typesOpened: unique(entries.flatMap((e) => e.all?.types?.opened || [])),
-    newCount: entries.reduce((acc, e) => acc + (e.sinceBaseline.counts?.new || 0), 0),
-    resolvedCount: entries.reduce((acc, e) => acc + (e.sinceBaseline.counts?.resolved || 0), 0),
+    majorsDelta: blocks.reduce((acc, b) => acc + (b.majorsDelta || 0), 0),
+    typesClosed: unique(blocks.flatMap((b) => b.types?.closed || [])),
+    typesOpened: unique(blocks.flatMap((b) => b.types?.opened || [])),
+    newCount: blocks.reduce((acc, b) => acc + (b.counts?.new || 0), 0),
+    resolvedCount: blocks.reduce((acc, b) => acc + (b.counts?.resolved || 0), 0),
     scope,
     changedFiles: scope === SCOPE_CHANGED ? Math.max(...changed.map((c) => c || 0)) : null,
-    againstRunIds: unique(entries.map((e) => e.againstRunId).filter(Boolean)),
+    againstRunIds: unique(entries.map((e) => e.againstRunId)),
     againstCommitShas: unique(entries.map((e) => e.againstCommitSha).filter(Boolean)),
   };
+}
+
+/** The map restricted to the named dimensions (case-insensitive), so a
+ * headline over visible dimensions never counts a hidden one. */
+export function filterSinceBaseline(sinceBaseline, dimensionNames) {
+  const wanted = new Set((dimensionNames || []).map((n) => String(n).toLowerCase()));
+  return Object.fromEntries(Object.entries(sinceBaseline || {}).filter(([k]) => wanted.has(k.toLowerCase())));
+}
+
+/**
+ * One dimension's entry, only when the page shows the run the summary
+ * describes; any other run (an older one, another project's) gets none.
+ * @param {Object|undefined} sinceBaseline the dashboard map
+ * @param {string} dimension
+ * @param {{runId: string|undefined, baselineRunId: string|undefined}} ids
+ */
+export function sinceBaselineFor(sinceBaseline, dimension, { runId, baselineRunId }) {
+  if (!sinceBaseline || !runId || runId !== baselineRunId) return undefined;
+  const key = Object.keys(sinceBaseline).find((k) => k.toLowerCase() === String(dimension).toLowerCase());
+  return key ? sinceBaseline[key] : undefined;
 }

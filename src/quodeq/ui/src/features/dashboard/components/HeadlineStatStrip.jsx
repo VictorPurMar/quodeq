@@ -9,13 +9,6 @@ import SeverityBadgeRow from './SeverityBadgeRow.jsx';
 import { formatDensity } from '../headlineStats.js';
 import { t } from '../../../strings/index.js';
 import { pluralKey } from '../../../utils/plural.js';
-import { trendDirection } from '../../../utils/trendUtils.js';
-
-/** Lower is better for majors, so the badge direction is the sign flipped:
- * a negative majors delta renders as the "up" (improving) direction. */
-function majorsTrend(delta) {
-  return trendDirection(-delta);
-}
 
 function MajorsStat({ headline, since }) {
   const delta = since ? since.majorsDelta : null;
@@ -23,7 +16,7 @@ function MajorsStat({ headline, since }) {
     <Stat
       label={t('overview.statMajors')}
       value={headline.majors}
-      trailing={delta === null ? null : <TrendBadge delta={String(delta)} trend={majorsTrend(delta)} />}
+      trailing={delta === null ? null : <TrendBadge delta={String(delta)} invert />}
       hint={t(pluralKey(headline.critical, 'overview.majorsHintCriticalOne', 'overview.majorsHintCritical'), { count: headline.critical })}
       tone={headline.critical > 0 ? 'critical' : 'default'}
     />
