@@ -64,6 +64,9 @@ export const projectKeys = {
   ),
   dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID),
   runs: (projectId, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "runs"),
+  // The help page's worked example. Inside the project subtree so dismiss and
+  // formula invalidations reach it like every other per-run read.
+  gradeExplain: (projectId, run, dimension, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "gradeExplain", run || LATEST_RUN_ID, dimension),
   info: (projectId, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "info"),
   // Explorer (dimension detail) queries. Distinct from `scores`: that one is
   // GET /projects/<p>/scores?as_of= (full payload incl. trend/availableRuns),
