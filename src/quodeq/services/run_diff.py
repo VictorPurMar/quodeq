@@ -101,6 +101,7 @@ def _payload(diff: RunDiff) -> dict[str, Any]:
             "notReevaluated": len(diff.not_reevaluated),
         },
         "majorsDelta": diff.majors_delta,
+        "criticalDelta": diff.critical_delta,
         "types": {
             "closed": diff.types_closed, "opened": diff.types_opened,
             "perReq": {req: list(counts) for req, counts in diff.per_req.items()},
@@ -125,6 +126,7 @@ def _since_baseline(
         "scope": SCOPE_ALL if files is None else SCOPE_CHANGED,
         "changedFiles": None if files is None else len(files),
         "majorsDelta": scoped.majors_delta,
+        "criticalDelta": scoped.critical_delta,
         "counts": {"new": len(scoped.new), "resolved": len(scoped.resolved)},
         "types": {"closed": scoped.types_closed, "opened": scoped.types_opened},
         "new": scoped.new[:LIST_CAP], "resolved": scoped.resolved[:LIST_CAP],

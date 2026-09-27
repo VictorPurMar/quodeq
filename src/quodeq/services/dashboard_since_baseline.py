@@ -19,7 +19,7 @@ from quodeq.core.run.state import TERMINAL_STATES, parse_run_state
 from quodeq.services.run_diff import diff_runs
 from quodeq.services.wiring import read_status
 
-_SCOPED_KEYS = ("scope", "changedFiles", "majorsDelta", "counts", "types")
+_SCOPED_KEYS = ("scope", "changedFiles", "majorsDelta", "criticalDelta", "counts", "types")
 _ACTIONS_LOG = "actions.jsonl"
 _DELETED_FILE = "deleted.json"
 _EVAL_DIR = "evaluation"
@@ -41,6 +41,7 @@ def _reduce(entry: dict[str, Any]) -> dict[str, Any]:
         "sinceBaseline": {key: since.get(key) for key in _SCOPED_KEYS},
         "all": {
             "majorsDelta": entry.get("majorsDelta"),
+            "criticalDelta": entry.get("criticalDelta"),
             "counts": {"new": counts.get("new", 0), "resolved": counts.get("resolved", 0)},
             "types": {"closed": types.get("closed") or [], "opened": types.get("opened") or []},
         },
