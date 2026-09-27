@@ -41,14 +41,20 @@ export function angleFromDelta(d) {
   return ANGLE_BASE - Math.sign(clamped) * Math.sqrt(Math.abs(clamped) / DELTA_CLAMP) * ANGLE_RANGE;
 }
 
+const RATIO_DECIMALS = 1;
+const WHOLE_SUFFIX = '.0';
+
 /**
- * Format the ratio of compliance items to violations as a readable string.
+ * The ratio of violations to compliance items as "1:N", N to one decimal
+ * with a whole number left bare: "1:0.9", "1:1.3", "1:5". The first number
+ * is always the violations.
  *
  * @param {number} violations - Number of violations
  * @param {number} compliance - Number of compliance items
- * @returns {string} Formatted ratio string (e.g. "1:5") or em-dash when no violations
+ * @returns {string} Formatted ratio string or em-dash when no violations
  */
 export function complianceRatio(violations, compliance) {
   if (violations === 0) return '—';
-  return `1:${Math.round(compliance / violations)}`;
+  const n = (compliance / violations).toFixed(RATIO_DECIMALS);
+  return `1:${n.endsWith(WHOLE_SUFFIX) ? n.slice(0, -WHOLE_SUFFIX.length) : n}`;
 }

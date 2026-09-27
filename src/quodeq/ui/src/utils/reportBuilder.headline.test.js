@@ -10,7 +10,7 @@ const dashboard = { dimensions: [], selectedRun: { runId: 'abc12345', dateLabel:
 
 test('the tiles line follows the hero: score, violations, compliance, ratio', () => {
   const line = buildTilesLine({ summary: runSummary, score: '9.0/10', grade: 'Exemplary' });
-  assert.equal(line, '**Score:** 9.0/10 Exemplary · **Violations:** 1738 · **Compliance:** 2207 · **Ratio:** 1:1');
+  assert.equal(line, '**Score:** 9.0/10 Exemplary · **Violations:** 1738 · **Compliance:** 2207 · **Ratio:** 1:1.3');
 });
 
 test('the tiles line without totals is the score alone', () => {
