@@ -38,9 +38,9 @@ def test_import_from_library_list_body_returns_400(dirs, monkeypatch):
 
 
 def test_import_standard_string_force_returns_400(client):
-    """``force: "false"`` must be rejected, not coerced -- ``bool("false")``
-    is ``True`` in Python, which would have silently overwritten instead of
-    refusing to import."""
+    """``force: "false"`` is rejected, not coerced: ``bool("false")`` is
+    ``True`` in Python, so coercing it would overwrite an existing standard
+    the client asked to keep."""
     payload = {"data": {"id": "x", "name": "X", "principles": []}, "force": "false"}
     resp = client.post("/api/standards/import", json=payload, headers=_ORIGIN)
     assert resp.status_code == 400

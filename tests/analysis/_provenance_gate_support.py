@@ -44,7 +44,7 @@ class GateCase:
 
 
 def discover_cases() -> list[GateCase]:
-    """Glob the fixture matrix. Returns [] if the dir is missing (never raises)."""
+    """Glob the fixture matrix. Returns [] if the dir is missing; a malformed expected.json raises."""
     cases: list[GateCase] = []
     if not FIXTURES_ROOT.is_dir():
         return cases

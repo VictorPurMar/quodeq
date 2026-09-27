@@ -218,7 +218,7 @@ class TestFileJobStore:
 
 
 class TestConcurrentSameJobWrites:
-    """Row 2374: two writers on the same job id must never publish a torn file."""
+    """Two writers on the same job id never publish a torn file."""
 
     def test_never_reuses_a_temp_path(self, tmp_path: Path, monkeypatch):
         """A shared ``{job_id}.tmp`` lets one writer's replace publish the other's still-open file."""

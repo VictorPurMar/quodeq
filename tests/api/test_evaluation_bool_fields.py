@@ -1,9 +1,9 @@
 """POST /api/evaluations rejects a string flag instead of coercing it.
 
-``bool("false")`` is ``True`` in Python, so before this guard a client that
-accidentally sent ``verifyFindings: "false"`` (or the other flags below) got
-the opposite of what it asked for instead of an error. Route-level: proves
-the guard runs before ``provider.start_evaluation`` is ever reached.
+``bool("false")`` is ``True`` in Python, so coercing would give a client
+that sends ``verifyFindings: "false"`` (or the other flags below) the
+opposite of what it asked for. A non-bool flag gets a coded 400 instead.
+Route-level: the guard runs before ``provider.start_evaluation`` is reached.
 """
 from __future__ import annotations
 

@@ -82,9 +82,9 @@ describe('galaxyViewScene — parseFloat NaN guards', () => {
       overallScore: 5,
       violations: [{ principle: 'P1', severity: 'minor' }],
       compliance: [],
-      // grade 'A' resolves to a high gradeToScore(); if a principle score of
-      // 0 were coerced to null upstream (the `|| null` bug), the principle
-      // would fall through to this grade instead of keeping its real 0.
+      // grade 'A' resolves to a high gradeToScore(). A principle score of 0
+      // is a real score: it must be kept, not treated as missing and
+      // replaced by this grade.
       principles: [{ name: 'P1', grade: 'A', score: 0 }],
     };
   }

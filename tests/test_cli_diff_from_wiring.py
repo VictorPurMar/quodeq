@@ -5,29 +5,31 @@ import argparse
 import subprocess
 from pathlib import Path
 
-
+from tests._timeouts import budget
 from quodeq.cli_evaluation import build_run_config, run_evaluate
 from quodeq._cli_resolution import ResolvedInputs
 from quodeq.analysis.manifest_models import SourceManifest
+
+
+def _git(repo: Path, *args: str) -> None:
+    """Run one git command in *repo*, bounded so a stuck git fails the test."""
+    subprocess.run(["git", *args], cwd=str(repo), check=True, capture_output=True, timeout=budget(30))
 
 
 def _make_repo_with_diff(tmp_path: Path) -> Path:
     """One-file repo with main + feature branch that adds changed.py."""
     repo = tmp_path / "repo"
     repo.mkdir()
-
-    def run(cmd: list[str]) -> None:
-        subprocess.run(cmd, cwd=str(repo), check=True, capture_output=True)
-    run(["git", "init", "-q", "-b", "main"])
-    run(["git", "config", "user.email", "t@t"])
-    run(["git", "config", "user.name", "t"])
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "t@t")
+    _git(repo, "config", "user.name", "t")
     (repo / "base.py").write_text("x = 1\n")
-    run(["git", "add", "."])
-    run(["git", "commit", "-q", "-m", "base"])
-    run(["git", "checkout", "-q", "-b", "feature"])
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "base")
+    _git(repo, "checkout", "-q", "-b", "feature")
     (repo / "changed.py").write_text("y = 2\n")
-    run(["git", "add", "."])
-    run(["git", "commit", "-q", "-m", "add changed"])
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "add changed")
     return repo
 
 
@@ -90,15 +92,12 @@ def test_run_evaluate_fails_fast_on_unknown_diff_ref(tmp_path: Path, capsys) -> 
 
     repo = tmp_path / "repo"
     repo.mkdir()
-
-    def run(cmd: list[str]) -> None:
-        subprocess.run(cmd, cwd=str(repo), check=True, capture_output=True)
-    run(["git", "init", "-q", "-b", "main"])
-    run(["git", "config", "user.email", "t@t"])
-    run(["git", "config", "user.name", "t"])
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "t@t")
+    _git(repo, "config", "user.name", "t")
     (repo / "f.py").write_text("x = 1\n")
-    run(["git", "add", "."])
-    run(["git", "commit", "-q", "-m", "c"])
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "c")
 
     output = tmp_path / "out"
     args = _args(repo, diff_from="does-not-exist", output=str(output))
