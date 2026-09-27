@@ -32,7 +32,7 @@ describe('GradeExplainFigure', () => {
   it('asks for a project when there is none', () => {
     const { container } = mount({ project: null, runId: null, dimensions: [] }, {});
     expect(screen.getByText(/Open a project with a finished run/)).toBeInTheDocument();
-    expect(container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(/);
+    expect(container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\x28/);
   });
 
   it('renders the stages of the first graded principle', async () => {
