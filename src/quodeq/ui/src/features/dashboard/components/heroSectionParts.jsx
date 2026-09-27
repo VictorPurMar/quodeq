@@ -1,46 +1,23 @@
 /**
  * The pieces the two Overview hero strips share.
  *
- * The accumulated (project) hero and the run hero show the same four stats in
- * the same panel, and differ only in the score hint, the violations note and
- * the header above them. What is common lives here.
+ * The accumulated (project) hero and the run hero show the same four tiles
+ * and footer in the same panel, and differ only in the score hint and the
+ * header above them. What is common lives here.
  */
-import { StatStrip, Stat } from '../../../components/terminal/index.js';
-import { t } from '../../../strings/index.js';
+import { StatStrip } from '../../../components/terminal/index.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 
 /**
  * The hero panel: the section, its header row and the stat strip inside it.
  */
-export function HeroPanel({ header, children }) {
+export function HeroPanel({ header, footer = null, children }) {
   return (
     <section className="acc-eval-panel acc-eval-panel--terminal">
       <div className="acc-eval-panel__top">{header}</div>
       <StatStrip cards>{children}</StatStrip>
+      {footer}
     </section>
-  );
-}
-
-/**
- * The two stats every hero strip ends with: the compliance count (clickable
- * when there is something to show) and the violations/compliance ratio.
- */
-export function ComplianceAndRatioStats({ compliance, totalChecks, ratio, onCompliance, complianceAriaKey }) {
-  return (
-    <>
-      <Stat
-        label={t('overview.statCompliance')}
-        value={compliance}
-        hint={totalChecks > 0 ? t('overview.passingChecks', { count: totalChecks }) : null}
-        onClick={onCompliance}
-        ariaLabel={compliance > 0 ? t(complianceAriaKey) : undefined}
-      />
-      <Stat
-        label={t('overview.statRatio')}
-        value={ratio}
-        hint={t('overview.ratioHint')}
-      />
-    </>
   );
 }
 

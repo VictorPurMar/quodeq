@@ -113,6 +113,23 @@
   margin-bottom: 28px;
 }
 
+/* Footer line under the headline tiles: raw totals, severity badges. */
+.headline-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.headline-footer__label { letter-spacing: 0.04em; }
+.headline-footer__item--button { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.headline-footer__item--button:disabled { cursor: default; }
+.headline-footer__item--button:not(:disabled):hover { color: var(--color-text); }
+.term-stat__unit { font-size: var(--text-xs); color: var(--color-text-muted); margin-left: 2px; }
+
 /* --- Trend Section --- */
 .trend-section.panel {
   overflow: hidden;

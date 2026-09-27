@@ -1516,5 +1516,16 @@
   "heatGrid.severityCellAria": "{severity}: {count} violations in {label}",
   "heatGrid.severityCellAriaOne": "{severity}: 1 violation in {label}",
   "heatGrid.violationsCellAriaOne": "1 violation in {label}, open details",
-  "heatGrid.unnamedRow": "row"
+  "heatGrid.unnamedRow": "row",
+  "overview.statMajors": "MAJORS",
+  "overview.statOpenTypes": "OPEN TYPES",
+  "overview.statDensity": "DENSITY",
+  "overview.majorsHintCritical": "{count} critical",
+  "overview.majorsHintCriticalOne": "1 critical",
+  "overview.openTypesClosed": "{count} closed",
+  "overview.openTypesClosedOne": "1 closed",
+  "overview.openTypesSince": "since {date}",
+  "overview.densityHint": "{coverage}% coverage",
+  "overview.densityHintNoCoverage": "per 100 files read",
+  "overview.densityUnit": "/100"
 }

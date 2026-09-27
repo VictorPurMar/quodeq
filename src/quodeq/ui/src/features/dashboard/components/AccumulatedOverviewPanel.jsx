@@ -118,6 +118,7 @@ function AccumulatedOverviewSections({
     <>
       <AccumulatedHeroSection
         accumulated={filteredAccumulated}
+        sinceBaseline={data.sinceBaseline}
         scoreDelta={filteredStats.scoreDelta}
         lastDate={filteredStats.lastRun.date}
         projectInfo={data.projectInfo}
