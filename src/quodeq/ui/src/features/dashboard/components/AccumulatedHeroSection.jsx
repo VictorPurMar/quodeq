@@ -1,12 +1,11 @@
 import TrendBadge from '../../../components/TrendBadge.jsx';
-import { gradeLetter, complianceRatio, extDisplayName } from '../../../utils/formatters.js';
+import { complianceRatio, extDisplayName } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
-import { TermHeader } from '../../../components/terminal/index.js';
-import { HeroPanel, heroCardHandlers } from './heroSectionParts.jsx';
-import HeadlineStatStrip, { HeadlineFooter } from './HeadlineStatStrip.jsx';
-import { buildHeadline, sumSinceBaseline } from '../headlineStats.js';
+import { TermHeader, Stat } from '../../../components/terminal/index.js';
+import { HeroPanel, ComplianceAndRatioStats, GradeChip, heroCardHandlers } from './heroSectionParts.jsx';
 import LastFetchedLine from '../../../components/LastFetchedLine.jsx';
 import SharedReadOnlyBadge from '../../../components/SharedReadOnlyBadge.jsx';
+import SeverityBadgeRow from './SeverityBadgeRow.jsx';
 import { t } from '../../../strings/index.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
 
@@ -22,26 +21,48 @@ function buildLanguageSub(projectInfo) {
     .join('  ');
 }
 
-/** The footer's raw totals, read off the accumulated summary. */
-function accumulatedFooter(summary, handlers) {
+function AccumulatedStatStrip({ scoreDisplay, scoreDelta, grade, customFormula, violations, compliance, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity }) {
+  return (
+    <>
+      <Stat
+        label={t('overview.statScore')}
+        value={scoreDisplay}
+        trailing={<>{<GradeChip grade={grade} score={scoreDisplay} />}{scoreDelta !== null ? <TrendBadge delta={scoreDelta} showLabel={false} /> : null}</>}
+        // A tuned formula shifts every score at once with no other trace, so
+        // say so where the grade is read rather than only on the settings
+        // page that changed it.
+        hint={customFormula ? t('overview.customFormulaNote') : null}
+      />
+      <Stat
+        label={t('overview.statViolations')}
+        value={violations}
+        hint={<SeverityBadgeRow severity={severity} onSeverityClick={handleSeverity} />}
+        onClick={handleViolations}
+        ariaLabel={violations > 0 ? t('overview.showAllViolationsAria') : undefined}
+      />
+      <ComplianceAndRatioStats
+        compliance={compliance}
+        totalChecks={totalChecks}
+        ratio={ratio}
+        onCompliance={handleCompliance}
+        complianceAriaKey="overview.showComplianceAria"
+      />
+    </>
+  );
+}
+
+/** Numbers the stat strip shows, read off the accumulated summary. */
+function accumulatedStats(summary) {
   const violations = summary?.totalViolations || 0;
   const compliance = summary?.totalCompliance || 0;
   return {
-    violations, compliance, ratio: complianceRatio(violations, compliance), severity: summary?.severity, suppressed: 0,
-    ...handlers, violationsAriaKey: 'overview.showAllViolationsAria', complianceAriaKey: 'overview.showComplianceAria',
-  };
-}
-
-/** The SCORE tile's parts: the number, its delta badge and the grade hint. */
-function accumulatedScore(summary, scoreDelta, customFormula) {
-  const grade = summary?.overallGrade;
-  return {
-    display: formatScoreDisplay(summary?.numericAverage),
-    trailing: scoreDelta !== null ? <TrendBadge delta={scoreDelta} showLabel={false} /> : null,
-    // A tuned formula shifts every score at once with no other trace, so
-    // say so where the grade is read rather than only on the settings
-    // page that changed it.
-    hint: grade ? t(customFormula ? 'overview.gradeHintCustomFormula' : 'overview.gradeHint', { letter: gradeLetter(grade) }) : null,
+    scoreDisplay: formatScoreDisplay(summary?.numericAverage),
+    grade: summary?.overallGrade,
+    violations,
+    compliance,
+    totalChecks: violations + compliance,
+    ratio: complianceRatio(violations, compliance),
+    severity: summary?.severity,
   };
 }
 
@@ -51,10 +72,12 @@ function heroSubLine(projectInfo, lastDate) {
     || (lastDate ? t('overview.lastEvaluated', { date: lastDate }) : null);
 }
 
-export function AccumulatedHeroSection({ accumulated, sinceBaseline, baselineDate = null, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false }) {
-  const summary = accumulated?.summary;
-  const handlers = heroCardHandlers(onCardNavigate, { violations: summary?.totalViolations || 0, compliance: summary?.totalCompliance || 0 });
-  const footer = accumulatedFooter(summary, handlers);
+export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false }) {
+  const stats = accumulatedStats(accumulated?.summary);
+  const { handleViolations, handleCompliance, handleSeverity } = heroCardHandlers(
+    onCardNavigate,
+    { violations: stats.violations, compliance: stats.compliance },
+  );
 
   return (
     <HeroPanel
@@ -66,13 +89,14 @@ export function AccumulatedHeroSection({ accumulated, sinceBaseline, baselineDat
         />
         <LastFetchedLine lastFetchedAt={projectInfo?.lastFetchedAt} />
       </>}
-      footer={<HeadlineFooter footer={footer} />}
     >
-      <HeadlineStatStrip
-        headline={buildHeadline(accumulated?.dimensions)}
-        since={sumSinceBaseline(sinceBaseline)}
-        baselineDate={baselineDate}
-        score={accumulatedScore(summary, scoreDelta, customFormula)}
+      <AccumulatedStatStrip
+        {...stats}
+        scoreDelta={scoreDelta}
+        customFormula={customFormula}
+        handleViolations={handleViolations}
+        handleCompliance={handleCompliance}
+        handleSeverity={handleSeverity}
       />
     </HeroPanel>
   );

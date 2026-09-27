@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildHeadline, dimensionOpenTypes, formatDensity, filterSinceBaseline, sinceBaselineFor, sumSinceBaseline, SCOPE_ALL, SCOPE_CHANGED, SCOPE_MIXED } from './headlineStats.js';
+import { buildHeadline, dimensionHeadlineInput, dimensionOpenTypes, formatDensity, filterSinceBaseline, sinceBaselineFor, sumSinceBaseline, SCOPE_ALL, SCOPE_CHANGED, SCOPE_MIXED } from './headlineStats.js';
 
 const dim = (over = {}) => ({
   dimension: 'maintainability',
@@ -113,4 +113,11 @@ test('sinceBaselineFor gives the dimension entry only for the run the summary de
   assert.equal(sinceBaselineFor(map, 'maintainability', { runId: 'r0', baselineRunId: 'r1' }), undefined);
   assert.equal(sinceBaselineFor(map, 'maintainability', { runId: undefined, baselineRunId: 'r1' }), undefined);
   assert.equal(sinceBaselineFor(undefined, 'maintainability', { runId: 'r1', baselineRunId: 'r1' }), undefined);
+});
+
+test('dimensionHeadlineInput shapes the dimension page data for buildHeadline', () => {
+  const input = dimensionHeadlineInput([{ req: 'A', severity: 'major' }, { req: 'B', severity: 'minor' }], { critical: 0, major: 1, minor: 1 }, { filesRead: 50, sourceFileCount: 100 });
+  const h = buildHeadline([input]);
+  assert.deepEqual([h.majors, h.critical, h.openTypes, h.violations, h.density, h.coveragePct], [1, 0, 2, 2, 4, 50]);
+  assert.equal(buildHeadline([dimensionHeadlineInput([], { critical: 0, major: 0, minor: 0 }, {})]).density, null);
 });

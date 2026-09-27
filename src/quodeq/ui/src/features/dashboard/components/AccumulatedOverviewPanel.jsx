@@ -9,8 +9,8 @@ import { SectionLabel } from '../../../components/terminal/index.js';
 import { t } from '../../../strings/index.js';
 import { DEFAULT_SCORE_HISTORY_GRANULARITY } from '../../../constants.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
-import SinceBaselinePanel, { baselineDateLabel } from './SinceBaselinePanel.jsx';
-import { filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
+import ConvergenceStrip from './ConvergenceStrip.jsx';
+import { buildHeadline, filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
 import { useSeeFindings } from '../hooks/useSeeFindings.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { useAccumulatedComputations, computeAccumulatedStats } from '../hooks/useAccumulatedComputations.js';
@@ -128,8 +128,6 @@ function AccumulatedOverviewSections({
     <>
       <AccumulatedHeroSection
         accumulated={filteredAccumulated}
-        sinceBaseline={visibleSince}
-        baselineDate={baselineDateLabel(since, data.availableRuns)}
         scoreDelta={filteredStats.scoreDelta}
         lastDate={filteredStats.lastRun.date}
         projectInfo={data.projectInfo}
@@ -137,7 +135,10 @@ function AccumulatedOverviewSections({
         selectedSource={data.selectedSource}
         customFormula={data.customFormula}
       />
-      <SinceBaselinePanel since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns} onSeeFindings={seeFindings} />
+      <ConvergenceStrip
+        headline={buildHeadline(filteredAccumulated?.dimensions)} since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns}
+        onSeeFindings={seeFindings} onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
+      />
 
       <HistoryPanelsRow
         chartMountable={chartMountable}

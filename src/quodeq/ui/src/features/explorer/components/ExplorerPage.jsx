@@ -17,7 +17,8 @@ import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
 import { HELP_SECTION } from '../../../vocab/helpSection.js';
 import HelpLink from '../../../components/HelpLink.jsx';
-import { sinceBaselineFor } from '../../dashboard/headlineStats.js';
+import { buildHeadline, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
+import ConvergenceStrip from '../../dashboard/components/ConvergenceStrip.jsx';
 
 /** Empty/loading/error states, checked in order — extracted so the main
  * render stays a single happy-path return. */
@@ -121,8 +122,14 @@ function ExplorerTopGrid({
         allViolations={d.allViolations}
         totalCompliant={d.totalCompliant}
         sev={d.severityCounts}
-        evalData={d.evalData}
-        sinceBaseline={sinceBaseline}
+        strip={(
+          <ConvergenceStrip
+            headline={buildHeadline([dimensionHeadlineInput(d.allViolations, d.severityCounts, d.evalData)])}
+            since={sinceBaseline ? sumSinceBaseline({ entry: sinceBaseline }) : null}
+            showSince={false}
+            onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
+          />
+        )}
         onSeverityBadge={onSeverityBadge}
         onNavigate={onNavigate}
         onCardNavigate={handleCardNavigate}

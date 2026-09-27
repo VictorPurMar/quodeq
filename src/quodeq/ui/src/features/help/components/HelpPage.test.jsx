@@ -154,3 +154,13 @@ describe('HelpPage violations by type', () => {
     expect(screen.getAllByText(/Dismiss all/).length).toBeGreaterThan(0);
   });
 });
+
+describe('HelpPage overview: tiles and the strip', () => {
+  it('documents the four tiles and the convergence strip', () => {
+    const { container } = render(<HelpPage initialSection="overview" />);
+    expect(screen.getByRole('heading', { level: 3, name: /The strip/ })).toBeInTheDocument();
+    for (const word of ['Score', 'Violations', 'Compliance', 'Ratio', 'Criticals', 'Majors', 'Open types', 'Density']) {
+      expect((container.textContent.match(new RegExp(word, 'g')) || []).length).toBeGreaterThan(0);
+    }
+  });
+});

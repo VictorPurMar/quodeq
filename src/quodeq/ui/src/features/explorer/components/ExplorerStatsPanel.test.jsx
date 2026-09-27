@@ -22,25 +22,23 @@ const baseProps = {
   granularity: 'run',
   onGranularityChange: () => {},
   onBarClick: () => {},
-  evalData: {},
-  sinceBaseline: undefined,
 };
 
 describe('ExplorerStatsPanel severity badges', () => {
   it('renders one badge per non-zero severity, most severe first', () => {
     render(<ExplorerStatsPanel {...baseProps} />);
-    const badges = document.querySelectorAll('.acc-eval-sev-row .term-sev-badge');
+    const badges = document.querySelectorAll('.principle-detail-sev-row .term-sev-badge');
     expect([...badges].map((b) => b.className)).toEqual([
-      'term-sev-badge term-sev-badge--critical term-sev-badge--count-abbr',
-      'term-sev-badge term-sev-badge--major term-sev-badge--count-abbr',
+      'term-sev-badge term-sev-badge--critical',
+      'term-sev-badge term-sev-badge--major',
     ]);
-    expect(badges[0]).toHaveTextContent('1 crit');
-    expect(badges[1]).toHaveTextContent('2 maj');
+    expect(badges[0]).toHaveTextContent('CRIT 1');
+    expect(badges[1]).toHaveTextContent('MAJ 2');
   });
 
   it('drops the hint entirely when every severity is zero', () => {
     render(<ExplorerStatsPanel {...baseProps} sev={{ critical: 0, major: 0, minor: 0 }} />);
-    expect(document.querySelector('.acc-eval-sev-row')).toBeNull();
+    expect(document.querySelector('.principle-detail-sev-row')).toBeNull();
   });
 
   it('wires each badge to its own severity when navigation is available', () => {
@@ -53,9 +51,8 @@ describe('ExplorerStatsPanel severity badges', () => {
         onSeverityBadge={onSeverityBadge}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'critical severity' }));
-    fireEvent.click(screen.getByRole('button', { name: 'minor severity' }));
-    expect(onSeverityBadge.mock.calls.map(([level]) => level)).toEqual(['critical', 'minor']);
+    expect(onSeverityBadge.mock.calls.map(([level]) => level)).toEqual(['critical', 'major', 'minor']);
+    expect(screen.getByRole('button', { name: 'critical severity' })).toBeInTheDocument();
   });
 
   it('leaves badges unclickable when navigation is unavailable', () => {
@@ -76,25 +73,16 @@ describe('ExplorerStatsPanel severity badges', () => {
     fireEvent.click(stat);
     expect(onCardNavigate).toHaveBeenCalledWith('violations');
   });
-});
 
-describe('ExplorerStatsPanel headline tiles', () => {
-  it('tiles read MAJORS, OPEN TYPES, SCORE, DENSITY with coverage', () => {
-    render(<ExplorerStatsPanel {...baseProps} evalData={{ filesRead: 50, sourceFileCount: 100 }} allViolations={[{ severity: 'major', req: 'M-A-1' }, { severity: 'minor', req: 'M-B-2' }]} sev={{ critical: 0, major: 1, minor: 1 }} />);
-    expect(screen.getAllByText(/^(MAJORS|OPEN TYPES|SCORE|DENSITY)$/).map((n) => n.textContent)).toEqual(['MAJORS', 'OPEN TYPES', 'SCORE', 'DENSITY']);
-    expect(screen.getByText('50% coverage')).toBeInTheDocument();
-    expect(screen.getByText('4.0')).toBeInTheDocument();
+  it('renders the strip slot between the tiles and the history chart', () => {
+    render(<ExplorerStatsPanel {...baseProps} strip={<div data-testid="strip">strip</div>} />);
+    const strip = screen.getByTestId('strip');
+    expect(strip.previousElementSibling.className).toContain('qd-stats-2x2');
+    expect(strip.nextElementSibling.dataset.testid).toBe('history-panel');
   });
 
-  it('tiles render without sinceBaseline', () => {
-    render(<ExplorerStatsPanel {...baseProps} sinceBaseline={undefined} />);
-    expect(screen.queryByText(/closed/)).toBeNull();
-    expect(screen.getByText('MAJORS')).toBeInTheDocument();
-  });
-
-  it('open types closed hint comes from the dimension since-baseline entry', () => {
-    const entry = { againstRunId: 'r0', sinceBaseline: { scope: 'all', changedFiles: null, majorsDelta: 0, counts: { new: 0, resolved: 0 }, types: { closed: [], opened: [] } }, all: { majorsDelta: -1, types: { closed: ['M-A-1', 'M-B-2', 'M-C-3'], opened: [] } } };
-    render(<ExplorerStatsPanel {...baseProps} sinceBaseline={entry} />);
-    expect(screen.getByText('3 closed')).toBeInTheDocument();
+  it('shows the grade as a chip on the score tile', () => {
+    render(<ExplorerStatsPanel {...baseProps} overallGrade={{ grade: 'Exemplary', score: '9.6' }} />);
+    expect(screen.getByText('EXEMPLARY').className).toContain('chip');
   });
 });
