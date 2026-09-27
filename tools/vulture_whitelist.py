@@ -41,6 +41,7 @@ _.client_cmd_path_check  # api/routes_discovery.py: Flask view function; the rou
 _.client_models  # api/routes_discovery.py: Flask view function; the route decorator is its only caller.
 _.create_assistant_session  # api/assistant_session_routes.py: Flask view function; the route decorator is its only caller.
 _.delete_all  # api/routes_findings.py: Flask view function; the route decorator is its only caller.
+_.dismiss_by_type_route  # api/routes_findings_by_type.py: Flask view function; the route decorator is its only caller.
 _.delete_grade_formula  # api/_grade_formula_routes.py: Flask view function; the route decorator is its only caller.
 _.dimension_eval  # api/routes_project_data.py: Flask view function; the route decorator is its only caller.
 _.export_project  # api/routes_project_list.py: Flask view function; the route decorator is its only caller.

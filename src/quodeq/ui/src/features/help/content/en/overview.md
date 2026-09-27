@@ -16,7 +16,7 @@ Overview shows the latest scored result for each dimension, even when those resu
 
 ### Since baseline
 
-Under the header, the panel names the baseline run and the current run with their commits, how many files changed between them, the majors delta, the types closed and opened, and the new and resolved findings in the changed files. When no commit was recorded, or the tree had uncommitted changes, the counts cover all files and the panel says so. An unchanged tree gets one sentence instead of numbers.
+Under the header, the panel names the baseline run and the current run with their commits, how many files changed between them, the majors delta, the types closed and opened, and the new and resolved findings in the changed files. When no commit was recorded, or the tree had uncommitted changes, the counts cover all files and the panel says so. An unchanged tree gets one sentence instead of numbers. **see findings** opens the findings that are new in that scope, as one list across dimensions, labelled with its scope and count (the first 200 per dimension when there are more).
 
 ### Panels
 

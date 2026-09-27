@@ -36,6 +36,20 @@ export async function dismissFinding(projectId, finding) {
 }
 
 /**
+ * Dismiss every active finding of one requirement code in a scope (a
+ * dimension, narrowed to a principle and/or file), in one request.
+ * @param {string} projectId
+ * @param {{req: string, dimension: string, runId: string, principle?: string, file?: string, reason?: string}} scope
+ * @returns {Promise<{ok: boolean, dismissed: number, scores: Object|null, delta: Object}>}
+ */
+export async function dismissByType(projectId, { req, dimension, runId, principle, file, reason }) {
+  return request('/findings/dismiss-by-type', {
+    method: 'POST',
+    body: JSON.stringify({ project: projectId, req, dimension, run_id: runId, principle, file, reason }),
+  });
+}
+
+/**
  * Restore a dismissed finding (include in scoring again).
  * @param {string} projectId - Project identifier
  * @param {object} finding - Finding key: { req, file, line, fingerprint? }
