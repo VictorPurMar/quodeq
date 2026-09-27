@@ -1618,5 +1618,6 @@
   "history.colMajors": "MAJORS",
   "history.colTypes": "TYPES",
   "sidebar.majorsTitleOne": "{count} major",
-  "sidebar.majorsTitleMany": "{count} majors"
+  "sidebar.majorsTitleMany": "{count} majors",
+  "overview.densityUnitHint": "violations /100 files"
 }

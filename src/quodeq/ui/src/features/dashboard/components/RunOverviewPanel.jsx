@@ -17,6 +17,7 @@ import { useRunReportSpecs } from './runReportSpecs.jsx';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
+import { overviewLearnMore } from '../overviewLearnMore.js';
 
 export { RunHeroSection };
 
@@ -121,7 +122,7 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, selectedPro
 
   return (
     <div className="run-overview-fade run-overview-ready">
-      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} deltas={chipDeltas(since)} />
+      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} deltas={chipDeltas(since)} density={headline.density} learnMore={overviewLearnMore(onNavigate)} />
       <ConvergenceStrip
         headline={headline} since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns}
         onSeeFindings={seeFindings} onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}

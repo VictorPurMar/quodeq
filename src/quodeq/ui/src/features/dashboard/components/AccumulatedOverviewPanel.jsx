@@ -17,6 +17,7 @@ import { useAccumulatedComputations, computeAccumulatedStats } from '../hooks/us
 import { AccumulatedHeroSection } from './AccumulatedHeroSection.jsx';
 import { useAccumulatedReportSpec } from './accumulatedReportSpecs.jsx';
 import { NAV_TAB } from '../../../vocab/navTab.js';
+import { overviewLearnMore } from '../overviewLearnMore.js';
 
 const runHistoryPanelImport = () => import('./RunHistoryPanel.jsx');
 const RunHistoryPanel = lazy(runHistoryPanelImport);
@@ -132,6 +133,8 @@ function AccumulatedOverviewSections({
         selectedSource={data.selectedSource}
         customFormula={data.customFormula}
         deltas={chipDeltas(since)}
+        density={headline.density}
+        learnMore={overviewLearnMore(onNavigate)}
       />
       <ConvergenceStrip
         headline={headline} since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns}

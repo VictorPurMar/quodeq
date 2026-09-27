@@ -18,6 +18,7 @@ import { NAV_TAB } from '../../../vocab/navTab.js';
 import { HELP_SECTION } from '../../../vocab/helpSection.js';
 import HelpLink from '../../../components/HelpLink.jsx';
 import { buildHeadline, chipDeltas, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
+import { overviewLearnMore } from '../../dashboard/overviewLearnMore.js';
 import ConvergenceStrip from '../../dashboard/components/ConvergenceStrip.jsx';
 
 /** Empty/loading/error states, checked in order — extracted so the main
@@ -123,6 +124,8 @@ function ExplorerTopGrid({
         totalCompliant={d.totalCompliant}
         sev={d.severityCounts}
         deltas={chipDeltas(sinceBaseline ? sumSinceBaseline({ entry: sinceBaseline }) : null)}
+        density={buildHeadline([dimensionHeadlineInput(d.allViolations, d.severityCounts, d.evalData)]).density}
+        learnMore={overviewLearnMore(onNavigate)}
         strip={(
           <ConvergenceStrip
             headline={buildHeadline([dimensionHeadlineInput(d.allViolations, d.severityCounts, d.evalData)])}

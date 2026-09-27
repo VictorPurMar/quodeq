@@ -21,7 +21,7 @@ function buildLanguageSub(projectInfo) {
     .join('  ');
 }
 
-function AccumulatedStatStrip({ scoreDisplay, scoreDelta, grade, customFormula, violations, compliance, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity, deltas }) {
+function AccumulatedStatStrip({ scoreDisplay, scoreDelta, grade, customFormula, violations, compliance, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity, deltas, density, learnMore }) {
   return (
     <>
       {/* A tuned formula shifts every score at once with no other trace, so
@@ -40,13 +40,7 @@ function AccumulatedStatStrip({ scoreDisplay, scoreDelta, grade, customFormula, 
         onClick={handleViolations}
         ariaLabel={violations > 0 ? t('overview.showAllViolationsAria') : undefined}
       />
-      <ComplianceAndRatioStats
-        compliance={compliance}
-        totalChecks={totalChecks}
-        ratio={ratio}
-        onCompliance={handleCompliance}
-        complianceAriaKey="overview.showComplianceAria"
-      />
+      <ComplianceAndRatioStats compliance={compliance} totalChecks={totalChecks} ratio={ratio} density={density} learnMore={learnMore} onCompliance={handleCompliance} complianceAriaKey="overview.showComplianceAria" />
     </>
   );
 }
@@ -72,7 +66,7 @@ function heroSubLine(projectInfo, lastDate) {
     || (lastDate ? t('overview.lastEvaluated', { date: lastDate }) : null);
 }
 
-export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false, deltas = null }) {
+export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false, deltas = null, density = null, learnMore }) {
   const stats = accumulatedStats(accumulated?.summary);
   const { handleViolations, handleCompliance, handleSeverity } = heroCardHandlers(
     onCardNavigate,
@@ -95,6 +89,8 @@ export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, proj
         scoreDelta={scoreDelta}
         customFormula={customFormula}
         deltas={deltas}
+        density={density}
+        learnMore={learnMore}
         handleViolations={handleViolations}
         handleCompliance={handleCompliance}
         handleSeverity={handleSeverity}

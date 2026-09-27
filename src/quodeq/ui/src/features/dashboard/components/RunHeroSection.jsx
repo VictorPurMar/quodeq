@@ -5,7 +5,7 @@ import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import SeverityBadgeRow from './SeverityBadgeRow.jsx';
 import { t } from '../../../strings/index.js';
 
-function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity, deltas }) {
+function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity, deltas, density, learnMore }) {
   return (
     <>
       <ScoreStat scoreDisplay={scoreDisplay} grade={grade} />
@@ -23,18 +23,12 @@ function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed,
         onClick={handleViolations}
         ariaLabel={violations > 0 ? t('overview.showRunViolationsAria') : undefined}
       />
-      <ComplianceAndRatioStats
-        compliance={compliance}
-        totalChecks={totalChecks}
-        ratio={ratio}
-        onCompliance={handleCompliance}
-        complianceAriaKey="overview.showRunComplianceAria"
-      />
+      <ComplianceAndRatioStats compliance={compliance} totalChecks={totalChecks} ratio={ratio} density={density} learnMore={learnMore} onCompliance={handleCompliance} complianceAriaKey="overview.showRunComplianceAria" />
     </>
   );
 }
 
-export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNavigate, deltas = null }) {
+export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNavigate, deltas = null, density = null, learnMore }) {
   const dateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
   const scoreDisplay = formatScoreDisplay(runSummary.numericAverage);
   const grade = runSummary.overallGrade;
@@ -61,6 +55,8 @@ export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNav
         handleSeverity={handleSeverity}
         severity={runSummary.severity}
         deltas={deltas}
+        density={density}
+        learnMore={learnMore}
       />
     </HeroPanel>
   );

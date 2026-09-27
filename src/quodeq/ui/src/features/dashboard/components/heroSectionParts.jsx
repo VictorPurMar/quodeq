@@ -5,7 +5,8 @@
  * the same panel, and differ only in the score hint, the violations note and
  * the header above them. What is common lives here.
  */
-import { StatStrip, Stat } from '../../../components/terminal/index.js';
+import { StatStrip, Stat, StatBody } from '../../../components/terminal/index.js';
+import HelpHint from '../../../components/HelpHint.jsx';
 import { scoreColorClass } from '../../../utils/formatters.js';
 import { t } from '../../../strings/index.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
@@ -22,11 +23,45 @@ export function HeroPanel({ header, children }) {
   );
 }
 
+const DENSITY_DECIMALS = 1;
+
+/**
+ * The fourth tile: RATIO on the left and, when the run recorded a files-read
+ * count, DENSITY on the right with its own label and "?". Without a density
+ * the ratio takes the whole tile; nothing renders as a dash.
+ * @param {{ratio: string, density: number|null|undefined, learnMore?: {label: string, onClick: Function}}} props
+ */
+export function RatioDensityStat({ ratio, density, learnMore }) {
+  if (typeof density !== 'number') {
+    return <Stat label={t('overview.statRatio')} value={ratio} hint={t('overview.ratioHint')} />;
+  }
+  const densityLabel = (
+    <>
+      {t('overview.statDensity')}
+      {' '}
+      <HelpHint label={t('overview.hintAbout', { name: t('overview.statDensity') })} learnMore={learnMore}>{t('overview.hintDensity')}</HelpHint>
+    </>
+  );
+  return (
+    <div className="term-stat term-stat--default term-stat--pair">
+      <div className="term-stat__half">
+        <StatBody label={t('overview.statRatio')} value={ratio} />
+        <div className="term-stat__hint">{t('overview.ratioHint')}</div>
+      </div>
+      <div className="term-stat__half">
+        <StatBody label={densityLabel} value={density.toFixed(DENSITY_DECIMALS)} />
+        <div className="term-stat__hint">{t('overview.densityUnitHint')}</div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The two stats every hero strip ends with: the compliance count (clickable
- * when there is something to show) and the violations/compliance ratio.
+ * when there is something to show) and the ratio tile, with the density
+ * beside it when the run has one.
  */
-export function ComplianceAndRatioStats({ compliance, totalChecks, ratio, onCompliance, complianceAriaKey }) {
+export function ComplianceAndRatioStats({ compliance, totalChecks, ratio, density, learnMore, onCompliance, complianceAriaKey }) {
   return (
     <>
       <Stat
@@ -36,11 +71,7 @@ export function ComplianceAndRatioStats({ compliance, totalChecks, ratio, onComp
         onClick={onCompliance}
         ariaLabel={compliance > 0 ? t(complianceAriaKey) : undefined}
       />
-      <Stat
-        label={t('overview.statRatio')}
-        value={ratio}
-        hint={t('overview.ratioHint')}
-      />
+      <RatioDensityStat ratio={ratio} density={density} learnMore={learnMore} />
     </>
   );
 }
