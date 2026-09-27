@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildHeadline, dimensionHeadlineInput, dimensionOpenTypes, formatDensity, filterSinceBaseline, runCounts, sinceBaselineFor, sumSinceBaseline, SCOPE_ALL, SCOPE_CHANGED, SCOPE_MIXED } from './headlineStats.js';
+import { buildHeadline, chipDeltas, dimensionHeadlineInput, dimensionOpenTypes, formatDensity, filterSinceBaseline, runCounts, sinceBaselineFor, sumSinceBaseline, SCOPE_ALL, SCOPE_CHANGED, SCOPE_MIXED } from './headlineStats.js';
 
 const dim = (over = {}) => ({
   dimension: 'maintainability',
@@ -135,4 +135,16 @@ test('runCounts falls back to the top-level totals only when there are no detail
   assert.deepEqual(runCounts({ dimensionDetails: [{ majors: 2, openTypes: 3 }] }), { critical: null, majors: 2, openTypes: 3 });
   assert.deepEqual(runCounts({ dimensionDetails: [{ score: '7.0' }] }), { critical: null, majors: null, openTypes: null });
   assert.deepEqual(runCounts({}), { critical: null, majors: null, openTypes: null });
+});
+
+test('sumSinceBaseline folds criticalDelta, absent counting as 0', () => {
+  const entry = (delta) => ({ againstRunId: 'r0', sinceBaseline: { scope: SCOPE_ALL, majorsDelta: 0, criticalDelta: delta, counts: {}, types: {} }, all: { majorsDelta: 0, criticalDelta: delta, counts: {}, types: {} } });
+  assert.equal(sumSinceBaseline({ a: entry(1), b: entry(-2) }).criticalDelta, -1);
+  assert.equal(sumSinceBaseline({ a: entry(undefined) }).criticalDelta, 0);
+});
+
+test('chipDeltas splits the blocking delta into criticals and majors only', () => {
+  assert.deepEqual(chipDeltas({ majorsDelta: -83, criticalDelta: -1 }), { critical: -1, major: -82 });
+  assert.deepEqual(chipDeltas({ majorsDelta: 2, criticalDelta: 3 }), { critical: 3, major: -1 });
+  assert.equal(chipDeltas(null), null);
 });
