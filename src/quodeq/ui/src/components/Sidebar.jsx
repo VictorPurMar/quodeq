@@ -16,6 +16,7 @@ import {
   LogoNeedleMask,
 } from './brandLogoArt.jsx';
 import { NAV_TAB } from '../vocab/navTab.js';
+import { pluralKey } from '../utils/plural.js';
 
 // Unique per component: the onboarding carousel draws the same mark with its
 // own mask, and two elements sharing a DOM id would collide when both are
@@ -59,8 +60,11 @@ function formatNavCount(count) {
   return String(count);
 }
 
-function NavButton({ id, label, icon, activeTab, onNavTab, count }) {
+// `countTitle` names what the badge counts; without it the badge's title is
+// the full number once the chip abbreviates it.
+function NavButton({ id, label, icon, activeTab, onNavTab, count, countTitle }) {
   const countLabel = formatNavCount(count);
+  const badgeTitle = countTitle ?? (count >= COUNT_K_THRESHOLD ? String(count) : undefined);
   return (
     <button
       type="button"
@@ -71,7 +75,7 @@ function NavButton({ id, label, icon, activeTab, onNavTab, count }) {
       {icon}
       <span className="sidebar-nav-label">{label}</span>
       {countLabel != null && (
-        <span className="sidebar-nav-count" title={count >= COUNT_K_THRESHOLD ? String(count) : undefined}>
+        <span className="sidebar-nav-count" title={badgeTitle}>
           {countLabel}
         </span>
       )}
@@ -115,6 +119,11 @@ function SidebarHeader({ isPinned, handleTogglePin, version }) {
   );
 }
 
+function majorsTitle(count) {
+  if (count == null) return undefined;
+  return t(pluralKey(count, 'sidebar.majorsTitleOne', 'sidebar.majorsTitleMany'), { count });
+}
+
 function ProjectTabsNav({ showProjectTabs, showCompareTab, activeTab, handleNav, violationsCount, historyCount }) {
   if (!showProjectTabs && !showCompareTab) return null;
   return (
@@ -127,7 +136,10 @@ function ProjectTabsNav({ showProjectTabs, showCompareTab, activeTab, handleNav,
       )}
       {showProjectTabs && (
         <>
-          <NavButton id={NAV_TAB.VIOLATIONS} label="violations" icon={ICON_VIOLATIONS} activeTab={activeTab} onNavTab={handleNav} count={violationsCount} />
+          <NavButton
+            id={NAV_TAB.VIOLATIONS} label="violations" icon={ICON_VIOLATIONS} activeTab={activeTab} onNavTab={handleNav}
+            count={violationsCount} countTitle={majorsTitle(violationsCount)}
+          />
           <NavButton id={NAV_TAB.MAP}        label="map"        icon={ICON_MAP}        activeTab={activeTab} onNavTab={handleNav} />
           <NavButton id={NAV_TAB.HISTORY}    label="history"    icon={ICON_HISTORY}    activeTab={activeTab} onNavTab={handleNav} count={historyCount} />
         </>

@@ -114,12 +114,9 @@ function makeCardNavigate({ onNavigate, filteredDimensions, reportProjectName })
 
 function AccumulatedOverviewSections({
   data, callbacks, currentOverviewRun, selectedDayDimNames, filteredPeriodTrend, filteredDimensions,
-  filteredAccumulated, filteredStats, chartMountable, dimTrends, topFiles, onCardNavigate,
+  filteredAccumulated, filteredStats, chartMountable, dimTrends, topFiles, onCardNavigate, headline, since,
 }) {
   const { onRunClick, onDimensionClick, onNavigate } = callbacks;
-  // Only the dimensions on show: a hidden standard must not move the headline.
-  const visibleSince = filterSinceBaseline(data.sinceBaseline, (filteredDimensions || []).map((d) => d.dimension));
-  const since = sumSinceBaseline(visibleSince);
   const { seeFindings } = useSeeFindings({
     project: data.selectedProject, runId: data.selectedRun?.runId, dateLabel: data.selectedRun?.dateLabel, since, onNavigate,
     selectedSource: data.selectedSource, dimensionNames: (filteredDimensions || []).map((d) => d.dimension),
@@ -136,7 +133,7 @@ function AccumulatedOverviewSections({
         customFormula={data.customFormula}
       />
       <ConvergenceStrip
-        headline={buildHeadline(filteredAccumulated?.dimensions)} since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns}
+        headline={headline} since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns}
         onSeeFindings={seeFindings} onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
       />
 
@@ -174,7 +171,13 @@ export default function AccumulatedOverviewPanel({ data, callbacks }) {
     [filteredDimensions]
   );
 
-  const reportProjectName = useAccumulatedReportSpec({ data, filteredAccumulated, filteredDimensions });
+  // Only the dimensions on show: a hidden standard must not move the strip or the report.
+  const since = useMemo(
+    () => sumSinceBaseline(filterSinceBaseline(data.sinceBaseline, (filteredDimensions || []).map((d) => d.dimension))),
+    [data.sinceBaseline, filteredDimensions],
+  );
+  const headline = useMemo(() => buildHeadline(filteredAccumulated?.dimensions), [filteredAccumulated]);
+  const reportProjectName = useAccumulatedReportSpec({ data, filteredAccumulated, filteredDimensions, headline, since });
 
   const onCardNavigate = useMemo(
     () => makeCardNavigate({ onNavigate, filteredDimensions, reportProjectName }),
@@ -187,7 +190,7 @@ export default function AccumulatedOverviewPanel({ data, callbacks }) {
       selectedDayDimNames={selectedDayDimNames} filteredPeriodTrend={filteredPeriodTrend}
       filteredDimensions={filteredDimensions} filteredAccumulated={filteredAccumulated}
       filteredStats={filteredStats} chartMountable={chartMountable} dimTrends={dimTrends}
-      topFiles={topFiles} onCardNavigate={onCardNavigate}
+      topFiles={topFiles} onCardNavigate={onCardNavigate} headline={headline} since={since}
     />
   );
 }

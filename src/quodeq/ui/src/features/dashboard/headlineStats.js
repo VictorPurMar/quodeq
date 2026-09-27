@@ -102,6 +102,13 @@ export function sumSinceBaseline(sinceBaseline) {
   };
 }
 
+/** True when a folded since-baseline summary says the tree did not move:
+ * changed-files scope, no files changed, nothing closed, opened, or shifted. */
+export function isUnchangedSince(since) {
+  return since.scope === SCOPE_CHANGED && since.changedFiles === 0 && since.majorsDelta === 0
+    && since.typesClosed.length === 0 && since.typesOpened.length === 0;
+}
+
 /** The map restricted to the named dimensions (case-insensitive), so a
  * headline over visible dimensions never counts a hidden one. */
 export function filterSinceBaseline(sinceBaseline, dimensionNames) {
@@ -133,5 +140,37 @@ export function dimensionHeadlineInput(allViolations, severity, evalData) {
     violations: allViolations || [],
     filesRead: evalData?.filesRead,
     sourceFileCount: evalData?.sourceFileCount,
+  };
+}
+
+function isNumber(v) {
+  return typeof v === 'number';
+}
+
+function sumDetail(details, field) {
+  const values = details.map((d) => d?.[field]).filter(isNumber);
+  return values.length > 0 ? values.reduce((a, b) => a + b, 0) : null;
+}
+
+// The row's own totals count every dimension, hidden standards included, so
+// they stand in only when the row has no per-dimension details at all, never
+// when the visible-standards filter emptied them.
+function countOf(entry, field) {
+  const details = entry?.dimensionDetails;
+  if (Array.isArray(details)) return sumDetail(details, field);
+  return isNumber(entry?.[field]) ? entry[field] : null;
+}
+
+/**
+ * A trend row's criticals, majors (critical + major, as the trend counts
+ * them) and open types over the dimensions on show: the per-dimension
+ * details, else (a row without details) the row's own totals, else null.
+ * @returns {{critical: number|null, majors: number|null, openTypes: number|null}}
+ */
+export function runCounts(entry) {
+  return {
+    critical: countOf(entry, 'critical'),
+    majors: countOf(entry, 'majors'),
+    openTypes: countOf(entry, 'openTypes'),
   };
 }

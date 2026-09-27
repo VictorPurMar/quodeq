@@ -32,4 +32,4 @@ Under the tiles, one line carries the numbers that only move when the code moves
 
 ### The report
 
-The **Report** button in the top bar renders the whole overview as a Markdown report in the side pane, ready to download and share outside Quodeq.
+The **Report** button in the top bar renders the whole overview as a Markdown report in the side pane, ready to download and share outside Quodeq. The report follows the header: the four tiles (score, violations, compliance, ratio), then the strip's numbers (criticals, majors, open types, density), then one since-baseline section with counts only. The raw violations total stays in its summary at the end.

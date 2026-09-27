@@ -46,6 +46,7 @@ class DimensionDetail(TypedDict):
     violations: int
     majors: int
     openTypes: int
+    critical: int
 
 
 class TrendEntry(TypedDict):
@@ -70,6 +71,7 @@ class TrendEntry(TypedDict):
     violations: int
     majors: int
     openTypes: int
+    critical: int
 
 
 def _build_dimension_details(
@@ -96,12 +98,12 @@ def _build_dimension_details(
 
 
 _BLOCKING = frozenset({Severity.CRITICAL, Severity.MAJOR})
-_COUNT_KEYS = ("violations", "majors", "openTypes")
+_COUNT_KEYS = ("violations", "majors", "openTypes", "critical")
 
 
 def dimension_counts(dim: DimensionResult) -> dict[str, int]:
-    """The counts a user can watch converge: active violations, majors
-    (critical + major) and open requirement types (distinct ``req``).
+    """The counts a user can watch converge: active violations, criticals,
+    majors (critical + major) and open requirement types (distinct ``req``).
 
     Scalar reads drop the findings but carry ``totals`` and ``open_types``;
     a full read has the findings and may lack both. Either source works."""
@@ -109,12 +111,14 @@ def dimension_counts(dim: DimensionResult) -> dict[str, int]:
     totals = dim.totals
     if totals is not None:
         violations = totals.violation_count
-        majors = totals.severity.critical + totals.severity.major
+        critical = totals.severity.critical
+        majors = critical + totals.severity.major
     else:
         violations = len(active)
+        critical = sum(1 for f in active if f.severity == Severity.CRITICAL)
         majors = sum(1 for f in active if f.severity in _BLOCKING)
     open_types = dim.open_types if dim.open_types is not None else len({f.req for f in active if f.req})
-    return {"violations": violations, "majors": majors, "openTypes": open_types}
+    return {"violations": violations, "majors": majors, "openTypes": open_types, "critical": critical}
 
 
 def _run_counts(details: list[DimensionDetail]) -> dict[str, int]:

@@ -1610,5 +1610,13 @@
   "gradeFormula.typesAria": "Requirement types",
   "gradeFormula.typesNoRun": "open a project with a finished run to see its types",
   "gradeFormula.liveFailed": "the run could not be read",
-  "gradeFormula.liveShared": "not available for shared repositories: the worked example needs a local run"
+  "gradeFormula.liveShared": "not available for shared repositories: the worked example needs a local run",
+  "history.tooltipCounts": "{critical} critical · {majors} majors · {openTypes} open types",
+  "history.tooltipCountsNoCritical": "{majors} majors · {openTypes} open types",
+  "history.tooltipCountsRun": "latest run {date}: {critical} critical · {majors} majors · {openTypes} open types",
+  "history.tooltipCountsRunNoCritical": "latest run {date}: {majors} majors · {openTypes} open types",
+  "history.colMajors": "MAJORS",
+  "history.colTypes": "TYPES",
+  "sidebar.majorsTitleOne": "{count} major",
+  "sidebar.majorsTitleMany": "{count} majors"
 }

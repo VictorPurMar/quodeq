@@ -33,4 +33,4 @@ def test_scalars_carry_violations_majors_and_open_types(tmp_path: Path) -> None:
     assert dim.violations == [] and dim.totals is not None
     assert (dim.totals.violation_count, dim.totals.severity.major, dim.totals.severity.critical) == (5, 1, 1)
     assert dim.open_types == 3
-    assert dimension_counts(dim) == {"violations": 5, "majors": 2, "openTypes": 3}
+    assert dimension_counts(dim) == {"violations": 5, "majors": 2, "openTypes": 3, "critical": 1}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildHeadline, dimensionHeadlineInput, dimensionOpenTypes, formatDensity, filterSinceBaseline, sinceBaselineFor, sumSinceBaseline, SCOPE_ALL, SCOPE_CHANGED, SCOPE_MIXED } from './headlineStats.js';
+import { buildHeadline, dimensionHeadlineInput, dimensionOpenTypes, formatDensity, filterSinceBaseline, runCounts, sinceBaselineFor, sumSinceBaseline, SCOPE_ALL, SCOPE_CHANGED, SCOPE_MIXED } from './headlineStats.js';
 
 const dim = (over = {}) => ({
   dimension: 'maintainability',
@@ -120,4 +120,19 @@ test('dimensionHeadlineInput shapes the dimension page data for buildHeadline', 
   const h = buildHeadline([input]);
   assert.deepEqual([h.majors, h.critical, h.openTypes, h.violations, h.density, h.coveragePct], [1, 0, 2, 2, 4, 50]);
   assert.equal(buildHeadline([dimensionHeadlineInput([], { critical: 0, major: 0, minor: 0 }, {})]).density, null);
+});
+
+test('runCounts sums dimensionDetails and ignores the top-level totals when details exist', () => {
+  const entry = { majors: 99, openTypes: 99, critical: 99, dimensionDetails: [{ critical: 1, majors: 2, openTypes: 5 }, { critical: 0, majors: 1, openTypes: 4 }] };
+  assert.deepEqual(runCounts(entry), { critical: 1, majors: 3, openTypes: 9 });
+});
+
+test('runCounts falls back to the top-level totals only when there are no details at all', () => {
+  assert.deepEqual(runCounts({ majors: 4, openTypes: 7 }), { critical: null, majors: 4, openTypes: 7 });
+  // Details emptied by the visible-standards filter: the row's own totals
+  // would count hidden standards, so nothing is shown.
+  assert.deepEqual(runCounts({ critical: 4, majors: 9, openTypes: 7, dimensionDetails: [] }), { critical: null, majors: null, openTypes: null });
+  assert.deepEqual(runCounts({ dimensionDetails: [{ majors: 2, openTypes: 3 }] }), { critical: null, majors: 2, openTypes: 3 });
+  assert.deepEqual(runCounts({ dimensionDetails: [{ score: '7.0' }] }), { critical: null, majors: null, openTypes: null });
+  assert.deepEqual(runCounts({}), { critical: null, majors: null, openTypes: null });
 });

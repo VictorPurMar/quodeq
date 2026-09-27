@@ -177,3 +177,19 @@ describe('HelpPage overview: tiles and the strip', () => {
     }
   });
 });
+
+describe('HelpPage history counts', () => {
+  it('documents the tooltip counts and the MAJORS and TYPES columns, without lines, legend or a since-baseline panel', () => {
+    const { container } = render(<HelpPage initialSection="history" />);
+    expect((container.textContent.match(/majors/gi) || []).length).toBeGreaterThan(1);
+    expect((container.textContent.match(/open types/gi) || []).length).toBeGreaterThan(1);
+    expect(container.textContent).toMatch(/criticals/i);
+    expect(screen.queryByRole('heading', { level: 3, name: /Since the baseline/ })).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/legend|dashed|dotted|per-dimension lines/i);
+  });
+
+  it('describes the report order on the Overview page', () => {
+    render(<HelpPage initialSection="overview" />);
+    expect(screen.getByText(/report follows the header/)).toBeInTheDocument();
+  });
+});
