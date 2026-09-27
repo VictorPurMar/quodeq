@@ -45,6 +45,24 @@ def _run_gh(args: list[str]) -> str:
     return result.stdout
 
 
+def _gh_json(args: list[str]) -> dict:
+    """Run ``gh`` with *args* and parse its stdout as a JSON object.
+
+    A ``subprocess.CalledProcessError`` from ``_run_gh`` is left for the
+    caller to word. Anything else wrong with the output -- invalid JSON, or
+    valid JSON that isn't an object -- becomes one ``ReviewError`` here
+    instead of three separate decode try blocks at each call site.
+    """
+    out = _run_gh(args)
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError as exc:
+        raise ReviewError(f"gh returned invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ReviewError("gh returned unexpected JSON (not an object)")
+    return data
+
+
 def detect_pr(pr_override: int | None = None) -> tuple[int, str]:
     """Detect the open PR for the current branch. Returns (pr_number, base_branch).
 
@@ -53,14 +71,16 @@ def detect_pr(pr_override: int | None = None) -> tuple[int, str]:
     if pr_override is not None:
         # Still need baseRefName, so ask gh about this PR.
         try:
-            out = _run_gh(["pr", _GH_VIEW, str(pr_override), _GH_JSON_FLAG, "number,baseRefName"])
+            data = _gh_json(["pr", _GH_VIEW, str(pr_override), _GH_JSON_FLAG, "number,baseRefName"])
         except subprocess.CalledProcessError as exc:
             raise ReviewError(f"Could not find PR #{pr_override}: {exc.stderr.strip()}")
-        data = json.loads(out)
-        return data["number"], data["baseRefName"]
+        try:
+            return data["number"], data["baseRefName"]
+        except (KeyError, TypeError) as exc:
+            raise ReviewError(f"gh pr view returned unexpected JSON: missing {exc}") from exc
 
     try:
-        out = _run_gh(["pr", _GH_VIEW, _GH_JSON_FLAG, "number,baseRefName"])
+        data = _gh_json(["pr", _GH_VIEW, _GH_JSON_FLAG, "number,baseRefName"])
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
         if "no pull requests found" in stderr.lower():
@@ -69,8 +89,10 @@ def detect_pr(pr_override: int | None = None) -> tuple[int, str]:
                 "Open a PR first, or pass --pr <number>."
             )
         raise ReviewError(f"gh pr view failed: {stderr}")
-    data = json.loads(out)
-    return data["number"], data["baseRefName"]
+    try:
+        return data["number"], data["baseRefName"]
+    except (KeyError, TypeError) as exc:
+        raise ReviewError(f"gh pr view returned unexpected JSON: missing {exc}") from exc
 
 
 def get_github_token() -> str:
@@ -87,14 +109,16 @@ def get_github_token() -> str:
 def get_repo_info() -> tuple[str, str]:
     """Get (owner, repo) from the current git repository via gh."""
     try:
-        out = _run_gh(["repo", _GH_VIEW, _GH_JSON_FLAG, "owner,name"])
+        data = _gh_json(["repo", _GH_VIEW, _GH_JSON_FLAG, "owner,name"])
     except subprocess.CalledProcessError:
         raise ReviewError(
             "Could not determine GitHub repo. "
             "Run from inside a GitHub-connected git repo, or use 'gh repo set-default'."
         )
-    data = json.loads(out)
-    return data["owner"]["login"], data["name"]
+    try:
+        return data["owner"]["login"], data["name"]
+    except (KeyError, TypeError) as exc:
+        raise ReviewError(f"gh repo view returned unexpected JSON: missing {exc}") from exc
 
 
 def snapshot_run_dirs(output_dir: Path) -> set[Path]:

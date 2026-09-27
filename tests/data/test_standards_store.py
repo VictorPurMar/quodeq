@@ -57,6 +57,24 @@ class TestJailedPayloadIo:
 
         assert read_standard_payload(tmp_path / "nope.json") is None
 
+    def test_read_non_object_raises(self, tmp_path):
+        """A read failure must never look like "absent": that would let an
+        import silently overwrite a user's corrupt standard file."""
+        from quodeq.data.fs.standards_store import read_standard_payload
+
+        path = tmp_path / "bad.json"
+        path.write_text("[1, 2, 3]")
+        with pytest.raises(ValueError, match="not a JSON object"):
+            read_standard_payload(path)
+
+    def test_read_corrupt_json_still_raises(self, tmp_path):
+        from quodeq.data.fs.standards_store import read_standard_payload
+
+        path = tmp_path / "bad.json"
+        path.write_text("not json{{{")
+        with pytest.raises(json.JSONDecodeError):
+            read_standard_payload(path)
+
     def test_jail_rejects_escape(self, tmp_path):
         from quodeq.data.fs.standards_store import resolve_jailed_standard_path
 

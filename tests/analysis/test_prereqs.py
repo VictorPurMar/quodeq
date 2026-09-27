@@ -185,6 +185,15 @@ class TestCompositeChecks:
                 ):
                     check_evaluate_prereqs()
 
+    def test_evaluate_unknown_provider_type_raises(self):
+        with patch.dict("os.environ", {"AI_PROVIDER": "claude"}):
+            with patch(
+                "quodeq.analysis.prereqs.get_provider_configs",
+                return_value={"claude": {"type": "mystery"}},
+            ):
+                with pytest.raises(RuntimeError, match="Unknown provider type"):
+                    check_evaluate_prereqs()
+
 
 class TestProviderInjection:
     def test_run_version_cmd_rejects_shell_metacharacters(self):

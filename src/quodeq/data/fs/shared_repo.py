@@ -146,7 +146,9 @@ def _fetch_and_reset_clone(url: str, repo: Path, timeout: int) -> tuple[bool, st
     # failure there (network hiccup, odd remote) is not fatal -- fall through
     # to the plain fetch below, and a later refresh call retries the unshallow.
     if (repo / GIT_DIR_NAME / "shallow").exists():
-        run_git(["fetch", "--unshallow", "origin"], cwd=repo, timeout=timeout)
+        ok, out = run_git(["fetch", "--unshallow", "origin"], cwd=repo, timeout=timeout)
+        if not ok:
+            logger.debug("refresh_shared_clone: unshallow failed for %s: %s", url, out.strip()[:200])
     ok, out = run_git(["fetch", "origin", "HEAD"], cwd=repo, timeout=timeout)
     if not ok:
         reason = out.strip()[:200]

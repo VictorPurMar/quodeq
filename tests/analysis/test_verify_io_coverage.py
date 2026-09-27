@@ -12,8 +12,12 @@ class TestParseFindingLine:
         assert _parse_finding_line("  ") is None
 
     def test_invalid_json(self):
+        """Malformed JSON, and JSON that parses to a non-object (a list, say,
+        instead of a dict), both count as an unparseable line rather than
+        crashing on the ``.get`` lookups below."""
         from quodeq.analysis.subagents._verify_io import _parse_finding_line
         assert _parse_finding_line("{bad") is None
+        assert _parse_finding_line(json.dumps(["P1", "violation"])) is None
 
     def test_missing_principle(self):
         from quodeq.analysis.subagents._verify_io import _parse_finding_line

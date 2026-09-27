@@ -57,11 +57,19 @@ export function removeRequirementFromStandard(standard, principleIndex, reqIndex
   return { standard: next, selectedNode: { type: NODE_TYPE.PRINCIPLE, index: principleIndex } };
 }
 
-/** Set a nested field by path (e.g. ['principles', 0, 'name']). No selection change. */
+/**
+ * Set a nested field by path (e.g. ['principles', 0, 'name']). No selection
+ * change. A path that walks through a missing node (stale index, already-
+ * removed principle/requirement) returns the original standard unchanged
+ * rather than throwing.
+ */
 export function updateStandardField(standard, path, value) {
   const next = deepClone(standard);
   let target = next;
-  for (let i = 0; i < path.length - 1; i += 1) target = target[path[i]];
+  for (let i = 0; i < path.length - 1; i += 1) {
+    target = target[path[i]];
+    if (target == null || typeof target !== 'object') return standard;
+  }
   target[path[path.length - 1]] = value;
   return next;
 }

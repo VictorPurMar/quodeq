@@ -10,6 +10,7 @@ from pathlib import Path
 from quodeq.core.types.project_source import ProjectLocation
 from quodeq.data.fs._index_io import MAX_LEGACY_SCAN
 from quodeq.data.fs._models import ProjectIdentity, ProjectRepository
+from quodeq.data.fs.project_files import read_repository_info
 
 _REPO_INFO_FILENAME = "repository_info.json"
 _URL_PREFIXES = ("https://", "git@")
@@ -50,12 +51,8 @@ def _scan_legacy_projects(
         scanned += 1
         if scanned > MAX_LEGACY_SCAN:
             break
-        info_file = entry / _REPO_INFO_FILENAME
-        if not info_file.exists():
-            continue
-        try:
-            info = json.loads(info_file.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        info = read_repository_info(entry)
+        if info is None:
             continue
         if info.get("name") != identity.project_name:
             continue

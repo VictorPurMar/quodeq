@@ -42,6 +42,8 @@ def _parse_finding_line(line: str) -> dict | None:
         entry = json.loads(line)
     except json.JSONDecodeError:
         return None
+    if not isinstance(entry, dict):
+        return None
     if entry.get("p") and entry.get("t") in FINDING_TYPES:
         return entry
     return None

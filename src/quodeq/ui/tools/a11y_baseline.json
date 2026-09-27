@@ -5,7 +5,6 @@
   "src/features/dashboard/components/projectCards/ProjectCard.jsx": 2,
   "src/features/dashboard/components/projectCards/ProjectPathContent.jsx": 4,
   "src/features/drawer/BottomDrawer.jsx": 1,
-  "src/features/evaluation/components/CleanScanToggle.jsx": 2,
   "src/features/evaluation/components/FolderBrowser.jsx": 4,
   "src/features/evaluation/components/ScanModeCards.jsx": 1,
   "src/features/explorer/components/FilePickerDialog.jsx": 4,

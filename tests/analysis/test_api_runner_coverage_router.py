@@ -51,6 +51,12 @@ class TestResolveFilePaths:
         result = resolve_file_paths(findings, ["src/app.py"])
         assert "file" not in result[0] or result[0].get("file", "") == ""
 
+    def test_ambiguous_basename_left_unresolved(self):
+        findings = [{"file": "utils.py", "req": "X-1"}]
+        source_paths = ["src/a/utils.py", "src/b/utils.py"]
+        result = resolve_file_paths(findings, source_paths)
+        assert result[0]["file"] == "utils.py"
+
 
 # ---------------------------------------------------------------------------
 # _build_router_context

@@ -125,7 +125,11 @@ def handle_tools_call(
 ) -> dict:
     """Handle the 'tools/call' JSON-RPC method."""
     name = params.get("name")
-    args = params.get("arguments") or {}
+    args = params.get("arguments")
+    if args is None:
+        args = {}
+    elif not isinstance(args, dict):
+        return _text_reply(request_id, "'arguments' must be an object", is_error=True)
 
     if name == REPORT_FINDING_NAME:
         return _handle_report_finding(request_id, args, router)

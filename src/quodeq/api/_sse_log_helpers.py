@@ -56,9 +56,13 @@ def tail_max_bytes(env: Mapping[str, str] | None = None) -> int:
 
 
 def initial_offset(last_event_id: str) -> int:
-    """Parse the SSE ``Last-Event-ID`` header (a byte offset); 0 when absent or malformed."""
+    """Parse the SSE ``Last-Event-ID`` header (a byte offset); 0 when absent, malformed, or negative.
+
+    Matches the ``since`` query-param clamp in ``_log_stream_routes.py``: a
+    negative offset would seek before the start of the log file.
+    """
     try:
-        return int(last_event_id) if last_event_id else 0
+        return max(0, int(last_event_id)) if last_event_id else 0
     except ValueError:
         return 0
 

@@ -29,3 +29,15 @@ test('buildEvalPrincipalFn builds a principal object from principles/grades', ()
   assert.equal(result.score, 90);
   assert.equal(result.dimViolations.length, 1);
 });
+
+test('buildEvalPrincipalFn: a genuine score of 0 is kept, not coerced to null', () => {
+  const evalData = {
+    dimension: 'security',
+    principles: [{ name: 'A' }],
+    principleGrades: [{ principle: 'A', score: 0, grade: 'F' }],
+  };
+  const complianceByPrinciple = computeComplianceByPrinciple({ compliance: [] });
+  const build = buildEvalPrincipalFn(evalData, complianceByPrinciple, 'proj', 'run1');
+  const result = build('A');
+  assert.equal(result.score, 0);
+});

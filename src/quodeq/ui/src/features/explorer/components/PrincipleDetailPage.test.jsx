@@ -73,3 +73,15 @@ describe('PrincipleDetailPage dismiss-button gating', () => {
     expect(screen.getByRole('list', { name: 'Violations' })).toBeInTheDocument();
   });
 });
+
+describe('PrincipleDetailPage score display', () => {
+  it('shows a genuine score of 0, not the em-dash placeholder', () => {
+    render(
+      <SidePaneProvider>
+        <PrincipleDetailPage evalPrincipal={{ ...EVAL_PRINCIPAL, score: 0 }} severityFilter={null} onDismiss={vi.fn()} />
+      </SidePaneProvider>,
+      { wrapper: withQueryClient() },
+    );
+    expect(document.querySelector('.term-stat__value').textContent).toBe('0');
+  });
+});

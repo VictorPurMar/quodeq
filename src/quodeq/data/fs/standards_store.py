@@ -50,10 +50,18 @@ def resolve_jailed_standard_path(evaluators_dir: Path, standard_id: str) -> Path
 
 
 def read_standard_payload(path: Path) -> dict | None:
-    """Parsed standard JSON at *path*, or None when the file is absent."""
+    """Parsed standard JSON at *path*, or None when the file is absent.
+
+    Raises on corrupt or non-object JSON: a real read failure must never
+    look like "absent", which would let an import silently overwrite a
+    user's corrupt standard instead of surfacing the problem.
+    """
     if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"standard file is not a JSON object: {path.name}")
+    return data
 
 
 def write_standard_payload(path: Path, data: dict) -> None:

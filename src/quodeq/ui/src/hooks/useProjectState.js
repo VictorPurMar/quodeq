@@ -6,11 +6,15 @@ import {
 import { useProjectAutoRetry } from './useProjectAutoRetry.js';
 import { useProjectWarmupPoll } from './useProjectWarmupPoll.js';
 import { LATEST_RUN_ID } from '../constants.js';
+import { backoffDelay } from '../utils/backoff.js';
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 400;
 const DEFAULT_SUMMARY_POLL_MS = 3000;
 const DEFAULT_AUTO_RETRY_MS = 30000;
+// Ceiling for the jittered backoff between project-list retries (see
+// backoffDelay): keeps a large maxRetries from growing the wait unbounded.
+const RETRY_DELAY_CAP_MS = 5000;
 
 // Resilient loader. A *transient* fetch failure (e.g. an aborted request
 // during a startup/reload race) must NOT be mistaken for "no projects" —
@@ -37,7 +41,8 @@ function makeLoadProjects({ listProjects, maxRetries, retryDelayMs, loadInFlight
       })
       .catch((err) => {
         if (attempt < maxRetries) {
-          return new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+          const delay = backoffDelay(attempt, retryDelayMs, RETRY_DELAY_CAP_MS);
+          return new Promise((resolve) => setTimeout(resolve, delay))
             .then(() => load(attempt + 1));
         }
         console.warn('Failed to load projects after retries:', err);

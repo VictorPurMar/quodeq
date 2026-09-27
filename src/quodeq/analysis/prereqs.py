@@ -191,3 +191,7 @@ def check_evaluate_prereqs(env: dict[str, str] | None = None) -> None:
         _check_cli_provider(provider, env=env)
     elif provider_type == ProviderType.API:
         _check_api_provider(provider, env=env)
+    else:
+        raise RuntimeError(
+            f"Unknown provider type {provider_type!r} for {provider!r}. {_SETTINGS_HINT}"
+        )

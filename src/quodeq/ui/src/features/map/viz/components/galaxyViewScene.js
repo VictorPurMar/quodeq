@@ -206,7 +206,7 @@ export function updateSceneLiveData(scene, dimensions) {
       prin.violations = pv;
       prin.compliance = pc;
       prin.score = pScore;
-      prin.rawScore = gl?.score || null;
+      prin.rawScore = gl?.score ?? null;
       prin.grade = gl?.grade || null;
       prin.col = scoreRGB(pScore);
       prin._rawViolations = g.violations;

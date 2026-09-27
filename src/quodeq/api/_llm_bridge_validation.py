@@ -50,6 +50,18 @@ def string_fields_error(data: Mapping[str, Any], names: tuple[str, ...]) -> tupl
     return None
 
 
+def bool_fields_error(data: Mapping[str, Any], names: tuple[str, ...]) -> tuple[Response, int] | None:
+    """A 400 for the first of *names* present in *data* with a non-boolean value.
+
+    ``bool("false")`` is ``True``, so a string flag must be rejected, not coerced.
+    An explicit JSON ``null`` is treated as absent, matching ``string_fields_error``.
+    """
+    for name in names:
+        if name in data and data[name] is not None and not isinstance(data[name], bool):
+            return json_error(f"{name} must be a boolean", HTTPStatus.BAD_REQUEST, CODE_INVALID_PARAM)
+    return None
+
+
 def invalid_base_url(base_url: str | None) -> tuple[Response, int] | None:
     """Return a 400 response when *base_url* fails SSRF validation, else None.
 

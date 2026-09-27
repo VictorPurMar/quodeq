@@ -34,6 +34,7 @@ from quodeq.llm_bridge._local_server import (
     bare_model_entry,
     concurrency_result,
     normalize_base,
+    parse_health_response,
     server_address,
 )
 
@@ -59,12 +60,7 @@ def get_llamacpp_status(base_url: str | None = None) -> dict:
     try:
         req = urllib.request.Request(f"{root}/health")
         with urllib.request.urlopen(req, timeout=LOCAL_SERVER_PROBE_TIMEOUT_S) as resp:
-            data = json.loads(resp.read() or b"{}")
-            return {
-                "running": True,
-                "status": data.get("status", HEALTH_OK),
-                "address": server_address(root),
-            }
+            return parse_health_response(resp.read(), server_address(root), ok_status=HEALTH_OK)
     except _TRANSPORT_ERRORS as exc:
         _log.warning("llama.cpp status check failed: %s", exc)
         return {"running": False, "error": "Connection failed"}
@@ -82,11 +78,13 @@ def list_llamacpp_models(base_url: str | None = None) -> list[dict]:
         req = urllib.request.Request(f"{root}/v1/models")
         with urllib.request.urlopen(req, timeout=LOCAL_SERVER_PROBE_TIMEOUT_S) as resp:
             data = json.loads(resp.read())
-            entries = data.get("data", []) or []
+            entries = data.get("data") if isinstance(data, dict) else None
+            if not isinstance(entries, list):
+                entries = []
             return [
-                bare_model_entry(m.get("id", ""))
+                bare_model_entry(m["id"])
                 for m in entries
-                if m.get("id")
+                if isinstance(m, dict) and isinstance(m.get("id"), str) and m["id"]
             ]
     except _TRANSPORT_ERRORS as exc:
         _log.warning("Could not list llama.cpp models: %s", exc)

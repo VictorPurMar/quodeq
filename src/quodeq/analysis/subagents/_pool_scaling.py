@@ -1,6 +1,7 @@
 """Scaling logic: respawn decisions, scale-up computation, future collection."""
 from __future__ import annotations
 
+import subprocess
 import time
 from collections import OrderedDict
 from concurrent.futures import Future
@@ -18,8 +19,15 @@ from quodeq.analysis.errors import REASON_AGENT_FAILURE_STREAK
 from quodeq.analysis.subagents.file_queue import FileQueue, WorkQueue
 from quodeq.config.analysis_env import AGENT_FAILURE_STREAK_DEFAULT
 from quodeq.shared import cancellation
+from quodeq.shared.fault_isolation import run_isolated
+from quodeq.shared.log_sink import SHARED_LOG
 from quodeq.shared.logging import log_warning
 from quodeq.core.utils.numbers import clamp
+
+# Exceptions an agent's own work (its subprocess/CLI call, or the run_analysis
+# plumbing around it) is expected to surface as a plain failed agent, logged
+# with the exception type so the message stays specific to what happened.
+_EXPECTED_AGENT_FAILURES = (OSError, RuntimeError, ValueError, subprocess.SubprocessError)
 
 
 @dataclass
@@ -171,28 +179,48 @@ def compute_scale_up(remaining: int, free_slots: int) -> int:
     return clamp(remaining, 0, free_slots)
 
 
+def _failed_result(agent_id: str, paths: EvidencePaths, exc: Exception) -> SubagentResult:
+    """The failed SubagentResult a dead pool agent's task boundary reports."""
+    return SubagentResult(
+        agent_id=agent_id,
+        jsonl_file=paths.shared_jsonl_path,
+        stream_file=agent_stream_file(paths.evidence_dir, paths.dimension_key, agent_id),
+        success=False,
+        error=str(exc),
+    )
+
+
+def _collect_one(future: Future[SubagentResult], agent_id: str, paths: EvidencePaths) -> SubagentResult:
+    """One pool agent's outcome. Its expected failure modes (a subprocess/CLI
+    call gone wrong) degrade in place with a message naming the exception."""
+    try:
+        return future.result()
+    except _EXPECTED_AGENT_FAILURES as exc:
+        log_warning(f"  {agent_id} raised {type(exc).__name__}: {exc}")
+        return _failed_result(agent_id, paths, exc)
+
+
 def collect_done(
     futures: dict[Future[SubagentResult], int],
     finished: dict[str, bool],
     results: list[SubagentResult],
     paths: EvidencePaths,
 ) -> set[Future[SubagentResult]]:
-    """Collect completed futures, updating results and finished map."""
+    """Collect completed futures, updating results and finished map.
+
+    Each future is one pool agent's task-entry boundary: an exception
+    ``_collect_one`` doesn't already recognise still degrades to a failed
+    agent via ``run_isolated`` instead of stopping the whole pool.
+    """
     done_futures = {f for f in futures if f.done()}
     for future in done_futures:
         idx = futures[future]
         agent_id = agent_id_for(idx)
-        try:
-            result = future.result()
-        except (OSError, RuntimeError, ValueError) as exc:
-            log_warning(f"  {agent_id} raised {type(exc).__name__}: {exc}")
-            result = SubagentResult(
-                agent_id=agent_id,
-                jsonl_file=paths.shared_jsonl_path,
-                stream_file=agent_stream_file(paths.evidence_dir, paths.dimension_key, agent_id),
-                success=False,
-                error=str(exc),
-            )
+        result = run_isolated(
+            lambda f=future, a=agent_id: _collect_one(f, a, paths),
+            label=f"pool agent {agent_id}", log=SHARED_LOG,
+            on_error=lambda exc, a=agent_id: _failed_result(a, paths, exc),
+        )
         finished[result.agent_id] = True
         results.append(result)
         del futures[future]

@@ -7,7 +7,7 @@ function buildPrincipleHeaderSection({ principle, dimension, score, grade, runId
   const date = dateLabel || formatDate();
   const ridSuffix = runSuffix(runId);
   const dimSuffix = dimension ? ` · **Dimension:** ${dimension}` : '';
-  const scoreDisplay = score ? `${String(score).replace('/10', '')}/10` : '—';
+  const scoreDisplay = score != null ? `${String(score).replace('/10', '')}/10` : '—';
 
   const lines = [];
   lines.push(`# ${principle} report`);

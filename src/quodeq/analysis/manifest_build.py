@@ -143,9 +143,9 @@ def _resolve_registry_and_scopes(
     than the repo root alone, its recursive subproject scopes.
 
     Returns ``(registry, sub_results)`` where *sub_results* is ``None`` when
-    there is no registry, or when the registry classifies only a single
-    root-level project — both cases mean the caller should take the legacy
-    single-scope path.
+    there is no registry, when recursive discovery itself fails, or when the
+    registry classifies only a single root-level project — every case means
+    the caller should take the legacy single-scope path.
     """
     registry: DisciplineRegistry | None = None
     if disciplines_conf and disciplines_conf.exists():
@@ -155,7 +155,11 @@ def _resolve_registry_and_scopes(
     if registry is None:
         return None, None
 
-    sub_results = registry.detect_matches_recursive(src)
+    sub_results = _guard_detection(
+        disciplines_conf, lambda: registry.detect_matches_recursive(src),
+    )
+    if sub_results is None:
+        return registry, None
     is_single_root = (
         not sub_results or (len(sub_results) == 1 and sub_results[0][0] == ".")
     )

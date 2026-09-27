@@ -214,7 +214,7 @@ def _run_call_and_enrich(
         fatal_exc, findings, was_lossy = exc, [], True
 
     if request.source_file_paths:
-        findings = resolve_file_paths(findings, request.source_file_paths)
+        findings = resolve_file_paths(findings, request.source_file_paths, log=LoggerSink(_log))
     infer_end_line(findings)
 
     project_dir, run_dir = derive_run_paths(request.jsonl_file)

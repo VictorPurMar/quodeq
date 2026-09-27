@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-
 
 from quodeq.core.run.job_status import JobStatus
 from quodeq.services._job_model import Job
 from quodeq.services._job_file_store import FileJobStore, _default_persist_dir
-
-
-# ---------------------------------------------------------------------------
-# FileJobStore
-# ---------------------------------------------------------------------------
 
 
 class TestFileJobStore:
@@ -191,17 +186,36 @@ class TestFileJobStore:
         assert on_disk["ended_at"], "the flip must be persisted with ended_at"
 
     def test_write_failure_does_not_crash(self, tmp_path: Path, monkeypatch):
-        """If writing to disk fails, put() should not raise."""
+        """A write failure must not raise, and must not leave a stray temp file."""
         store = FileJobStore(persist_dir=tmp_path)
         job = Job("j1", "done", ["echo"], "now", "later", 0)
-        # Make the persist dir read-only to trigger OSError
 
-        def fail_write(*a, **kw):
+        def fail_write(fd, *a, **kw):
+            # dump_json_and_replace closes fd on error; Windows cannot
+            # unlink a file that is still open.
+            os.close(fd)
             raise OSError("disk full")
 
-        monkeypatch.setattr(Path, "write_text", fail_write)
-        # Should log warning but not raise
+        monkeypatch.setattr("quodeq.services._job_file_store.dump_json_and_replace", fail_write)
         store.put(job)
+        assert not (tmp_path / "j1.json").exists()
+        assert list(tmp_path.glob("*.tmp")) == []
+
+    def test_non_object_job_file_skipped_without_crashing_startup(self, tmp_path: Path):
+        """A valid-JSON but non-object job file (e.g. a list) must be
+        skipped like any other corrupt file, not abort the whole load."""
+        (tmp_path / "list.json").write_text(json.dumps([1, 2, 3]))
+        (tmp_path / "ok.json").write_text(json.dumps({"job_id": "ok", "status": "done"}))
+        store = FileJobStore(persist_dir=tmp_path)
+        assert store.get("ok").status is JobStatus.DONE
+        assert len(store.list()) == 1
+
+    def test_non_utf8_job_file_skipped_without_crashing_startup(self, tmp_path: Path):
+        """Non-UTF-8 bytes in a job file must not abort startup."""
+        (tmp_path / "bad.json").write_bytes(b"\xff\xfe\x00\x01garbage")
+        (tmp_path / "ok.json").write_text(json.dumps({"job_id": "ok", "status": "done"}))
+        store = FileJobStore(persist_dir=tmp_path)
+        assert len(store.list()) == 1
 
 
 class TestDefaultPersistDir:

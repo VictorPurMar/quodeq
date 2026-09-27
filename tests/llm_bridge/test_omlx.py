@@ -86,6 +86,59 @@ class TestReadOmlxApiKey:
         assert result == ""
         mock_log.warning.assert_not_called()
 
+    def test_no_warning_when_settings_file_is_non_object_json(self, tmp_path):
+        """settings.json parsing to a bare JSON array (not an object) must
+        not crash on ``.get``; it degrades to no key, no warning."""
+        omlx_dir = tmp_path / ".omlx"
+        omlx_dir.mkdir()
+        settings_file = omlx_dir / "settings.json"
+        settings_file.write_text(json.dumps([1, 2, 3]))
+
+        with patch.dict("os.environ", {"OMLX_API_KEY": ""}, clear=True), \
+             patch("quodeq.llm_bridge.omlx.Path") as mock_path_cls, \
+             patch("quodeq.llm_bridge.omlx._log") as mock_log:
+            mock_path_cls.home.return_value = tmp_path
+
+            result = read_omlx_api_key()
+
+        assert result == ""
+        mock_log.warning.assert_not_called()
+
+    def test_no_warning_when_auth_is_non_object(self, tmp_path):
+        """A settings.json whose "auth" value isn't an object must not
+        crash on the nested ``.get("api_key")``."""
+        omlx_dir = tmp_path / ".omlx"
+        omlx_dir.mkdir()
+        settings_file = omlx_dir / "settings.json"
+        settings_file.write_text(json.dumps({"auth": "not-an-object"}))
+
+        with patch.dict("os.environ", {"OMLX_API_KEY": ""}, clear=True), \
+             patch("quodeq.llm_bridge.omlx.Path") as mock_path_cls, \
+             patch("quodeq.llm_bridge.omlx._log") as mock_log:
+            mock_path_cls.home.return_value = tmp_path
+
+            result = read_omlx_api_key()
+
+        assert result == ""
+        mock_log.warning.assert_not_called()
+
+    def test_no_warning_when_api_key_is_non_string(self, tmp_path):
+        """A non-string "api_key" value must not be handed back as the key."""
+        omlx_dir = tmp_path / ".omlx"
+        omlx_dir.mkdir()
+        settings_file = omlx_dir / "settings.json"
+        settings_file.write_text(json.dumps({"auth": {"api_key": 12345}}))
+
+        with patch.dict("os.environ", {"OMLX_API_KEY": ""}, clear=True), \
+             patch("quodeq.llm_bridge.omlx.Path") as mock_path_cls, \
+             patch("quodeq.llm_bridge.omlx._log") as mock_log:
+            mock_path_cls.home.return_value = tmp_path
+
+            result = read_omlx_api_key()
+
+        assert result == ""
+        mock_log.warning.assert_not_called()
+
 
 class TestNormalizeBase:
     def test_strips_v1_suffix(self):

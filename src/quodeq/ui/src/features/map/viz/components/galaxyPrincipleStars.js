@@ -90,7 +90,7 @@ export function buildPrinciples(dimensions) {
     const prinList = Object.entries(groups).map(([name, g]) => ({
       name,
       grade: gradeLookup[name]?.grade || null,
-      score: gradeLookup[name]?.score || null,
+      score: gradeLookup[name]?.score ?? null,
       violations: g.violations,
       compliance: g.compliance,
     }));

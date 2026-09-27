@@ -49,6 +49,14 @@ def build_finding(item: dict, *, include_severity: bool) -> Finding:
     ))
 
 
+def _dict_entries(data: dict, key: str) -> list[dict]:
+    """Dict entries from ``data[key]``: a non-list value yields none, and a
+    list keeps only its dict entries -- callers below (``build_finding``)
+    index into each entry, so a non-dict item must never reach them."""
+    raw = data.get(key)
+    return [item for item in raw if isinstance(item, dict)] if isinstance(raw, list) else []
+
+
 def parse_report_json(json_path: Path) -> dict[str, Any] | None:
     """Parse a dimension evaluation JSON file into a normalized report dict."""
     try:
@@ -61,8 +69,18 @@ def parse_report_json(json_path: Path) -> dict[str, Any] | None:
     if sv not in _SUPPORTED_SCHEMA_VERSIONS:
         _logger.warning("Unsupported schema_version %s in %s; attempting best-effort parse", sv, json_path.name)
 
-    violations = [build_finding(v, include_severity=True) for v in data.get("violations", [])]
-    compliance = [build_finding(c, include_severity=False) for c in data.get("compliance", [])]
+    violation_items = _dict_entries(data, "violations")
+    compliance_items = _dict_entries(data, "compliance")
+    dropped = 0
+    for key, kept in (("violations", violation_items), ("compliance", compliance_items)):
+        raw = data.get(key)
+        if isinstance(raw, list):
+            dropped += len(raw) - len(kept)
+    if dropped:
+        _logger.warning("Dropped %d malformed finding entries in %s", dropped, json_path.name)
+
+    violations = [build_finding(v, include_severity=True) for v in violation_items]
+    compliance = [build_finding(c, include_severity=False) for c in compliance_items]
 
     return {
         "dimension": data.get("dimension"),

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { terminalSocketUrl } from '../../api/terminal.js';
 import { TERMINAL_STATUS } from './terminalSetup.js';
+import { backoffDelay } from '../../utils/backoff.js';
 
 // App-specific WS close codes sent by the server (api/terminal_routes.py).
 // They mean a reconnect cannot succeed right now, so the hook reports the
@@ -47,7 +48,7 @@ function connectSocket({ sessionId, wsRef, retryTimerRef, attemptsRef, onOpenRef
     // keystrokes silently, so surface it and retry with capped exponential
     // backoff — the local server can come back at any moment.
     setStatus(TERMINAL_STATUS.RECONNECTING);
-    const delay = Math.min(RETRY_BASE_MS * 2 ** attemptsRef.current, RETRY_MAX_MS);
+    const delay = backoffDelay(attemptsRef.current, RETRY_BASE_MS, RETRY_MAX_MS);
     attemptsRef.current += 1;
     retryTimerRef.current = setTimeout(() => {
       retryTimerRef.current = null;

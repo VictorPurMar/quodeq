@@ -66,7 +66,7 @@ function SevBadgeRow({ sevCounts }) {
 
 function PrincipleHeader({ data }) {
   const { principle, description, score, grade, violations, compliance, sevCounts, dateLabel, runId } = data;
-  const scoreDisplay = score ? String(score).replace('/10', '') : '—';
+  const scoreDisplay = score != null ? String(score).replace('/10', '') : '—';
   const ratioDisplay = (compliance.length > 0 && violations.length > 0)
     ? `1:${Math.round(compliance.length / violations.length)}`
     : '—';

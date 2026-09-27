@@ -9,7 +9,8 @@ from pathlib import Path
 from flask import Flask, Response, jsonify
 
 from quodeq.api._constants import ERROR_CODE_BAD_REQUEST, ERROR_CODE_CONFLICT, ERROR_CODE_FORBIDDEN
-from quodeq.api.helpers import json_object_or_error, sanitize_for_log, error_response
+from quodeq.api._llm_bridge_validation import bool_fields_error
+from quodeq.api.helpers import error_response, json_object_or_error, sanitize_for_log
 from quodeq.services.import_validator import StandardImportValidationError
 from quodeq.services.standards import IMPORT_STATUS_CONFLICT
 from quodeq.services.standards_library import StandardImportConflictError
@@ -73,6 +74,9 @@ def _validate_import_body(body):
             "'data' field is required and must be an object",
             HTTPStatus.BAD_REQUEST, ERROR_CODE_BAD_REQUEST,
         )
+    bool_error = bool_fields_error(body, ("force",))
+    if bool_error is not None:
+        return None, None, bool_error
     return data, body.get("force", False), None
 
 
