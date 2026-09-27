@@ -36,9 +36,11 @@ receivers are never bound either way.
 
 ALLOWLIST covers two kinds of already-audited site, keyed `relpath:lineno:kind`
 with each entry commented why:
-  - 3 post-kill/post-terminate reaps: once a process has been sent
-    SIGKILL/SIGTERM, the wait is bounded by that signal, not by the wait
-    call itself, so a second explicit timeout would be redundant.
+  - 3 post-kill reaps: once a process has been sent SIGKILL, the wait is
+    bounded by that signal, not by the wait call itself, so a second
+    explicit timeout would be redundant. (SIGTERM does not qualify: the
+    child can handle or ignore it, so a wait after terminate() needs its
+    own timeout.)
   - 1 http-no-timeout site (`llm_bridge/embeddings.py`) where the timeout is
     set inside a `**kwargs` dict built by a helper (`_client_kwargs`), not as
     a literal keyword at the call site.
@@ -101,17 +103,17 @@ _OPENAI_CTORS = frozenset({"OpenAI"})
 _URLOPEN_TIMEOUT_ARG_INDEX = 2  # urlopen(url, data=None, timeout=..., ...)
 
 # Each entry suppresses one verified, already-audited site (see the module
-# docstring). Post-kill/post-terminate reaps: the preceding kill()/terminate()
-# already bounds how long the wait can take, so a second timeout on the wait
-# itself would be redundant.
+# docstring). Post-kill reaps: the preceding kill() already bounds how long
+# the wait can take, so a second timeout on the wait itself would be
+# redundant.
 ALLOWLIST: frozenset[str] = frozenset({
     # proc.wait() right after proc.kill(), inside stream_log_names' finally.
     "src/quodeq/data/git_cli.py:201:subprocess-wait",
     # await process.wait() right after process.kill() (asyncio subprocess).
     "src/quodeq/data/copilot_models.py:153:subprocess-wait",
-    # process.wait() right after process.terminate(), in spawn_and_wait's
-    # except branch.
-    "src/quodeq/dashboard/_api_spawn.py:91:subprocess-wait",
+    # process.wait() right after process.kill(), in _terminate_then_kill's
+    # TimeoutExpired branch (the post-SIGTERM wait carries a timeout).
+    "src/quodeq/dashboard/_api_spawn.py:86:subprocess-wait",
     # openai.OpenAI(**_client_kwargs(...)): timeout always set by
     # _client_kwargs() (defaults to BATCH_TIMEOUT when none is passed in).
     "src/quodeq/llm_bridge/embeddings.py:88:http-no-timeout",
