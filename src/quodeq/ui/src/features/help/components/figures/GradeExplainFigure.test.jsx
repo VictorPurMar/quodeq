@@ -53,4 +53,18 @@ describe('GradeExplainFigure', () => {
     mount({ project: 'p', runId: 'r1', dimensions: ['maintainability'] }, { getGradeExplain: async () => { throw new Error('boom'); } });
     expect(await screen.findByText('The run could not be read.')).toBeInTheDocument();
   });
+
+  it('keeps the dimension picker when the first dimension cannot be read', async () => {
+    mount({ project: 'p', runId: 'r1', dimensions: ['flexibility', 'maintainability'] }, { getGradeExplain: async () => { throw new Error('boom'); } });
+    expect(await screen.findByText('The run could not be read.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Dimension')).toBeInTheDocument();
+  });
+
+  it('opens on the dimension the reader came from, whatever its case', async () => {
+    const calls = [];
+    const api = { getGradeExplain: async (project, runId, dimension) => { calls.push(dimension); return { ...payload, dimension }; } };
+    mount({ project: 'p', runId: 'r1', dimensions: ['security', 'maintainability'], dimension: 'Maintainability' }, api);
+    await screen.findByText('8.6 Good');
+    expect(calls).toEqual(['maintainability']);
+  });
 });

@@ -59,35 +59,41 @@ function Picker({ id, labelKey, options, value, onChange }) {
   );
 }
 
-/** The loaded figure: dimension and principle pickers over the stage rows. */
-function Loaded({ data, dimensions, dimension, principleId, onDimension, onPrinciple }) {
-  const principles = data.principles;
+/** The dimension the figure opens on: the one the reader came from when the
+ * run has it (matched without case), else the run's first. */
+function initialDimension(scope) {
+  const wanted = String(scope.dimension || '').toLowerCase();
+  return scope.dimensions.find((d) => d.toLowerCase() === wanted) || scope.dimensions[0] || '';
+}
+
+/** The rows for the loaded data, or the note that stands in for them. */
+function Body({ query, principleId, onPrinciple }) {
+  if (query.isPending) return <Note textKey="helpFigure.explainLoading" />;
+  if (query.isError || !query.data) return <Note textKey="helpFigure.explainFailed" />;
+  const principles = query.data.principles;
   const graded = principles.find((p) => !p.insufficient) || principles[0];
   const current = principles.find((p) => p.principleId === principleId) || graded;
   if (!current) return <Note textKey="helpFigure.explainFailed" />;
   return (
-    <div className="gf-explain">
-      <div className="gf-explain__pickers">
-        <Picker id="gf-explain-dim" labelKey="helpFigure.explainDimension" options={dimensions} value={dimension} onChange={onDimension} />
-        <Picker id="gf-explain-principle" labelKey="helpFigure.explainPrinciple" options={principles.map((p) => p.principleId)} value={current.principleId} onChange={onPrinciple} />
-      </div>
-      <PrincipleBody principle={current} params={data.params} />
-    </div>
+    <>
+      <Picker id="gf-explain-principle" labelKey="helpFigure.explainPrinciple" options={principles.map((p) => p.principleId)} value={current.principleId} onChange={onPrinciple} />
+      <PrincipleBody principle={current} params={query.data.params} />
+    </>
   );
 }
 
 export default function GradeExplainFigure() {
   const scope = useHelpScope();
-  const [dimension, setDimension] = useState(scope.dimensions[0] || '');
+  const [dimension, setDimension] = useState(() => initialDimension(scope));
   const [principleId, setPrincipleId] = useState('');
   const query = useExplain(scope.project, scope.runId, dimension);
   if (!scope.project || !scope.runId || !dimension) return <Note textKey="helpFigure.explainNoProject" />;
-  if (query.isPending) return <Note textKey="helpFigure.explainLoading" />;
-  if (query.isError || !query.data) return <Note textKey="helpFigure.explainFailed" />;
   return (
-    <Loaded
-      data={query.data} dimensions={scope.dimensions} dimension={dimension} principleId={principleId}
-      onDimension={(v) => { setDimension(v); setPrincipleId(''); }} onPrinciple={setPrincipleId}
-    />
+    <div className="gf-explain">
+      <div className="gf-explain__pickers">
+        <Picker id="gf-explain-dim" labelKey="helpFigure.explainDimension" options={scope.dimensions} value={dimension} onChange={(v) => { setDimension(v); setPrincipleId(''); }} />
+      </div>
+      <Body query={query} principleId={principleId} onPrinciple={setPrincipleId} />
+    </div>
   );
 }

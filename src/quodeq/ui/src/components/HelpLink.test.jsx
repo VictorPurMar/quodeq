@@ -16,4 +16,11 @@ describe('HelpLink', () => {
     const { container } = render(<HelpLink section={HELP_SECTION.WHY_THIS_GRADE} label="x" />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('forwards extra params with the section', () => {
+    const onNavigate = vi.fn();
+    render(<HelpLink onNavigate={onNavigate} section={HELP_SECTION.WHY_THIS_GRADE} params={{ dimension: 'security' }} label="why?" />);
+    fireEvent.click(screen.getByRole('button', { name: 'why?' }));
+    expect(onNavigate).toHaveBeenCalledWith(NAV_TAB.HELP, { section: HELP_SECTION.WHY_THIS_GRADE, dimension: 'security' });
+  });
 });

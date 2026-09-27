@@ -98,7 +98,8 @@ export const ROUTE_RENDERERS = {
       onNavigate={props.navigation.handleNavigate}
       refreshSignal={props.dashboardData.dashboard}
       trend={props.dashboardData.dashboard?.trend || []}
-      sinceBaseline={props.dashboardData.dashboard?.sinceBaseline}
+      sinceBaseline={params.fromProject ? undefined : props.dashboardData.dashboard?.sinceBaseline}
+      sinceBaselineRunId={props.dashboardData.dashboard?.selectedRun?.runId}
       granularity={props.dashboardData.granularity}
       onGranularityChange={props.dashboardData.onGranularityChange}
     />
@@ -206,6 +207,7 @@ export const ROUTE_RENDERERS = {
         project: props.navigation.selectedProject,
         runId: props.dashboardData.dashboard?.selectedRun?.runId ?? null,
         dimensions: (props.dashboardData.dashboard?.dimensions || []).map((d) => d.dimension),
+        dimension: params.dimension ?? null,
       }}
     />
   ),
