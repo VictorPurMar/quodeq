@@ -127,8 +127,11 @@ test('runCounts sums dimensionDetails and ignores the top-level totals when deta
   assert.deepEqual(runCounts(entry), { critical: 1, majors: 3, openTypes: 9 });
 });
 
-test('runCounts falls back to the top-level totals, then to null', () => {
-  assert.deepEqual(runCounts({ majors: 4, openTypes: 7, dimensionDetails: [] }), { critical: null, majors: 4, openTypes: 7 });
+test('runCounts falls back to the top-level totals only when there are no details at all', () => {
+  assert.deepEqual(runCounts({ majors: 4, openTypes: 7 }), { critical: null, majors: 4, openTypes: 7 });
+  // Details emptied by the visible-standards filter: the row's own totals
+  // would count hidden standards, so nothing is shown.
+  assert.deepEqual(runCounts({ critical: 4, majors: 9, openTypes: 7, dimensionDetails: [] }), { critical: null, majors: null, openTypes: null });
   assert.deepEqual(runCounts({ dimensionDetails: [{ majors: 2, openTypes: 3 }] }), { critical: null, majors: 2, openTypes: 3 });
   assert.deepEqual(runCounts({ dimensionDetails: [{ score: '7.0' }] }), { critical: null, majors: null, openTypes: null });
   assert.deepEqual(runCounts({}), { critical: null, majors: null, openTypes: null });

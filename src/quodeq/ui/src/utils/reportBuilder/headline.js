@@ -42,14 +42,15 @@ function densityText(headline) {
 
 /**
  * `**Critical:** 0 · **Majors:** 3 · **Open types:** 37 · **Density:** 68.8 per 100 files read (95% coverage)`,
- * or nothing without a headline.
+ * or nothing without a headline. Majors are major only, as on the strip
+ * (buildHeadline's `majors` counts critical + major).
  * @param {Object|null} headline buildHeadline()'s output
  */
 export function buildStripLine(headline) {
   if (!headline) return '';
   return [
     `**Critical:** ${headline.critical}`,
-    `**Majors:** ${headline.majors}`,
+    `**Majors:** ${headline.majors - headline.critical}`,
     `**Open types:** ${headline.openTypes}`,
     `**Density:** ${densityText(headline)}`,
   ].join(SEPARATOR);

@@ -22,6 +22,11 @@ test('the strip line follows the strip: critical, majors, open types, density', 
   assert.equal(buildStripLine(null), '');
 });
 
+test('the strip line names majors without the criticals, like the strip on screen', () => {
+  const line = buildStripLine({ ...headline, critical: 2, majors: 5 });
+  assert.match(line, /^\*\*Critical:\*\* 2 · \*\*Majors:\*\* 3 · /);
+});
+
 test('a missing density reads as words, never a dash', () => {
   const line = buildStripLine({ ...headline, density: null, coveragePct: null });
   assert.match(line, /\*\*Density:\*\* not available \(no files-read count\)$/);

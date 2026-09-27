@@ -152,21 +152,25 @@ function sumDetail(details, field) {
   return values.length > 0 ? values.reduce((a, b) => a + b, 0) : null;
 }
 
-function countOf(entry, details, field) {
-  return sumDetail(details, field) ?? (isNumber(entry?.[field]) ? entry[field] : null);
+// The row's own totals count every dimension, hidden standards included, so
+// they stand in only when the row has no per-dimension details at all, never
+// when the visible-standards filter emptied them.
+function countOf(entry, field) {
+  const details = entry?.dimensionDetails;
+  if (Array.isArray(details)) return sumDetail(details, field);
+  return isNumber(entry?.[field]) ? entry[field] : null;
 }
 
 /**
- * A trend row's criticals, majors and open types over the dimensions it
- * carries: the per-dimension details (which the visible-standards filter
- * keeps in step), else the row's own totals, else null.
+ * A trend row's criticals, majors (critical + major, as the trend counts
+ * them) and open types over the dimensions on show: the per-dimension
+ * details, else (a row without details) the row's own totals, else null.
  * @returns {{critical: number|null, majors: number|null, openTypes: number|null}}
  */
 export function runCounts(entry) {
-  const details = entry?.dimensionDetails || [];
   return {
-    critical: countOf(entry, details, 'critical'),
-    majors: countOf(entry, details, 'majors'),
-    openTypes: countOf(entry, details, 'openTypes'),
+    critical: countOf(entry, 'critical'),
+    majors: countOf(entry, 'majors'),
+    openTypes: countOf(entry, 'openTypes'),
   };
 }

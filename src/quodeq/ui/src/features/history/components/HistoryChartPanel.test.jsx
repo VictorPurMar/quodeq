@@ -15,9 +15,9 @@ describe('HistoryChartPanel', () => {
     expect(container.querySelector('.chart-legend')).toBeNull();
   });
 
-  it("the tooltip names the run's criticals, majors and open types", () => {
+  it("the tooltip names the run's criticals, then its majors without them, like the strip", () => {
     render(<HistoryRunTooltip active payload={[{ payload: { dateLabel: '2 Sep', numericAverage: 8.5, overallGrade: 'Good', critical: 1, majors: 3, openTypes: 33 } }]} />);
-    expect(screen.getByText('1 critical · 3 majors · 33 open types')).toBeInTheDocument();
+    expect(screen.getByText('1 critical · 2 majors · 33 open types')).toBeInTheDocument();
   });
 
   it('countsLine without a critical count names majors and open types only', () => {
