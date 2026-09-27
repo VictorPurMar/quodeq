@@ -19,8 +19,21 @@ describe('HelpPage grade formula section', () => {
     render(<HelpPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Grade Formula' }));
     expect(screen.getByRole('heading', { level: 2, name: 'Grade Formula' })).toBeInTheDocument();
-    expect(screen.getByText('SEVERITY')).toBeInTheDocument();
+    expect(screen.getByText('FORMULA')).toBeInTheDocument();
+    expect(screen.getByText('TYPES')).toBeInTheDocument();
     expect(screen.getByText(/RESET Q²/)).toBeInTheDocument();
+    expect(screen.queryByText('SEVERITY')).not.toBeInTheDocument();
+  });
+});
+
+describe('HelpPage why this grade section', () => {
+  it('is prose only and points at the editor for the live numbers', () => {
+    render(<HelpPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Why This Grade' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Why This Grade' })).toBeInTheDocument();
+    expect(screen.getByText(/shows these stages on your own run/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Principle')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Open a project with a finished run/)).not.toBeInTheDocument();
   });
 });
 

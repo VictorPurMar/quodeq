@@ -76,6 +76,21 @@ function dashboardElement(props, runMode, callbacks = {}) {
 // whole App (which needs ~8 providers). Calling e.g.
 // ROUTE_RENDERERS.file(params, props) just builds the React element tree; it
 // doesn't render, so the returned element's props can be asserted on directly.
+// What the grade-formula editor knows about the reader's run: the worked
+// example and the TYPES tab read the selected run's dimensions.
+function gradeFormulaScope(params, props) {
+  const dashboard = props.dashboardData.dashboard;
+  const runDimensions = dashboard?.dimensions || [];
+  return {
+    project: props.navigation.selectedProject,
+    runId: dashboard?.selectedRun?.runId ?? null,
+    dimensions: runDimensions.map((d) => d.dimension),
+    dimension: params.dimension ?? null,
+    runDimensions,
+    selectedSource: props.navigation.selectedSource,
+  };
+}
+
 export const ROUTE_RENDERERS = {
   overview: (params, props) => dashboardElement(props, false, {
     onRunSelect: props.navigation.handleRunSelect,
@@ -175,7 +190,13 @@ export const ROUTE_RENDERERS = {
       if (next) props.navigation.handleProjectChange(next.id, next.source);
     }}
   />,
-  [NAV_TAB.GRADE_FORMULA]: (params, props) => <GradeFormulaPage navigation={props.navigation} />,
+  [NAV_TAB.GRADE_FORMULA]: (params, props) => (
+    <GradeFormulaPage
+      navigation={props.navigation}
+      scope={gradeFormulaScope(params, props)}
+      runLabel={props.dashboardData.dashboard?.selectedRun?.dateLabel ?? null}
+    />
+  ),
   projects: (params, props) => (
     <ProjectsPage
       projects={props.navigation.projects}
@@ -200,17 +221,7 @@ export const ROUTE_RENDERERS = {
     />
   ),
   standards: (params, props) => <StandardsPage onRescan={(dims) => props.navigation.navTab(NAV_TAB.EVALUATE, { preselectDims: dims })} />,
-  help: (params, props) => (
-    <HelpPage
-      initialSection={params.section}
-      scope={{
-        project: props.navigation.selectedProject,
-        runId: props.dashboardData.dashboard?.selectedRun?.runId ?? null,
-        dimensions: (props.dashboardData.dashboard?.dimensions || []).map((d) => d.dimension),
-        dimension: params.dimension ?? null,
-      }}
-    />
-  ),
+  help: (params) => <HelpPage initialSection={params.section} />,
   compare: compareRoute,
 };
 

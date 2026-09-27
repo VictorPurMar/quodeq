@@ -23,4 +23,11 @@ describe('HelpLink', () => {
     fireEvent.click(screen.getByRole('button', { name: 'why?' }));
     expect(onNavigate).toHaveBeenCalledWith(NAV_TAB.HELP, { section: HELP_SECTION.WHY_THIS_GRADE, dimension: 'security' });
   });
+
+  it('can target another page, keeping its params', () => {
+    const onNavigate = vi.fn();
+    render(<HelpLink onNavigate={onNavigate} target={NAV_TAB.GRADE_FORMULA} params={{ dimension: 'security' }} label="why this grade?" />);
+    fireEvent.click(screen.getByRole('button', { name: 'why this grade?' }));
+    expect(onNavigate).toHaveBeenCalledWith(NAV_TAB.GRADE_FORMULA, { dimension: 'security' });
+  });
 });

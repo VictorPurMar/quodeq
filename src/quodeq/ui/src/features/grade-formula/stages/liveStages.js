@@ -26,7 +26,7 @@ function principleOf(payload, principleId) {
 
 function rowsOf(payload, principleId) {
   const principle = principleOf(payload, principleId);
-  return principle ? stageSummary(principle, payload.params).rows : null;
+  return principle ? stageSummary(principle).rows : null;
 }
 
 /**
