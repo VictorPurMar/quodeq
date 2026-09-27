@@ -1572,5 +1572,10 @@
   "helpFigure.paramCeilScale": "ceiling scale",
   "helpFigure.paramFloors": "severity floors",
   "helpFigure.paramThresholds": "grade thresholds",
-  "sinceBaseline.scopeMixed": "in all files (baselines differ per dimension)"
+  "sinceBaseline.scopeMixed": "in all files (baselines differ per dimension)",
+  "violations.dismissTypeTitle": "Dismiss every finding of {req}?",
+  "violations.dismissTypeBody": "{count} findings stop counting against your grades. They stay listed under dismissed and can be restored.",
+  "violations.dismissTypeBodyOne": "1 finding stops counting against your grades. It stays listed under dismissed and can be restored.",
+  "violations.dismissTypeConfirm": "Dismiss all",
+  "violations.dismissTypeFailed": "Failed to dismiss the type. Please try again."
 }

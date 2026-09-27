@@ -29,8 +29,9 @@ function currentByReq(violations) {
   const byReq = new Map();
   for (const v of violations || []) {
     if (!v.req) continue;
-    if (!byReq.has(v.req)) byReq.set(v.req, []);
-    byReq.get(v.req).push(v);
+    const list = byReq.get(v.req) || [];
+    list.push(v);
+    byReq.set(v.req, list);
   }
   return byReq;
 }
@@ -105,8 +106,9 @@ function groupBy(rows, pick) {
   const groups = new Map();
   for (const r of rows) {
     const k = pick(r);
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(r);
+    const list = groups.get(k) || [];
+    list.push(r);
+    groups.set(k, list);
   }
   return groups;
 }
