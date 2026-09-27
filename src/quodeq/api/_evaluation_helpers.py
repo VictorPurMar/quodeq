@@ -50,15 +50,24 @@ def resolve_clean_scan(payload: dict) -> bool:
     err = clean_scan_conflict_error(payload)
     if err is not None:
         raise ValueError(err)
-    has_legacy = "incremental" in payload
-    if has_legacy:
+    if payload.get("incremental") is not None:
         _logger.warning(
             "Evaluation payload uses deprecated `incremental` field. "
             "Migrate to `cleanScan` (inverted semantics). "
             "Legacy field will be removed in the next release.",
         )
-        return not bool(payload.get("incremental"))
-    return bool(payload.get("cleanScan", False))
+        return not payload["incremental"]
+    return bool_flag(payload, "cleanScan", False)
+
+
+def bool_flag(payload: Mapping[str, object], name: str, default: bool) -> bool:
+    """The boolean flag *name* from *payload*; absent or JSON ``null`` gives *default*.
+
+    Type checking happens earlier (``validate_evaluation_payload``), so a
+    present value is already a bool here.
+    """
+    value = payload.get(name)
+    return default if value is None else bool(value)
 
 
 class InvalidEvaluationOption(ClientMessageError, ValueError):

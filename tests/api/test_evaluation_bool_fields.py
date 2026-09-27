@@ -21,6 +21,7 @@ class _CountingProvider(ActionProvider):
 
     def __init__(self) -> None:
         self.start_calls = 0
+        self.options = None
 
     def list_projects(self, reports_dir):
         return {"projects": []}
@@ -30,6 +31,7 @@ class _CountingProvider(ActionProvider):
 
     def start_evaluation(self, repo, reports_dir, options):
         self.start_calls += 1
+        self.options = options
         return {"jobId": "test-job", "status": "running", "logs": []}
 
     def get_evaluation_status(self, job_id, reports_dir=None):
@@ -108,3 +110,7 @@ def test_json_null_is_treated_as_absent(client, provider, field):
     )
     assert resp.status_code == 202
     assert provider.start_calls == 1
+    # null takes each flag's default, the same options as omitting it.
+    opts = provider.options
+    assert (opts.numerical, opts.verify_findings, opts.per_dimension, opts.clean_scan) == (
+        False, True, False, False)

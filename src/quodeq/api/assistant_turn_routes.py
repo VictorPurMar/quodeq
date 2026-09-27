@@ -24,6 +24,7 @@ from quodeq.api._assistant_helpers import (
     get_repository,
     local_provider_busy,
 )
+from quodeq.api._llm_bridge_validation import bool_fields_error
 from quodeq.api._constants import (
     CODE_INVALID_PARAM, CODE_MISSING_PARAM, CODE_UNKNOWN_SESSION, MESSAGE_UNKNOWN_SESSION)
 from quodeq.api._sse_log_helpers import event_stream_response, sse_line
@@ -34,6 +35,11 @@ from quodeq.assistant.frame_type import FrameType
 from quodeq.assistant.orchestrator import TurnRequest
 from quodeq.assistant.tools import ToolContext
 from quodeq.core.types.project_source import ProjectSource, session_source
+
+
+# Per-turn toggles. A string such as "false" is rejected, since bool("false")
+# is True; an explicit null means the default (off).
+_TURN_BOOL_FIELDS = ("webEnabled", "writeEnabled")
 
 
 @dataclass(frozen=True)
@@ -135,6 +141,9 @@ def _post_assistant_message(app: Flask, sid: str, gates: TurnGates):
     body = optional_json_object_or_response(CODE_INVALID_PARAM)
     if not isinstance(body, dict):
         return body
+    bool_error = bool_fields_error(body, _TURN_BOOL_FIELDS)
+    if bool_error is not None:
+        return bool_error
     text = str(body.get("text", "")).strip()
     if not text:
         return json_error("text required", HTTPStatus.BAD_REQUEST, CODE_MISSING_PARAM)

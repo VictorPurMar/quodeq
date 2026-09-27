@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-from quodeq.api._evaluation_helpers import coerce_int, resolve_clean_scan
+from quodeq.api._evaluation_helpers import bool_flag, coerce_int, resolve_clean_scan
 from quodeq.config.ai_provider import get_api_key_secure
 from quodeq.core.utils.numbers import clamp
 from quodeq.services.base import (
@@ -81,16 +81,16 @@ def build_evaluation_options(payload: dict) -> EvaluationOptions:
     return EvaluationOptions(
         discipline=payload.get("discipline"),
         dimensions=payload.get("dimensions") or "",
-        numerical=bool(payload.get("numerical")),
+        numerical=bool_flag(payload, "numerical", False),
         ai_cmd=flags.ai_cmd,
         ai_cmd_path=payload.get("aiCmdPath") or None,
         ai_model=flags.ai_model,
         subagent_model=flags.subagent_model,
-        verify_findings=bool(payload.get("verifyFindings", True)),
+        verify_findings=bool_flag(payload, "verifyFindings", True),
         max_subagents=limits.max_subagents,
         time_limit=limits.time_limit,
         clean_scan=flags.clean_scan,
-        per_dimension=bool(payload.get("perDimension", False)),
+        per_dimension=bool_flag(payload, "perDimension", False),
         context_size=clamp(context_size, 0, _MAX_CONTEXT_SIZE),
         branch=payload.get("branch") or None,
         scope_path=flags.scope_path,
