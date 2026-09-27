@@ -211,7 +211,16 @@ def test_bare_openai_imported_is_flagged():
     assert _kinds(src) == [(2, "http-no-timeout")]
 
 
-def test_openai_construction_via_kwargs_spread_is_not_flagged():
-    # openai.OpenAI(**_client_kwargs(...)): the timeout may be inside the
-    # spread dict; a documented evasion, not a violation.
-    assert _kinds("openai.OpenAI(**client_kwargs)\n") == []
+def test_kwargs_spread_with_no_literal_timeout_is_flagged():
+    # A **kwargs spread is not given the benefit of the doubt: without a
+    # literal `timeout=` keyword this is flagged like any other call.
+    assert _kinds("httpx.get(url, **opts)\n") == [(1, "http-no-timeout")]
+
+
+def test_openai_construction_via_kwargs_spread_is_allowlisted():
+    # openai.OpenAI(**_client_kwargs(...)) at its real site
+    # (llm_bridge/embeddings.py:88): timeout is always set by
+    # _client_kwargs(), verified and allowlisted rather than exempted by a
+    # blanket **kwargs rule.
+    src = "\n" * 87 + "openai.OpenAI(**client_kwargs)\n"  # line 88
+    assert _kinds(src, rel="src/quodeq/llm_bridge/embeddings.py") == []

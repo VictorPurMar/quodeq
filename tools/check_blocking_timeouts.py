@@ -34,15 +34,22 @@ is a parameter (or a `self.<attr>` assigned from one) annotated as
 `subprocess.Popen`. `threading.Event`/`Condition.wait()` never match: their
 receivers are never bound either way.
 
-ALLOWLIST covers 4 post-kill/post-terminate reaps: once a process has been
-sent SIGKILL/SIGTERM, the wait is bounded by that signal, not by the wait
-call itself, so a second explicit timeout would be redundant. Keyed
-`relpath:lineno:kind`, each entry commented with why. Any *new* bare
-`.wait()`/`.communicate()` on a Popen-like value must add a `timeout=` or a
-new, justified allowlist entry -- it must not silently land in the
-baseline.
+ALLOWLIST covers two kinds of already-audited site, keyed `relpath:lineno:kind`
+with each entry commented why:
+  - 3 post-kill/post-terminate reaps: once a process has been sent
+    SIGKILL/SIGTERM, the wait is bounded by that signal, not by the wait
+    call itself, so a second explicit timeout would be redundant.
+  - 1 http-no-timeout site (`llm_bridge/embeddings.py`) where the timeout is
+    set inside a `**kwargs` dict built by a helper (`_client_kwargs`), not as
+    a literal keyword at the call site.
+Any *new* violation must add a `timeout=` or a new, justified allowlist
+entry -- it must not silently land in the baseline. An allowlist entry the
+scanner cannot actually reach must not be kept "just in case": it earns its
+place by suppressing a real, verified hit (see the test that reproduces each
+site's exact relpath/line), never by resembling one.
 
-Known evasions, documented rather than closed (none happens by accident):
+Known evasions/limits, documented rather than closed (none happens by
+accident):
   - a call through an injected parameter defaulting to the real callable
     (`runner=subprocess.run` in update/first_launch.py, `http_get=httpx.get`
     in update/source.py) is a bare Name at the call site, not a literal
@@ -55,10 +62,18 @@ Known evasions, documented rather than closed (none happens by accident):
   - a Popen-like receiver assigned in one method and waited on in another
     (e.g. `self._proc` set in `__init__`) is not resolved: the heuristic is
     scoped to a single function body.
-  - `f(**kwargs)` is always treated as compliant (any keyword with no name
-    counts as "might carry timeout"), so a dict built by a helper
-    (`openai.OpenAI(**_client_kwargs(...))`) is invisible either way: a
-    spread that never sets timeout is just as invisible as one that does.
+  - the "callee name contains 'spawn'" half of the subprocess-wait receiver
+    heuristic is an over-approximation, not just an under-approximation: a
+    function named `spawn_something` that returns a non-process value would
+    have its `.wait()`/`.communicate()` call flagged too. No such function
+    exists in this tree today; if one is added and is a false positive,
+    allowlist it rather than loosening the heuristic.
+  - `f(**kwargs)` is NOT treated as compliant: a call built entirely from a
+    spread with no literal `timeout=` is flagged like any other missing
+    timeout, even though the spread might carry one. A verified compliant
+    site goes in ALLOWLIST (see `llm_bridge/embeddings.py` above), not into
+    a blanket exemption -- a blanket rule would also hide a genuinely
+    missing timeout on any future `f(url, **opts)` call.
 """
 from __future__ import annotations
 
@@ -85,9 +100,10 @@ _HTTPX_CTORS = frozenset({"Client", "AsyncClient"})
 _OPENAI_CTORS = frozenset({"OpenAI"})
 _URLOPEN_TIMEOUT_ARG_INDEX = 2  # urlopen(url, data=None, timeout=..., ...)
 
-# Post-kill/post-terminate reaps: the preceding kill()/terminate() already
-# bounds how long the wait can take, so a second timeout on the wait itself
-# would be redundant.
+# Each entry suppresses one verified, already-audited site (see the module
+# docstring). Post-kill/post-terminate reaps: the preceding kill()/terminate()
+# already bounds how long the wait can take, so a second timeout on the wait
+# itself would be redundant.
 ALLOWLIST: frozenset[str] = frozenset({
     # proc.wait() right after proc.kill(), inside stream_log_names' finally.
     "src/quodeq/data/git_cli.py:201:subprocess-wait",
@@ -96,18 +112,18 @@ ALLOWLIST: frozenset[str] = frozenset({
     # process.wait() right after process.terminate(), in spawn_and_wait's
     # except branch.
     "src/quodeq/dashboard/_api_spawn.py:91:subprocess-wait",
-    # proc.wait() right after _kill_proc_tree(proc), once the primary
-    # timed wait (line 157) already expired.
-    "src/quodeq/assistant/adapters/cli.py:160:subprocess-wait",
+    # openai.OpenAI(**_client_kwargs(...)): timeout always set by
+    # _client_kwargs() (defaults to BATCH_TIMEOUT when none is passed in).
+    "src/quodeq/llm_bridge/embeddings.py:88:http-no-timeout",
 })
 
 
 def _has_timeout_kwarg(call: ast.Call) -> bool:
-    """True if *call* passes `timeout=` explicitly, or spreads unknown
-    keywords via `**kwargs` that might carry it (`openai.OpenAI(**client_kwargs)`):
-    a documented evasion, since a spread that does NOT set timeout is
-    equally invisible here."""
-    return any(kw.arg == "timeout" or kw.arg is None for kw in call.keywords)
+    """True if *call* passes `timeout=` explicitly. A `**kwargs` spread with
+    no literal `timeout=` keyword does NOT count: it is flagged like any
+    other missing timeout (a verified compliant site goes in ALLOWLIST, not
+    a blanket exemption -- see the module docstring)."""
+    return any(kw.arg == "timeout" for kw in call.keywords)
 
 
 def _bare_names_from(tree: ast.Module, module: str, wanted: frozenset[str]) -> dict[str, str]:
