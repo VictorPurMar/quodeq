@@ -13,7 +13,7 @@ import { GradeChip } from '../../dashboard/components/heroSectionParts.jsx';
  * dimension page's top grid. */
 export default function ExplorerStatsPanel({
   overallScoreNum, overallGrade, allViolations, totalCompliant, sev, onSeverityBadge,
-  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, strip = null,
+  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, strip = null, deltas = null,
 }) {
   return (
     <div className="qd-top-left">
@@ -33,6 +33,7 @@ export default function ExplorerStatsPanel({
                   key={level}
                   level={level}
                   count={sev[level]}
+                  delta={deltas?.[level]}
                   onClick={onNavigate ? onSeverityBadge(level) : undefined}
                 />
               ))}

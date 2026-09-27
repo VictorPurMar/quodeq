@@ -1,24 +1,20 @@
 import { TermHeader, Stat } from '../../../components/terminal/index.js';
-import { HeroPanel, ComplianceAndRatioStats, GradeChip, heroCardHandlers } from './heroSectionParts.jsx';
+import { HeroPanel, ComplianceAndRatioStats, ScoreStat, heroCardHandlers } from './heroSectionParts.jsx';
 import { formatRunId, complianceRatio } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import SeverityBadgeRow from './SeverityBadgeRow.jsx';
 import { t } from '../../../strings/index.js';
 
-function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity }) {
+function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity, deltas }) {
   return (
     <>
-      <Stat
-        label={t('overview.statScore')}
-        value={scoreDisplay}
-        trailing={<GradeChip grade={grade} score={scoreDisplay} />}
-      />
+      <ScoreStat scoreDisplay={scoreDisplay} grade={grade} />
       <Stat
         label={t('overview.statViolations')}
         value={violations}
         hint={
           <>
-            <SeverityBadgeRow severity={severity} onSeverityClick={handleSeverity} />
+            <SeverityBadgeRow severity={severity} onSeverityClick={handleSeverity} deltas={deltas} />
             {suppressed > 0 && (
               <span className="term-stat__suppressed-note">{t('overview.runSuppressed', { count: suppressed })}</span>
             )}
@@ -38,7 +34,7 @@ function RunStatStrip({ scoreDisplay, grade, violations, compliance, suppressed,
   );
 }
 
-export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNavigate }) {
+export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNavigate, deltas = null }) {
   const dateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
   const scoreDisplay = formatScoreDisplay(runSummary.numericAverage);
   const grade = runSummary.overallGrade;
@@ -64,6 +60,7 @@ export function RunHeroSection({ dashboard, selectedRunId, runSummary, onCardNav
         handleCompliance={handleCompliance}
         handleSeverity={handleSeverity}
         severity={runSummary.severity}
+        deltas={deltas}
       />
     </HeroPanel>
   );

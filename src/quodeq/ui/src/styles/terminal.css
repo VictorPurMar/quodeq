@@ -282,6 +282,11 @@
   border: 1px solid transparent;
   text-transform: uppercase;
 }
+/* The change since the baseline run, inside a severity chip: down is good. */
+.term-sev-badge__delta { margin-left: 5px; font-variant-numeric: tabular-nums; }
+.term-sev-badge__delta--good { color: var(--color-success); }
+.term-sev-badge__delta--bad { color: var(--color-sev-critical-text); }
+
 .term-sev-badge__count {
   font-weight: 400;
   opacity: 0.9;

@@ -10,7 +10,7 @@ import { t } from '../../../strings/index.js';
 import { DEFAULT_SCORE_HISTORY_GRANULARITY } from '../../../constants.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import ConvergenceStrip from './ConvergenceStrip.jsx';
-import { buildHeadline, filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
+import { buildHeadline, chipDeltas, filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
 import { useSeeFindings } from '../hooks/useSeeFindings.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { useAccumulatedComputations, computeAccumulatedStats } from '../hooks/useAccumulatedComputations.js';
@@ -131,6 +131,7 @@ function AccumulatedOverviewSections({
         onCardNavigate={onCardNavigate}
         selectedSource={data.selectedSource}
         customFormula={data.customFormula}
+        deltas={chipDeltas(since)}
       />
       <ConvergenceStrip
         headline={headline} since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns}

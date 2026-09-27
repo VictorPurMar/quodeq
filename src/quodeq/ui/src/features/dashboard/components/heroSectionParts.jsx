@@ -63,6 +63,21 @@ export function heroCardHandlers(onCardNavigate, { violations, compliance }) {
 }
 
 /**
+ * The SCORE stat both heroes open with: the number, the grade chip and any
+ * extra trailing accessory (the accumulated hero's trend badge).
+ */
+export function ScoreStat({ scoreDisplay, grade, extraTrailing = null, hint = null }) {
+  return (
+    <Stat
+      label={t('overview.statScore')}
+      value={scoreDisplay}
+      trailing={<>{<GradeChip grade={grade} score={scoreDisplay} />}{extraTrailing}</>}
+      hint={hint}
+    />
+  );
+}
+
+/**
  * The grade as a chip next to the score value (EXEMPLARY, GOOD, ...), coloured
  * like the score, so the grade is read at a glance rather than in a hint.
  * @param {{grade: string|null|undefined, score: number|string|null}} props

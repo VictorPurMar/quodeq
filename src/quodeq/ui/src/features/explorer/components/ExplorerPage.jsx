@@ -17,7 +17,7 @@ import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
 import { HELP_SECTION } from '../../../vocab/helpSection.js';
 import HelpLink from '../../../components/HelpLink.jsx';
-import { buildHeadline, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
+import { buildHeadline, chipDeltas, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
 import ConvergenceStrip from '../../dashboard/components/ConvergenceStrip.jsx';
 
 /** Empty/loading/error states, checked in order — extracted so the main
@@ -122,6 +122,7 @@ function ExplorerTopGrid({
         allViolations={d.allViolations}
         totalCompliant={d.totalCompliant}
         sev={d.severityCounts}
+        deltas={chipDeltas(sinceBaseline ? sumSinceBaseline({ entry: sinceBaseline }) : null)}
         strip={(
           <ConvergenceStrip
             headline={buildHeadline([dimensionHeadlineInput(d.allViolations, d.severityCounts, d.evalData)])}

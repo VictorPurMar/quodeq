@@ -11,7 +11,7 @@ import buildRunSummary from '../buildRunSummary.js';
 import { t } from '../../../strings/index.js';
 import { RunHeroSection } from './RunHeroSection.jsx';
 import ConvergenceStrip from './ConvergenceStrip.jsx';
-import { buildHeadline, sumSinceBaseline } from '../headlineStats.js';
+import { buildHeadline, chipDeltas, sumSinceBaseline } from '../headlineStats.js';
 import { useSeeFindings } from '../hooks/useSeeFindings.js';
 import { useRunReportSpecs } from './runReportSpecs.jsx';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
@@ -121,7 +121,7 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, selectedPro
 
   return (
     <div className="run-overview-fade run-overview-ready">
-      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} />
+      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} deltas={chipDeltas(since)} />
       <ConvergenceStrip
         headline={headline} since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns}
         onSeeFindings={seeFindings} onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
