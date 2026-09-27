@@ -92,8 +92,9 @@ class TestListLlamacppModels:
         assert len(models) == 1
         assert models[0]["name"] == "qwen3-coder-30b.gguf"
 
-    def test_skips_entries_without_id(self):
-        mock_data = {"data": [{"object": "model"}, {"id": "real.gguf"}]}
+    def test_skips_entries_without_a_usable_id(self):
+        """A missing or empty id is skipped: the picker would show a blank row."""
+        mock_data = {"data": [{"object": "model"}, {"id": ""}, {"id": "real.gguf"}]}
         mock_resp = MagicMock()
         mock_resp.read.return_value = json.dumps(mock_data).encode()
         mock_resp.__enter__ = lambda s: s

@@ -84,7 +84,7 @@ def list_llamacpp_models(base_url: str | None = None) -> list[dict]:
             return [
                 bare_model_entry(m["id"])
                 for m in entries
-                if isinstance(m, dict) and isinstance(m.get("id"), str)
+                if isinstance(m, dict) and isinstance(m.get("id"), str) and m["id"]
             ]
     except _TRANSPORT_ERRORS as exc:
         _log.warning("Could not list llama.cpp models: %s", exc)

@@ -24,6 +24,9 @@ from quodeq.shared.json_state import dump_json_and_replace
 from quodeq.services._job_model import InMemoryJobStore, Job, JobStore, MAX_LOG_LINES, logger
 
 _STALE_JOB_AGE_S = 24 * 60 * 60  # 24 hours
+# A temp file older than this is an orphan from a write that crashed between
+# mkstemp and replace; a live write finishes in well under a second.
+_ORPHAN_TMP_AGE_S = 10 * 60
 
 
 def _default_persist_dir(env: Mapping[str, str] | None = None) -> Path:
@@ -149,7 +152,8 @@ class FileJobStore(InMemoryJobStore):
         must never share one temp path, or one writer's in-progress content
         can be exposed under the published name by the other's rename before
         it finishes writing. ``_load_all`` only globs ``*.json``, so a
-        leftover ``*.tmp`` name is never picked up as a job record.
+        leftover ``*.tmp`` name is never picked up as a job record, and
+        ``_cleanup_stale`` removes old ones.
         """
         path = self._job_path(job_id)
         try:
@@ -198,8 +202,10 @@ class FileJobStore(InMemoryJobStore):
                 logger.warning("Skipping corrupt job file %s", path, exc_info=True)
 
     def _cleanup_stale(self) -> None:
-        """Remove completed/failed/cancelled jobs older than 24 hours."""
+        """Remove completed/failed/cancelled jobs older than 24 hours, and
+        orphan ``*.tmp`` files older than ``_ORPHAN_TMP_AGE_S``."""
         now = time.time()
+        self._remove_orphan_temps(now)
         stale_ids: list[str] = []
         for job in self._jobs.values():
             if job.status == JobStatus.RUNNING:
@@ -219,6 +225,16 @@ class FileJobStore(InMemoryJobStore):
             logger.info("Cleaning up stale job %s", jid)
             self._jobs.pop(jid, None)
             self._job_path(jid).unlink(missing_ok=True)
+
+    def _remove_orphan_temps(self, now: float) -> None:
+        """Unlink ``*.tmp`` files a crashed write left behind. A recent one may
+        belong to a write still in progress, so only old ones go."""
+        for tmp in self._persist_dir.glob("*.tmp"):
+            try:
+                if now - tmp.stat().st_mtime > _ORPHAN_TMP_AGE_S:
+                    tmp.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.debug("orphan temp file %s not removed: %s", tmp, exc)
 
 
 def create_job_store() -> JobStore:
