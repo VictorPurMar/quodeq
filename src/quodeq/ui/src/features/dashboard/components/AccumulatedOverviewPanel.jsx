@@ -11,6 +11,7 @@ import { DEFAULT_SCORE_HISTORY_GRANULARITY } from '../../../constants.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import SinceBaselinePanel, { baselineDateLabel } from './SinceBaselinePanel.jsx';
 import { filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
+import { useSeeFindings } from '../hooks/useSeeFindings.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { useAccumulatedComputations, computeAccumulatedStats } from '../hooks/useAccumulatedComputations.js';
 import { AccumulatedHeroSection } from './AccumulatedHeroSection.jsx';
@@ -119,6 +120,10 @@ function AccumulatedOverviewSections({
   // Only the dimensions on show: a hidden standard must not move the headline.
   const visibleSince = filterSinceBaseline(data.sinceBaseline, (filteredDimensions || []).map((d) => d.dimension));
   const since = sumSinceBaseline(visibleSince);
+  const { seeFindings } = useSeeFindings({
+    project: data.selectedProject, runId: data.selectedRun?.runId, dateLabel: data.selectedRun?.dateLabel, since, onNavigate,
+    selectedSource: data.selectedSource, dimensionNames: (filteredDimensions || []).map((d) => d.dimension),
+  });
   return (
     <>
       <AccumulatedHeroSection
@@ -132,7 +137,7 @@ function AccumulatedOverviewSections({
         selectedSource={data.selectedSource}
         customFormula={data.customFormula}
       />
-      <SinceBaselinePanel since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns} />
+      <SinceBaselinePanel since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns} onSeeFindings={seeFindings} />
 
       <HistoryPanelsRow
         chartMountable={chartMountable}

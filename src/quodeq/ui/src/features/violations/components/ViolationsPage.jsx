@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { buildFileTree, treeNodeToFileObj, HeatGridView } from '../../map/viz/index.js';
 import DimensionHeatGridView from './DimensionHeatGridView.jsx';
 import DismissedSubTab from './DismissedSubTab.jsx';
+import ByTypeSubTab from './ByTypeSubTab.jsx';
 import { TermHeader, SevBadge, FlagPill } from '../../../components/terminal/index.js';
 import { renderViolationsEmptyState } from './ViolationsEmptyStates.jsx';
 import { useViolationsPageState } from '../hooks/useViolationsPageState.js';
@@ -121,6 +122,7 @@ function ViolationsHeader({ summary, visibleDimensions, topFilesCount, uniquePri
       />
       <div className="violations-flag-row">
         <FlagPill flag={t('violations.flagByDimension')} active={activeSubTab === VIOLATIONS_SUB_TAB.DIMENSION} onClick={() => setActiveSubTab(VIOLATIONS_SUB_TAB.DIMENSION)} />
+        <FlagPill flag={t('violations.flagByType')}      active={activeSubTab === VIOLATIONS_SUB_TAB.TYPE}      onClick={() => setActiveSubTab(VIOLATIONS_SUB_TAB.TYPE)} />
         <FlagPill flag={t('violations.flagByFile')}      active={activeSubTab === VIOLATIONS_SUB_TAB.FILE}      onClick={() => setActiveSubTab(VIOLATIONS_SUB_TAB.FILE)} />
         <FlagPill flag={t('violations.flagDismissed')}   active={activeSubTab === VIOLATIONS_SUB_TAB.DISMISSED} count={dismissed.length || undefined} onClick={() => setActiveSubTab(VIOLATIONS_SUB_TAB.DISMISSED)} />
       </div>
@@ -133,8 +135,11 @@ export function ViolationsSubTabContent(props) {
     activeSubTab, visibleDimensions, dismissed, callbacks,
     fileCurrentPath, setFileCurrentPath,
     handleRestore, handleRestoreAll, handleDelete, handleDeleteAll,
-    selectedSource,
+    selectedSource, selectedProject,
   } = props;
+  if (activeSubTab === VIOLATIONS_SUB_TAB.TYPE) {
+    return <ByTypeSubTab dimensions={visibleDimensions} project={selectedProject} selectedSource={selectedSource} callbacks={callbacks} />;
+  }
   if (activeSubTab === VIOLATIONS_SUB_TAB.FILE) {
     return <FileSubTab dimensions={visibleDimensions} onFileClick={callbacks.onFileClick} currentPath={fileCurrentPath} setCurrentPath={setFileCurrentPath} />;
   }
@@ -197,7 +202,7 @@ export default function ViolationsPage({ data, callbacks, tabKey = 0, subTab = V
         callbacks={callbacks} fileCurrentPath={fileCurrentPath} setFileCurrentPath={setFileCurrentPath}
         handleRestore={handleRestore} handleRestoreAll={handleRestoreAll}
         handleDelete={handleDelete} handleDeleteAll={handleDeleteAll}
-        selectedSource={selectedSource}
+        selectedSource={selectedSource} selectedProject={selectedProject}
       />
     </div>
   );

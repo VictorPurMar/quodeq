@@ -13,6 +13,8 @@ import { lazy } from 'react';
 import { buildProjectRootFile } from '../utils/explorerUtils.js';
 import { NAV_TAB } from '../vocab/navTab.js';
 import { ROW_TYPE, VIOLATIONS_SUB_TAB } from '../features/violations/violationsVocab.js';
+import { typeFile } from '../features/violations/byTypeModel.js';
+import { SEVERITY_FILTER_ALL } from '../vocab/severity.js';
 
 const ViolationsPage = lazy(() => import('../features/violations/components/ViolationsPage.jsx'));
 
@@ -104,8 +106,26 @@ function buildViolationsData({ props, acc, dims }) {
 // applyMutationDelta can't patch (scores:null, delta.isLatest:false), so
 // those need the debounced ACTIVE reconcile -- see scheduleDashboardReconcile
 // in useDashboard.js.
-function buildViolationsCallbacks({ props, nav, navigateToPrinciple, navigateToDimension }) {
+// A type row drills into the findings of that requirement code alone, as a
+// synthetic file built from the dimension's own run (the same mechanism the
+// dimension rows use), so the file page needs no new filter.
+function makeNavigateToType({ dimMap, nav }) {
+  return (row) => {
+    const dim = dimMap.get(row.dimension);
+    if (!dim) return;
+    nav(NAV_TAB.FILE, {
+      file: typeFile(row, dim, `${row.req} · ${row.text || dim.dimension}`),
+      severityFilter: SEVERITY_FILTER_ALL,
+      runId: row.runId,
+      dateLabel: row.dateLabel,
+      sourceTab: NAV_TAB.VIOLATIONS,
+    });
+  };
+}
+function buildViolationsCallbacks({ props, nav, navigateToPrinciple, navigateToDimension, navigateToType }) {
   return {
+    onTypeClick: navigateToType,
+    onBumpDismissRefresh: props.bumpDismissRefresh,
     onDimensionClick: (dim) => nav(NAV_TAB.EXPLORER, { dimension: dim.dimension, runId: dim.fromRunId, dateLabel: dim.fromDateLabel, fromProject: dim.fromProject, sourceTab: NAV_TAB.VIOLATIONS }),
     onFileClick: (fileObj, opts) => nav(NAV_TAB.FILE, { file: fileObj, sourceTab: NAV_TAB.VIOLATIONS, severityFilter: opts?.severity || null }),
     onCellClick: ({ row, severity }) => {
@@ -123,10 +143,10 @@ function buildViolationsCallbacks({ props, nav, navigateToPrinciple, navigateToD
   };
 }
 
-function buildViolationsPageProps({ params, props, acc, dims, nav, navigateToPrinciple, navigateToDimension }) {
+function buildViolationsPageProps({ params, props, acc, dims, nav, navigateToPrinciple, navigateToDimension, navigateToType }) {
   return {
     data: buildViolationsData({ props, acc, dims }),
-    callbacks: buildViolationsCallbacks({ props, nav, navigateToPrinciple, navigateToDimension }),
+    callbacks: buildViolationsCallbacks({ props, nav, navigateToPrinciple, navigateToDimension, navigateToType }),
     tabKey: params._tabKey || 0,
     // The by-dimension / by-file / dismissed flip is view state on the SAME
     // screen: it lives in the route entry so back/forward and the crumb see
@@ -168,10 +188,11 @@ export function ViolationsRoute({ params, props }) {
   const { dimMap, principleMap } = violationsLookupsFor(dims);
   const navigateToPrinciple = makeNavigateToPrinciple({ dimMap, principleMap, nav });
   const navigateToDimension = makeNavigateToDimension({ dimMap, nav });
+  const navigateToType = makeNavigateToType({ dimMap, nav });
 
   return (
     <ViolationsPage
-      {...buildViolationsPageProps({ params, props, acc, dims, nav, navigateToPrinciple, navigateToDimension })}
+      {...buildViolationsPageProps({ params, props, acc, dims, nav, navigateToPrinciple, navigateToDimension, navigateToType })}
     />
   );
 }

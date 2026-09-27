@@ -12,7 +12,7 @@
  * working unchanged.
  */
 
-export { listDismissedFindings, dismissFinding, restoreFinding, restoreAllFindings, getRescore, deleteFinding, deleteAllFindings, listVerifiedFindings, unverifyFinding } from './findings.js';
+export { listDismissedFindings, dismissFinding, dismissByType, restoreFinding, restoreAllFindings, getRescore, deleteFinding, deleteAllFindings, listVerifiedFindings, unverifyFinding } from './findings.js';
 export { listStandards, getStandard, createStandard, updateStandard, deleteStandard, duplicateStandard, listLibrary, listCwes, importFromLibrary, importStandard, exportStandard, getStandardsOverrides, putStandardsOverrides } from './standards.js';
 export {
   createAssistantSession, fetchAssistantWorkspace, postAssistantMessage, stopAssistantTurn,
@@ -50,6 +50,7 @@ export {
 } from './gradeFormula.js';
 
 export { getGradeExplain } from './gradeExplain.js';
+export { getRunDiff } from './runDiff.js';
 
 export {
   getAiClients, getClientModels, checkCmdPath, testProviderConnection,
