@@ -75,7 +75,7 @@ def test_communicate_without_timeout_on_a_popen_assignment_is_flagged():
 
 
 def test_wait_through_a_spawn_named_call_is_flagged():
-    # Mirrors dashboard/_api_spawn.py and assistant/adapters/cli.py: the
+    # Mirrors assistant/adapters/cli.py: the
     # receiver comes from a call whose OWN name spells "spawn", not a
     # literal subprocess.Popen(...) expression.
     src = (
