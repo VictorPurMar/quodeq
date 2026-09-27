@@ -49,7 +49,7 @@ test('vocab modules spell the wire values', () => {
   assert.equal(DEFAULT_PROJECT_SOURCE, 'local');
   assert.deepEqual(RESCORE_STATE, { IDLE: 'idle', RUNNING: 'running', ERROR: 'error' });
   assert.deepEqual(LOG_STREAM_STATUS, { IDLE: 'idle', STREAMING: 'streaming', DONE: 'done', ERROR: 'error' });
-  assert.deepEqual(STAGE_STATUS, { IDLE: 'idle', LOADING: 'loading', READY: 'ready', UNAVAILABLE: 'unavailable' });
+  assert.deepEqual(STAGE_STATUS, { IDLE: 'idle', LOADING: 'loading', READY: 'ready', UNAVAILABLE: 'unavailable', ERROR: 'error' });
 });
 
 test('vocab modules are frozen', () => {

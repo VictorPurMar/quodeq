@@ -44,3 +44,14 @@ test('liveStages: an insufficient principle gives the insufficient note', () => 
   assert.equal(out.stored, null);
   assert.match(out.note, /Weak/);
 });
+
+test('liveStages: a run that cannot be read says so, not "no run"', () => {
+  const out = liveStages({ stored: null, live: null, status: STAGE_STATUS.ERROR }, null);
+  assert.match(out.note, /could not be read/);
+  assert.equal(out.stored, null);
+});
+
+test('liveStages: a shared repository says the example needs a local run', () => {
+  const out = liveStages({ stored: null, live: null, status: STAGE_STATUS.UNAVAILABLE }, null, { shared: true });
+  assert.match(out.note, /shared/);
+});

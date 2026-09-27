@@ -1627,5 +1627,7 @@
   "gradeFormula.noBaseline": "no baseline",
   "gradeFormula.typesFilterAll": "all dimensions",
   "gradeFormula.typesAria": "Requirement types",
-  "gradeFormula.typesNoRun": "open a project with a finished run to see its types"
+  "gradeFormula.typesNoRun": "open a project with a finished run to see its types",
+  "gradeFormula.liveFailed": "the run could not be read",
+  "gradeFormula.liveShared": "not available for shared repositories: the worked example needs a local run"
 }

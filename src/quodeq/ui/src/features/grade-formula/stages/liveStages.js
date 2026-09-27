@@ -29,15 +29,22 @@ function rowsOf(payload, principleId) {
   return principle ? stageSummary(principle).rows : null;
 }
 
+function noRowsNote(status, shared) {
+  if (shared) return t('gradeFormula.liveShared');
+  if (status === STAGE_STATUS.ERROR) return t('gradeFormula.liveFailed');
+  if (status === STAGE_STATUS.LOADING) return t('gradeFormula.liveLoading');
+  return t('gradeFormula.liveNoRun');
+}
+
 /**
  * @param {{stored: object|null, live: object|null, status: string}} explain - useStageExplain's result
  * @param {string|null} principleId
+ * @param {{shared?: boolean}} [options] - `shared`: the project is a shared repository (no explain route)
  * @returns {{stored: Array|null, live: Array|null, note: string|null}}
  */
-export function liveStages(explain, principleId) {
-  if (explain.status === STAGE_STATUS.UNAVAILABLE || !explain.stored) {
-    const note = explain.status === STAGE_STATUS.LOADING ? t('gradeFormula.liveLoading') : t('gradeFormula.liveNoRun');
-    return { stored: null, live: null, note };
+export function liveStages(explain, principleId, { shared = false } = {}) {
+  if (shared || explain.status !== STAGE_STATUS.READY || !explain.stored) {
+    return { stored: null, live: null, note: noRowsNote(explain.status, shared) };
   }
   const stored = rowsOf(explain.stored, principleId);
   if (!stored) {

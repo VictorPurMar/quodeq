@@ -19,6 +19,7 @@ export const STAGE_DEBOUNCE_MS = 250;
  * @param {object|null} args.draft - the draft formula parameters (camelCase).
  * @param {boolean} args.enabled - false: nothing is requested.
  * @returns {{stored: object|null, live: object|null, principles: Array, status: string}}
+ *   `status` is `error` when the stored stages could not be read.
  */
 export function useStageExplain({ project, runId, dimension, draft, enabled }) {
   const api = useApi();
@@ -35,6 +36,13 @@ export function useStageExplain({ project, runId, dimension, draft, enabled }) {
   const [live, setLive] = useState(null);
   const timerRef = useRef(null);
   const requestRef = useRef(0);
+  // Another run or dimension: the draft stages of the old one are gone, and a
+  // response still in flight for it must not land. Declared before the
+  // request effect so a request scheduled in the same commit gets a newer ticket.
+  useEffect(() => {
+    requestRef.current += 1;
+    setLive(null);
+  }, [project, runId, dimension]);
   useEffect(() => {
     if (!active || !stored || !draft) return undefined;
     clearTimeout(timerRef.current);
@@ -47,17 +55,19 @@ export function useStageExplain({ project, runId, dimension, draft, enabled }) {
     return () => clearTimeout(timerRef.current);
   }, [active, stored, draft, project, runId, dimension, api]);
 
-  const current = live || stored;
   return {
     stored,
     live,
-    principles: current?.principles || [],
+    // The picker lists the run's principles: the stored payload's, never a
+    // draft response that may belong to an earlier selection.
+    principles: stored?.principles || [],
     status: stageStatus(active, query),
   };
 }
 
 function stageStatus(active, query) {
-  if (!active || query.isError) return STAGE_STATUS.UNAVAILABLE;
+  if (!active) return STAGE_STATUS.UNAVAILABLE;
+  if (query.isError) return STAGE_STATUS.ERROR;
   if (query.isPending) return STAGE_STATUS.LOADING;
   return query.data ? STAGE_STATUS.READY : STAGE_STATUS.IDLE;
 }

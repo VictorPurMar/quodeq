@@ -10,6 +10,7 @@ import TypesTab from './TypesTab.jsx';
 import GradeFormulaHeader from './GradeFormulaHeader.jsx';
 import { FormulaActions, makeOnApply, makeOnReset } from './formulaActions.jsx';
 import { DimensionsTab } from './tabs.jsx';
+import { PROJECT_SOURCE } from '../../vocab/projectSource.js';
 import { t } from '../../strings/index.js';
 
 // labelKey, not label: the catalog is read at render so the tab strip picks
@@ -100,13 +101,15 @@ function useWorkedExample(scope, draft) {
   const [pickedDimension, setDimension] = useState(null);
   const [pickedPrinciple, setPrincipleId] = useState(null);
   const dimension = knownDimension(scope, pickedDimension);
+  // Shared repositories have no explain route: the sliders work, the column says so.
+  const shared = scope.selectedSource === PROJECT_SOURCE.SHARED;
   const explain = useStageExplain({
-    project: scope.project, runId: scope.runId, dimension, draft, enabled: Boolean(scope.runId),
+    project: scope.project, runId: scope.runId, dimension, draft, enabled: Boolean(scope.runId) && !shared,
   });
   const principleId = pickPrincipleId(explain.principles, pickedPrinciple);
   return {
     dimension, setDimension, principleId, setPrincipleId,
-    principles: explain.principles, stages: liveStages(explain, principleId),
+    principles: explain.principles, stages: liveStages(explain, principleId, { shared }),
   };
 }
 

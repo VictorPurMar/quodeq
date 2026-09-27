@@ -70,10 +70,43 @@ describe('useStageExplain', () => {
     expect(result.current.principles).toEqual([]);
   });
 
-  it('is unavailable when the stored stages cannot be read', async () => {
+  it('reports an error when the stored stages cannot be read', async () => {
     const api = { getGradeExplain: vi.fn(async () => { throw new Error('boom'); }), previewGradeExplain: vi.fn() };
     const { result } = mount(api, base);
-    await waitFor(() => expect(result.current.status).toBe(STAGE_STATUS.UNAVAILABLE));
+    await waitFor(() => expect(result.current.status).toBe(STAGE_STATUS.ERROR));
     expect(result.current.stored).toBeNull();
+  });
+
+  it('lists the principles of the stored payload, not of the draft one', async () => {
+    const other = { ...live, principles: [{ principleId: 'Ghost', insufficient: false, stages }] };
+    const api = { getGradeExplain: vi.fn(async () => stored), previewGradeExplain: vi.fn(async () => other) };
+    const { result, rerender } = mount(api, base);
+    await waitFor(() => expect(result.current.status).toBe(STAGE_STATUS.READY));
+    rerender({ ...base, draft: { baseK: 0.5 } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(STAGE_DEBOUNCE_MS + 10); });
+    await waitFor(() => expect(result.current.live).toEqual(other));
+    expect(result.current.principles.map((p) => p.principleId)).toEqual(['P1']);
+  });
+
+  it('switching dimension drops the previous draft stages and ignores a late response', async () => {
+    let resolveFirst;
+    const preview = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockResolvedValue(live);
+    const storedOther = { ...stored, dimension: 'security', principles: [{ principleId: 'S1', insufficient: false, stages }] };
+    const api = {
+      getGradeExplain: vi.fn(async (p, r, dimension) => (dimension === 'security' ? storedOther : stored)),
+      previewGradeExplain: preview,
+    };
+    const { result, rerender } = mount(api, base);
+    await waitFor(() => expect(result.current.status).toBe(STAGE_STATUS.READY));
+    rerender({ ...base, draft: { baseK: 0.5 } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(STAGE_DEBOUNCE_MS + 10); });
+    expect(preview).toHaveBeenCalledTimes(1);
+    rerender({ ...base, draft: { baseK: 0.5 }, dimension: 'security' });
+    await act(async () => { resolveFirst(live); });
+    await waitFor(() => expect(result.current.stored).toEqual(storedOther));
+    expect(result.current.live).toBeNull();
+    expect(result.current.principles.map((p) => p.principleId)).toEqual(['S1']);
   });
 });
