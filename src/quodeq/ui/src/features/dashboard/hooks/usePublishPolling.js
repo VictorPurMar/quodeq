@@ -30,10 +30,11 @@ function useRefreshListAfterCompletion(queryClient, sharedListProjects) {
         // network -- silently contradicting the comment above this function.
         staleTime: 0,
       })
-      .catch(() => {
+      .catch((err) => {
         // Best effort -- a failed refresh just leaves the "published <time
         // ago>" meta stale on cards; it is not primary content worth an
         // error banner over.
+        console.debug('[usePublishPolling] list refresh failed:', err);
       });
   }, [queryClient, sharedListProjects]);
 }

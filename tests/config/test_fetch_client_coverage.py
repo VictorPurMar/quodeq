@@ -207,7 +207,23 @@ class TestFetchRetryBackoff:
              patch("time.sleep") as mock_sleep, \
              patch("random.uniform", return_value=0):
             c.fetch("https://example.com")
-        assert [call.args[0] for call in mock_sleep.call_args_list] == [0.5, 1.0]
+        assert [call.args[0] for call in mock_sleep.call_args_list] == [0.5, 1.0, 2.0]
+
+    def test_max_retries_zero_still_sends_one_request(self):
+        c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RETRIES": "0"})
+        opener = MagicMock(return_value=TestFetchResponseSizeCap._resp(b"body"))
+        with patch("urllib.request.OpenerDirector.open", opener), patch("time.sleep") as mock_sleep:
+            assert c.fetch("https://example.com") == "body"
+        assert opener.call_count == 1
+        assert mock_sleep.call_count == 0
+
+    def test_max_retries_two_sends_three_attempts(self):
+        c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RETRIES": "2"})
+        opener = MagicMock(side_effect=urllib.error.URLError("net error"))
+        with patch("urllib.request.OpenerDirector.open", opener), patch("time.sleep"):
+            assert c.fetch("https://example.com") is None
+        assert opener.call_count == 3
+        assert c._failures == 1
 
 
 class TestRedirectGuard:

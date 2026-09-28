@@ -50,7 +50,7 @@ export async function parseImportFile(file) {
   } catch (err) {
     return { ok: false, error: PARSE_FILE_ERROR.INVALID_JSON, cause: err };
   }
-  if (typeof data !== 'object' || Array.isArray(data)) {
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) {
     return { ok: false, error: PARSE_FILE_ERROR.INVALID_JSON_OBJECT };
   }
   return { ok: true, data };

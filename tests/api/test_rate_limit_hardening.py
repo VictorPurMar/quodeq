@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from flask import Flask
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from quodeq.api._evaluation_helpers import check_eval_rate_limit
 from quodeq.api._rate_limit_file_store import FileRateLimitStore
@@ -264,3 +264,11 @@ def test_concurrent_eval_posts_admit_exactly_one(flask_app):
     for t in threads:
         t.join(timeout=10)
     assert sorted(r is None for r in results) == [False, True]
+
+
+def test_check_and_record_tolerates_mkstemp_failure(tmp_path: Path, monkeypatch, caplog):
+    store = FileRateLimitStore(path=tmp_path / "rl.json", window=60, max_requests=5)
+    monkeypatch.setattr("quodeq.api._rate_limit_file_store.tempfile.mkstemp",
+                        Mock(side_effect=OSError("disk full")))
+    assert store.check_and_record("1.2.3.4", 1000.0) is False  # must not raise
+    assert "rate-limit" in caplog.text

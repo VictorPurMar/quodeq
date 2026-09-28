@@ -178,3 +178,16 @@ def test_merge_action_log_files_non_utf8_source_raises_value_error(tmp_path: Pat
 
     with pytest.raises(ValueError):
         merge_action_log_files(dest, (a, b))
+
+
+def test_read_action_events_skips_non_object_lines(tmp_path: Path) -> None:
+    ActionLogWriter(tmp_path).emit(
+        FindingDismissedEvent(payload=FindingDismissed(req="R1", file="a.py", line=1)))
+    log = tmp_path / "actions.jsonl"
+    valid = log.read_text()
+    log.write_text('[1]\n"x"\n3\n' + valid)
+
+    events = list(read_action_events(tmp_path))
+
+    assert len(events) == 1
+    assert events[0].payload.req == "R1"

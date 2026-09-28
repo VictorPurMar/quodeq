@@ -67,7 +67,7 @@ def check_repo_format(repo_root: Path) -> RepoFormat:
         # Try to parse version as int; if it fails or is non-numeric, unsupported.
         try:
             version = int(data.get("version", 0))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             return RepoFormat.UNSUPPORTED_VERSION
 
         if version > FORMAT_VERSION:

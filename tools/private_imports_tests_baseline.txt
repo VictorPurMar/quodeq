@@ -458,8 +458,8 @@ tests/api/test_sse_log_helpers.py:14:private-module:quodeq.api._sse_log_helpers.
 tests/api/test_sse_log_helpers.py:14:private-module:quodeq.api._sse_log_helpers.tail_max_bytes
 tests/api/test_sse_log_helpers.py:14:private-name:quodeq.api._sse_log_helpers._tail_new_lines
 tests/api/test_terminal_routes.py:7:private-name:quodeq.api.terminal_routes._apply_control
-tests/api/test_terminal_ws_helpers.py:16:private-module:quodeq.api._terminal_ws_helpers
-tests/api/test_terminal_ws_helpers.py:17:private-module:quodeq.api._terminal_ws_helpers.setup_terminal_session
+tests/api/test_terminal_ws_helpers.py:17:private-module:quodeq.api._terminal_ws_helpers
+tests/api/test_terminal_ws_helpers.py:18:private-module:quodeq.api._terminal_ws_helpers.setup_terminal_session
 tests/api/test_zip_coverage.py:171:private-name:quodeq.api.zip._ZipSizeLimitError
 tests/api/test_zip_coverage.py:58:private-name:quodeq.api.zip._ZipSizeLimitError
 tests/assistant/test_api_adapter.py:104:private-name:quodeq.assistant.adapters.api._extra_body
@@ -584,6 +584,7 @@ tests/config/test_discipline_detection_skip_dirs.py:27:private-module:quodeq.con
 tests/config/test_discipline_detection_subproject_bfs.py:12:private-module:quodeq.config._discipline_detection.DisciplineRegistry
 tests/config/test_discipline_detection_subproject_bfs.py:13:private-module:quodeq.config._discipline_rule.DisciplineRule
 tests/config/test_fetch_client_coverage.py:8:private-module:quodeq.config._fetch_client_class.FetchClient
+tests/config/test_fetch_client_half_open.py:7:private-module:quodeq.config._fetch_client_class.FetchClient
 tests/config/test_standards_fetcher_extended.py:8:private-name:quodeq.config.standards_fetcher._ASVS_ALLOWED_HOSTS
 tests/config/test_standards_fetcher_extended.py:8:private-name:quodeq.config.standards_fetcher._DEFAULT_ASVS_VERSION
 tests/config/test_standards_fetcher_extended.py:8:private-name:quodeq.config.standards_fetcher._asvs_version
@@ -850,11 +851,11 @@ tests/services/test_accumulated_scoring.py:28:private-module:quodeq.services._ac
 tests/services/test_accumulated_scoring.py:40:private-module:quodeq.services._accumulated_data.read_all_run_data
 tests/services/test_accumulated_show_all.py:17:private-name:quodeq.services.accumulated._build_accumulated_for_runs
 tests/services/test_action_provider_fs_dashboard.py:10:private-module:quodeq.services._dashboard_stale.collect_stale_dimensions
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._cache_lookup
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._cache_store
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._fetch_and_store
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._fetch_dimensions_from_disk
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._wait_for_inflight
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._cache_lookup
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._cache_store
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._fetch_and_store
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._fetch_dimensions_from_disk
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._wait_for_inflight
 tests/services/test_cancel_discard_purge_state.py:18:private-module:quodeq.services._external_jobs.ProcessControl
 tests/services/test_cancel_evaluation_orphan.py:18:private-module:quodeq.services._external_jobs.ProcessControl
 tests/services/test_carried_forward_read_paths.py:10:private-module:quodeq.data.fs.report_parser._report_parsing.build_finding

@@ -112,7 +112,11 @@ def terminal_read_loop(ws, manager, stop: threading.Event, apply_control) -> Non
                 manager.write(payload.encode("utf-8"))
             elif tag == _WS_TAG_CONTROL:
                 apply_control(manager, payload)
-    except (ConnectionClosed, OSError, ValueError):
+    except ConnectionClosed:
+        # A normal client disconnect: receive raises ConnectionClosed and the
+        # session ends. Not a failure, so no warning and no traceback.
+        _logger.debug("terminal client disconnected")
+    except (OSError, ValueError):
         # A write to a dead/killed process (or any other failure in this
         # loop) must not silently end the session: log it for operators,
         # and signal the write-side pump to stop rather than leaving it

@@ -32,7 +32,7 @@ def _safe_int(value: Any, default: int) -> int:
     """Coerce a wire value to int, falling back to *default* on junk input."""
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
 
 

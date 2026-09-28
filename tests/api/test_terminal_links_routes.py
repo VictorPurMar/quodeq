@@ -110,6 +110,23 @@ def test_open_route_launches_editor(app, monkeypatch):
     assert calls["kw"].get("start_new_session") is True
 
 
+def test_open_route_infinite_line_is_dropped(app, monkeypatch):
+    calls = {}
+    monkeypatch.setattr("quodeq.api.terminal_routes.resolve_bases", lambda pid: ["/base"])
+    monkeypatch.setattr("quodeq.api.terminal_routes.safe_editor_path", lambda p, bases: p)
+    monkeypatch.setattr("quodeq.api.terminal_routes.os.path.isfile", lambda p: True)
+    monkeypatch.setattr("quodeq.api.terminal_routes.detect_editor",
+                        lambda: Editor("code", "/usr/bin/code", True))
+    monkeypatch.setattr("quodeq.terminal.links.subprocess.Popen",
+                        lambda argv, **kw: calls.setdefault("argv", argv))
+    c = app.test_client()
+    r = c.post("/api/terminal/open", data='{"path": "/proj/a.py", "line": 1e400, "col": 2}',
+               content_type="application/json", headers=_H, base_url="http://localhost")
+    assert r.status_code == 200
+    assert r.get_json() == {"opened": True, "editor": "code"}
+    assert calls["argv"] == ["/usr/bin/code", "-g", "/proj/a.py"]
+
+
 def test_open_route_rejects_path_outside_bases(app, monkeypatch):
     # safe_editor_path returns None for anything outside the terminal's dirs.
     monkeypatch.setattr("quodeq.api.terminal_routes.resolve_bases", lambda pid: ["/base"])

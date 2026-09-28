@@ -147,7 +147,8 @@ def _check_auth(api_key: str | None) -> Response | tuple[Response, int] | None:
         return None
     if api_key:
         auth = request.headers.get("Authorization", "")
-        if not hmac.compare_digest(auth, f"{_BEARER_PREFIX}{api_key}"):
+        # compare_digest raises TypeError on non-ASCII str input.
+        if not auth.isascii() or not hmac.compare_digest(auth, f"{_BEARER_PREFIX}{api_key}"):
             return json_error("Unauthorized", HTTPStatus.UNAUTHORIZED, "UNAUTHORIZED")
     else:
         remote = request.remote_addr or ""

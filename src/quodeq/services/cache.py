@@ -126,7 +126,9 @@ def _cache_store(
 def _wait_for_inflight(
     key: tuple, event: threading.Event, ctx: DimensionCacheContext,
 ) -> list[DimensionResult] | None:
-    """Wait for another thread's in-flight fetch; None if it did not finish in time."""
+    """Wait for another thread's in-flight fetch; None if it did not finish in time
+    or left nothing in the cache (it failed, or found no data), so the caller
+    reads for itself."""
     if not event.wait(timeout=_CACHE_WAIT_TIMEOUT_S):
         _logger.debug(
             "in-flight dimension fetch for %s did not finish within %ss; fetching directly",
@@ -134,21 +136,28 @@ def _wait_for_inflight(
         )
         return None
     with ctx.lock:
-        return list(ctx.cache.get(key, []))
+        data = ctx.cache.get(key)
+    return None if data is None else list(data)
 
 
 def _fetch_and_store(
     key: tuple, reports_root: Path, project: str, run_id: str,
     ctx: DimensionCacheContext,
 ) -> list[DimensionResult]:
-    """Perform the disk fetch, store in cache, and notify waiters."""
-    data = _fetch_dimensions_from_disk(reports_root, project, run_id, ctx.get_reader())
-    if data:
-        _cache_store(key, data, ctx)
-    with ctx.lock:
-        notify_event = ctx.inflight.pop(key, None)
-    if notify_event is not None:
-        notify_event.set()
+    """Perform the disk fetch, store in cache, and notify waiters.
+
+    The inflight entry is released and its waiters woken even when the
+    reader raises; the exception still reaches the caller.
+    """
+    try:
+        data = _fetch_dimensions_from_disk(reports_root, project, run_id, ctx.get_reader())
+        if data:
+            _cache_store(key, data, ctx)
+    finally:
+        with ctx.lock:
+            notify_event = ctx.inflight.pop(key, None)
+        if notify_event is not None:
+            notify_event.set()
     return data
 
 

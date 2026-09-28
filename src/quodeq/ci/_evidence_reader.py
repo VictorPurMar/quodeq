@@ -39,7 +39,7 @@ def _judgment_to_violation(obj: dict) -> dict | None:
     if line is not None:
         try:
             out["line"] = int(line)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             _logger.debug("Non-integer line value %r; omitting line", line)
     req = obj.get("req")
     if req:
@@ -75,10 +75,13 @@ def load_violations_from_evidence(evidence_dir: Path) -> list[dict]:
                     except json.JSONDecodeError as exc:
                         _logger.debug("Skipping malformed line in %s: %s", path, exc)
                         continue
+                    if not isinstance(obj, dict):
+                        _logger.debug("Skipping non-object line in %s", path)
+                        continue
                     v = _judgment_to_violation(obj)
                     if v is not None:
                         violations.append(v)
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             _logger.debug("Could not read %s: %s", path, exc)
             continue
     return violations

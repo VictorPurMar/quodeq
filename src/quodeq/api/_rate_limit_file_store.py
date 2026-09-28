@@ -84,11 +84,18 @@ class FileRateLimitStore:
     def _load(self) -> dict[str, list[float]]:
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
+        except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, OSError):
             return {}
         # The state file is plain user-writable JSON; a valid non-object value
-        # (array, scalar) would crash record()/check() at data.get(...).
-        return data if isinstance(data, dict) else {}
+        # (array, scalar) would crash record()/check() at data.get(...), and a
+        # per-IP value that is not a list of numbers would crash the
+        # timestamp comprehensions, so both are normalised away here.
+        if not isinstance(data, dict):
+            return {}
+        return {
+            ip: [t for t in stamps if isinstance(t, (int, float)) and not isinstance(t, bool)]
+            for ip, stamps in data.items() if isinstance(stamps, list)
+        }
 
     def _save(self, data: dict[str, list[float]]) -> None:
         parent = self._path.parent
@@ -100,15 +107,17 @@ class FileRateLimitStore:
         # Write a fresh temp file then os.replace() onto the target. If an
         # attacker planted a symlink at self._path, the rename replaces the
         # link itself with our regular file and never truncates its target.
-        tmp_fd, tmp_name = tempfile.mkstemp(dir=parent, prefix=".rl-", suffix=".tmp")
+        tmp_name: str | None = None
         try:
+            tmp_fd, tmp_name = tempfile.mkstemp(dir=parent, prefix=".rl-", suffix=".tmp")
             dump_json_and_replace(tmp_fd, tmp_name, self._path, data, mode=0o600)
         except OSError:
             _logger.warning("Failed to write rate-limit file %s", self._path)
-            try:
-                os.unlink(tmp_name)
-            except OSError as exc:
-                _logger.debug("temp rate-limit file %s not removed: %s", tmp_name, exc)
+            if tmp_name is not None:
+                try:
+                    os.unlink(tmp_name)
+                except OSError as exc:
+                    _logger.debug("temp rate-limit file %s not removed: %s", tmp_name, exc)
 
     def _cache_for(self, now: float) -> dict[str, list[float]]:
         """Return the in-memory cache, refilling from disk if stale. Caller

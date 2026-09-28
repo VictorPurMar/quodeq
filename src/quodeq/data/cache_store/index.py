@@ -245,7 +245,7 @@ class ContentIndex:
             return None
         try:
             return int(row[0])
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return None
 
     def mark_built(self, schema: int) -> None:

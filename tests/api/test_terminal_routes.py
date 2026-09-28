@@ -236,3 +236,9 @@ def test_apply_control_clamps_out_of_range_resize(payload):
     cols, rows = mgr.calls[0]
     assert 1 <= cols <= 65535
     assert 1 <= rows <= 65535
+
+
+def test_apply_control_infinite_resize_is_ignored():
+    mgr = _ResizeRecorder()
+    _apply_control(mgr, '{"resize": {"cols": 1e400, "rows": 24}}')
+    assert mgr.calls == []
