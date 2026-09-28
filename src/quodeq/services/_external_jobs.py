@@ -18,7 +18,10 @@ import signal
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    import sqlite3
 
 from quodeq.config.services_env import cancel_grace_s
 from quodeq.shared.process_kill import kill_tree as _kill_tree
@@ -128,7 +131,7 @@ def cancel_external_run(
     return not control.pid_alive(pid)
 
 
-def sync_indexed_run(db, job_id: str) -> bool:
+def sync_indexed_run(db: sqlite3.Connection, job_id: str) -> bool:
     """Sync the run directory the index already knows for *job_id*.
 
     Returns False when there is no row or its run_dir is blank or gone, so
@@ -144,7 +147,7 @@ def sync_indexed_run(db, job_id: str) -> bool:
     return True
 
 
-def sync_external_run(db, job_id: str, reports_dir: Path) -> bool:
+def sync_external_run(db: sqlite3.Connection, job_id: str, reports_dir: Path) -> bool:
     """Bring the index row for an external run up to date; False if the id is unsafe.
 
     Prefers the run directory the index already knows, else scans for it.

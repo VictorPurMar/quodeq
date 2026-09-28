@@ -13,7 +13,8 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import NamedTuple
+from collections.abc import Callable
+from typing import Any, NamedTuple
 
 from quodeq.menubar._health import health_check as _health_check
 from quodeq.shared.constants import PLATFORM_DARWIN
@@ -30,9 +31,9 @@ _LSOF_TIMEOUT_S = 5  # ceiling for the lsof subprocess that finds pids on a port
 
 class DashboardCallbacks(NamedTuple):
     """Callbacks for dashboard startup lifecycle events."""
-    on_port_found: object  # (port: int, stderr_log) -> None
-    on_crash: object       # (stderr_log) -> None
-    on_timeout: object     # () -> None
+    on_port_found: Callable[[int, Any], None]  # port, stderr_log
+    on_crash: Callable[[Any], None]  # stderr_log
+    on_timeout: Callable[[], None]
 
 
 class DashboardState(NamedTuple):
