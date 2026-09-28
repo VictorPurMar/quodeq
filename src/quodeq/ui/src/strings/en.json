@@ -1381,6 +1381,7 @@
   "terminal.localhostOnly": "localhost only",
   "terminal.localhostTitle": "The embedded terminal only works on localhost",
   "terminal.newSession": "New session",
+  "terminal.newSessionFailed": "Could not open a new terminal session.",
   "terminal.openElsewhere": "Terminal is open in another window. Close it there, then retry.",
   "terminal.refused": "Terminal connection refused by the server.",
   "terminal.retry": "Retry",
