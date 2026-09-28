@@ -1,7 +1,9 @@
 """Constants shared by the API route modules."""
-# House-standard, and it also keeps this import-less module indexed by
-# core/checks/framework_deps (edge-keyed; see the follow-up on ImportGraph.files).
 from __future__ import annotations
+
+# The two codes the import use case (services/project_import.py) returns.
+from quodeq.shared.errors import CODE_INVALID_ACTION as CODE_INVALID_ACTION
+from quodeq.shared.errors import CODE_PROJECT_EXISTS as CODE_PROJECT_EXISTS
 
 # Machine-readable ``code`` values for ``helpers.error_response``. The UI
 # branches on them, so the strings are wire contract.
@@ -38,13 +40,10 @@ CODE_NOT_FOUND = "NOT_FOUND"
 # (routes_runs.py, _scores_routes.py, routes_compare.py, _index_routes.py,
 # routes_shared_mirrors.py) -- both are "internal error, 500" to the client.
 CODE_INTERNAL_ERROR = "INTERNAL_ERROR"
-CODE_PROJECT_EXISTS = "PROJECT_EXISTS"  # 409 for a project already registered or imported
 CODE_GONE = "GONE"  # the run a job pointed at has no directory any more
 CODE_FORBIDDEN = "FORBIDDEN"
 CODE_UNKNOWN_SESSION = "UNKNOWN_SESSION"
 CODE_NO_ACTIVE_WORKTREE = "NO_ACTIVE_WORKTREE"
-# routes_shared_pull's optional "action" field (copy|replace) on a pull collision.
-CODE_INVALID_ACTION = "INVALID_ACTION"
 MESSAGE_UNKNOWN_SESSION = "unknown session"
 MESSAGE_INVALID_PROJECT_NAME = "Invalid project name"  # 400 for a malformed <project> segment
 # No shared results repository is configured (shared routes, assistant shared sessions).

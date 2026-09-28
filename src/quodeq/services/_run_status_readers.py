@@ -17,57 +17,14 @@ from pathlib import Path
 from quodeq.core.run.job_status import is_external_job_id
 from quodeq.core.run.state import TERMINAL_STATES
 from quodeq.core.types.job import JobSnapshot
-from quodeq.services.wiring import read_run_state, read_run_status_json
+from quodeq.services.wiring import read_run_state, read_run_status_json, tail_run_log  # noqa: F401
 from quodeq.services.wiring import run_index as _run_index
-
-_RUN_LOG_TAIL_LINES = 500  # lines of run.log the dashboard shows; enough context without a full read
-_TAIL_READ_INITIAL_CHUNK_BYTES = 8192  # doubles each pass until max_lines is satisfied
 
 
 def status_json_terminal(run_dir: Path) -> bool:
     """Return True when the run's status.json says it ended."""
     state = read_run_state(run_dir)
     return state is not None and state in TERMINAL_STATES
-
-
-def tail_run_log(run_dir: Path, max_lines: int = _RUN_LOG_TAIL_LINES) -> list[str]:
-    """Return the last *max_lines* lines from run.log.
-
-    Reads backward from the end in growing chunks instead of the whole file,
-    so a multi-MB in-progress log costs O(tail size) per call, not O(file
-    size). ``run.log`` is append-only in practice (no in-place rewrites), so
-    a stale byte count from a concurrent writer only risks re-reading a few
-    extra bytes on the next call, never corrupting output.
-    """
-    log_path = run_dir / "run.log"
-    if not log_path.is_file():
-        return []
-    try:
-        file_size = log_path.stat().st_size
-        chunk = _TAIL_READ_INITIAL_CHUNK_BYTES
-        data = b""
-        with log_path.open("rb") as fp:
-            read_to = file_size
-            while read_to > 0:
-                read_from = max(0, read_to - chunk)
-                fp.seek(read_from)
-                data = fp.read(read_to - read_from) + data
-                read_to = read_from
-                # +1: need max_lines *complete* lines, i.e. max_lines newlines
-                # before the final one (or we've hit the start of the file).
-                if data.count(b"\n") > max_lines or read_from == 0:
-                    break
-                chunk *= 2
-        text = data.decode("utf-8", errors="replace")
-    except OSError:
-        return []
-    lines = text.split("\n")
-    if lines and lines[-1] == "":
-        lines = lines[:-1]  # trailing newline produces one empty split segment
-    # Text-mode writers on Windows produce CRLF; the old text-mode reader's
-    # universal newlines absorbed the \r, the byte-level split must drop it.
-    lines = [line.removesuffix("\r") for line in lines]
-    return lines[-max_lines:] if len(lines) > max_lines else lines
 
 
 def _load_status_json(run_dir: Path) -> dict:

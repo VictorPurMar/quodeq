@@ -13,6 +13,7 @@ from typing import Iterator
 
 from quodeq.data.sqlite._migrations import apply_evaluation_schema
 from quodeq.data.sqlite.constants import SQLITE_BUSY_TIMEOUT_MS
+from quodeq.data.sqlite.errors import SqliteStoreUnreadableError, as_store_error
 
 EVALUATION_DB_FILENAME = "evaluation.db"
 
@@ -29,8 +30,8 @@ def open_evaluation_db(run_dir: Path) -> Iterator[sqlite3.Connection]:
 
     Creates *run_dir* and closes the connection on the way out. Connect and IO
     failures surface as ``RuntimeError`` naming the path; schema-version
-    mismatches and corruption stay ``sqlite3.DatabaseError`` so readers can
-    fall back to the filesystem.
+    mismatches and corruption surface as ``StoreUnreadableError`` (still a
+    ``sqlite3.DatabaseError``) so readers can fall back to the filesystem.
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / EVALUATION_DB_FILENAME
@@ -46,17 +47,27 @@ def open_evaluation_db(run_dir: Path) -> Iterator[sqlite3.Connection]:
             # give callers a clear, run-scoped message instead of a bare sqlite3
             # error with no path context.
             raise RuntimeError(f"Could not open evaluation database at {path}: {exc}") from exc
-        except sqlite3.DatabaseError:
-            # Schema-version mismatches (SchemaVersionError) and generic
-            # corruption ("file is not a database") deliberately stay
-            # sqlite3.DatabaseError subclasses/instances -- existing readers
-            # (dashboard/scores/findings queries) catch that type to degrade
-            # gracefully to filesystem-based data. Wrapping these in RuntimeError
-            # would break that fallback, so let them propagate unchanged.
+        except SqliteStoreUnreadableError:
+            # A schema-version mismatch already is the boundary error.
             raise
+        except sqlite3.DatabaseError as exc:
+            # Generic corruption ("file is not a database") becomes the
+            # boundary's unreadable-store error, which is still a
+            # sqlite3.DatabaseError: readers (dashboard/scores/findings
+            # queries) catch either type to degrade gracefully to
+            # filesystem-based data. Wrapping in RuntimeError would break
+            # that fallback.
+            raise as_store_error(exc) from exc
         except sqlite3.Error as exc:
             raise RuntimeError(f"Could not open evaluation database at {path}: {exc}") from exc
-        yield conn
+        try:
+            yield conn
+        except SqliteStoreUnreadableError:
+            raise
+        except sqlite3.DatabaseError as exc:
+            # A malformed image can surface on the first query rather than
+            # at connect time; it gets the same boundary error.
+            raise as_store_error(exc) from exc
     finally:
         # Guards both setup failures (conn may or may not have been created)
         # and the normal yield path -- conn is only ever left open here if

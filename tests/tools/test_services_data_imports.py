@@ -19,8 +19,6 @@ _BASELINE = frozenset({
     "_dashboard_stale.py:quodeq.data.fs.report_parser.runs",
     "_post_run_hook.py:quodeq.data.projection.projector",
     "_run_discard.py:quodeq.data.cache_store.local",
-    "_violations_jsonl.py:quodeq.data.fs.standards_loader",
-    "_violations_jsonl.py:quodeq.data.fs.stream_files",
     "cache.py:quodeq.data.fs.report_parser.runs",
     "cache_maintenance.py:quodeq.data.cache_store.local",
     "cache_maintenance.py:quodeq.data.cache_store.migrate",
@@ -33,7 +31,6 @@ _BASELINE = frozenset({
     "score_run.py:quodeq.data.fs.standards_loader",
     "standards_prefs.py:quodeq.data.fs.compiled_standards",
     "standards_prefs.py:quodeq.data.fs.standards_prefs",
-    "trend_fetcher.py:quodeq.data.fs.report_parser.runs",
 })
 
 

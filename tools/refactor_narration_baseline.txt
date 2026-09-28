@@ -24,8 +24,6 @@ src/quodeq/analysis/mcp/precedent_downweight.py:3
 src/quodeq/analysis/mcp/scope_gate_rules.py:3
 src/quodeq/api/_assistant_events.py:3
 src/quodeq/api/_assistant_hygiene.py:4
-src/quodeq/api/_import_extract.py:3
-src/quodeq/api/_import_validation.py:8
 src/quodeq/api/_terminal_ws_helpers.py:3
 src/quodeq/api/assistant_action_routes.py:3
 src/quodeq/assistant/adapters/_cli_events.py:3

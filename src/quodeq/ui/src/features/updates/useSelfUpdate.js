@@ -22,31 +22,43 @@ const STATUS_POLL_MS = 1000;
 export function useSelfUpdate(status, adoptStatus) {
   const { getUpdateStatus, startSelfUpdate } = useApi();
   const [starting, setStarting] = useState(false);
+  // A rejected start request never reaches the backend status, so the
+  // failure is held here until a fresh status reports a non-error phase.
+  const [startFailed, setStartFailed] = useState(false);
   const selfUpdate = status?.self_update || null;
   const phase = selfUpdate?.phase || SELF_UPDATE_PHASE.IDLE;
   const active = ACTIVE_PHASES.has(phase);
 
+  const adopt = useCallback((next) => {
+    if ((next?.self_update?.phase || SELF_UPDATE_PHASE.IDLE) !== SELF_UPDATE_PHASE.ERROR) setStartFailed(false);
+    adoptStatus(next);
+  }, [adoptStatus]);
+
   useEffect(() => {
     if (!active) return undefined;
     const id = setInterval(() => {
-      getUpdateStatus().then(adoptStatus).catch((e) => console.warn('self-update status poll failed:', e));
+      getUpdateStatus().then(adopt).catch((e) => console.warn('self-update status poll failed:', e));
     }, STATUS_POLL_MS);
     return () => clearInterval(id);
-  }, [active, adoptStatus, getUpdateStatus]);
+  }, [active, adopt, getUpdateStatus]);
 
   const begin = useCallback(() => {
     setStarting(true);
+    setStartFailed(false);
     startSelfUpdate()
-      .then(() => getUpdateStatus().then(adoptStatus))
-      .catch((e) => console.warn('self-update start failed:', e))
+      .then(() => getUpdateStatus().then(adopt))
+      .catch((e) => {
+        console.warn('self-update start failed:', e);
+        setStartFailed(true);
+      })
       .finally(() => setStarting(false));
-  }, [adoptStatus, getUpdateStatus, startSelfUpdate]);
+  }, [adopt, getUpdateStatus, startSelfUpdate]);
 
   return {
     supported: Boolean(selfUpdate?.supported),
     phase,
     active,
-    failed: phase === SELF_UPDATE_PHASE.ERROR,
+    failed: phase === SELF_UPDATE_PHASE.ERROR || startFailed,
     percent: selfUpdate?.percent ?? 0,
     starting,
     begin,

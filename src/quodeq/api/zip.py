@@ -15,32 +15,16 @@ from flask import Response, after_this_request, send_file
 from quodeq.api._constants import CODE_NOT_FOUND
 from quodeq.api.helpers import ClientMessageError, json_error
 from quodeq.services.fs_project_helpers import read_project_record
+from quodeq.services.project_archive_format import (
+    EXTRACT_HEADROOM,
+    MANIFEST_KIND,
+    MANIFEST_SCHEMA,
+    max_zip_size_bytes,
+)
 from quodeq.shared.constants import MANIFEST_FILENAME
 from quodeq.shared.clock import utc_now_iso
-from quodeq.shared.env import env_int
 
 _logger = logging.getLogger(__name__)
-
-_DEFAULT_MAX_ZIP_SIZE_MB = 500
-MANIFEST_KIND = "quodeq-project-export"
-MANIFEST_SCHEMA = 1
-# Import allows the extracted (uncompressed) archive to reach the MB cap times
-# this multiple (evaluation data is text that deflates ~5x). Export applies the
-# same bound so it never produces an archive that would fail re-import.
-EXTRACT_HEADROOM = 10
-
-
-def max_zip_size_bytes(max_mb: int | None = None, env: dict[str, str] | None = None) -> int:
-    """Return the max zip export size in bytes.
-
-    *max_mb* overrides the env var for testing. An unparseable
-    QUODEQ_MAX_ZIP_SIZE_MB falls back to the default, with ``env_int``
-    logging a warning that names the variable, the bad value and the
-    default.
-    """
-    if max_mb is None:
-        max_mb = env_int("QUODEQ_MAX_ZIP_SIZE_MB", _DEFAULT_MAX_ZIP_SIZE_MB, env=env)
-    return max_mb * 1024 * 1024
 
 
 def _build_manifest(project_path: Path) -> dict[str, object]:

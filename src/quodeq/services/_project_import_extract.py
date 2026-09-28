@@ -1,21 +1,20 @@
 """Safe extraction of validated zip members onto disk.
 
-Split out of import_project.py. ``safe_extract`` runs after
-``_import_validation.validate_archive`` has already rejected traversal,
+``safe_extract`` runs after
+``_project_import_validation.validate_archive`` has already rejected traversal,
 symlinks, and oversize members; it still double-checks each target path
 before writing, as a second line of defense. ``swap_into_place`` moves a
 staged project over an existing one without ever leaving neither on disk.
 """
 from __future__ import annotations
 
-import logging
 import shutil
 import zipfile
 from pathlib import Path
 
-from ._import_validation import bad_request
+from quodeq.core.observability import NULL_LOG, LogSink
 
-logger = logging.getLogger(__name__)
+from ._project_import_validation import bad_request
 
 
 def safe_extract(zf: zipfile.ZipFile, members: dict[str, zipfile.ZipInfo], dest: Path) -> None:
@@ -38,7 +37,7 @@ class StrandedBackupError(OSError):
     staging dir's backup, so the caller must not delete that dir."""
 
 
-def swap_into_place(staged: Path, final: Path, staging: Path) -> None:
+def swap_into_place(staged: Path, final: Path, staging: Path, *, log: LogSink = NULL_LOG) -> None:
     """Move *final* aside into *staging*, then *staged* into its place.
 
     The old project is restored if the second move fails, so a failed
@@ -52,7 +51,6 @@ def swap_into_place(staged: Path, final: Path, staging: Path) -> None:
         try:
             backup.rename(final)
         except OSError as restore_exc:
-            logger.error("import: could not restore %s (%s); the old project is kept at %s",
-                         final, restore_exc, backup)
+            log.error(f"import: could not restore {final} ({restore_exc}); the old project is kept at {backup}")
             raise StrandedBackupError("old project kept in the staging backup") from restore_exc
         raise

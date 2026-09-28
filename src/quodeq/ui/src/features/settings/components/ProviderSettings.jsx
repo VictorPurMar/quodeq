@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { DEFAULT_TIME_LIMIT_S, PROVIDER_SETTING_KEY } from '../../../constants.js';
 import { t } from '../../../strings/index.js';
 import { STORED_TRUE, STORED_FALSE } from '../../../adapters/storage.js';
@@ -31,6 +31,7 @@ export function TimeLimitSetting({ state, update, providerType }) {
   const unlimited = timeLimit === 0;
   const persistedMinutes = unlimited ? '' : String(Math.round(timeLimit / SECONDS_PER_MINUTE));
   const [draft, setDraft] = useState(persistedMinutes);
+  const labelId = useId();
 
   useEffect(() => { setDraft(persistedMinutes); }, [persistedMinutes]);
 
@@ -48,6 +49,7 @@ export function TimeLimitSetting({ state, update, providerType }) {
     <div className="settings-row">
       <SettingsRowLabel
         label={t('settings.timeLimitLabel')}
+        labelId={labelId}
         hint={<>
           <p>{t('settings.timeLimitHintBase')}</p>
           {providerType === PROVIDER_CLASSIFICATION.CLOUD_API && <p>{t('settings.timeLimitHintCloud')}</p>}
@@ -65,6 +67,7 @@ export function TimeLimitSetting({ state, update, providerType }) {
           className="settings-model-input"
           min={MIN_MINUTES}
           max={MAX_MINUTES}
+          aria-labelledby={labelId}
           value={unlimited ? '' : draft}
           placeholder={unlimited ? '\u221E' : t('settings.timeLimitMinPlaceholder')}
           disabled={unlimited}

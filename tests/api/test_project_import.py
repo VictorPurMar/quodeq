@@ -95,7 +95,7 @@ def test_import_rejects_backslashes_in_member_name():
     directory, so a HTTP-level test can't exercise this branch on Windows.
     Test the validator directly instead.
     """
-    from quodeq.api.import_project import ImportValidationError, validate_member_name
+    from quodeq.services.project_import import ImportValidationError, validate_member_name
     with pytest.raises(ImportValidationError) as exc:
         validate_member_name("uuid\\repository_info.json")
     assert "backslash" in str(exc.value).lower()
@@ -188,7 +188,7 @@ def test_import_direct_upload_os_error_returns_io_error(app_client):
     c, home, _ = app_client
     data = _make_zip()
     with _patch_home(home), patch(
-        "quodeq.api.import_project.validate_archive", side_effect=OSError("disk read error"),
+        "quodeq.services.project_import.validate_archive", side_effect=OSError("disk read error"),
     ):
         resp = _post_zip(c, data)
     assert resp.status_code == 500
