@@ -170,15 +170,19 @@ class JobManager(JobMonitorMixin, JobCapacityMixin):
         threading.Thread(target=self._consume_stream, args=(job_id, process.stdout), daemon=True).start()
         threading.Thread(target=self._monitor_process, args=(job_id, process), daemon=True).start()
 
-    def cancel_job(self, job_id: str, reports_root: Path | None = None, run_dir: Path | None = None) -> bool:
+    def cancel_job(
+        self, job_id: str, reports_root: Path | None = None, run_dir: Path | None = None,
+        *, wait_for_exit: bool = False,
+    ) -> bool:
         """Terminate a running job. Return True if cancelled successfully.
 
         For external jobs (``ext-`` prefix), sends SIGTERM to the process that
-        owns the run. For internal jobs, kills the tracked subprocess. *run_dir*
-        lets ``_cancel_external`` skip its project-directory scan.
+        owns the run (SIGKILL escalation runs off-thread unless *wait_for_exit*).
+        For internal jobs, kills the tracked subprocess. *run_dir* lets
+        ``_cancel_external`` skip its project-directory scan.
         """
         if is_external_job_id(job_id) and reports_root is not None:
-            return self._cancel_external(job_id, reports_root, run_dir=run_dir)
+            return self._cancel_external(job_id, reports_root, run_dir=run_dir, wait=wait_for_exit)
         return self._cancel_internal(job_id)
 
     def _cancel_internal(self, job_id: str) -> bool:
@@ -212,7 +216,7 @@ class JobManager(JobMonitorMixin, JobCapacityMixin):
         """
         terminate_process(process)
 
-    def _cancel_external(self, job_id: str, reports_root: Path, run_dir: Path | None = None) -> bool:
+    def _cancel_external(self, job_id: str, reports_root: Path, run_dir: Path | None = None, *, wait: bool = False) -> bool:
         """Send SIGTERM to an external run's process; *run_dir* skips the scan when valid."""
         from quodeq.services._external_jobs import cancel_external_run, is_safe_run_segment, resolve_external_run_project
         run_id = strip_external_prefix(job_id)
@@ -221,7 +225,7 @@ class JobManager(JobMonitorMixin, JobCapacityMixin):
         project_uuid = resolve_external_run_project(reports_root, run_id, run_dir_hint=run_dir)
         if project_uuid is None:
             return False
-        return cancel_external_run(project_uuid, run_id, reports_root, control=self._process_control)
+        return cancel_external_run(project_uuid, run_id, reports_root, control=self._process_control, wait=wait)
 
     def shutdown(self) -> None:
         """Kill all running job subprocesses. Called on server shutdown."""

@@ -8,13 +8,15 @@ remains here.
 The cancel path is SIGTERM first, then SIGKILL after a grace window if the
 process hasn't died. Tree kill is delegated to ``_kill_tree`` so subagent
 children get reaped alongside the parent on both POSIX (``killpg``) and
-Windows (``taskkill /T``). Returning True means the process is now gone;
-returning False means there was nothing to cancel or signal delivery failed.
+Windows (``taskkill /T``). By default only the SIGTERM is delivered on the
+caller's thread; the grace wait and SIGKILL escalation run on a daemon
+thread so a cancel request never holds an HTTP worker for the grace window.
 """
 from __future__ import annotations
 
 import logging
 import signal
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +32,7 @@ from quodeq.core.run.job_status import strip_external_prefix
 from quodeq.services._run_index_fs import (
     scan_reports_root_for_run, sync_external_run_by_scan,
 )
+from quodeq.shared.fault_isolation import run_isolated
 from quodeq.shared.process import is_pid_alive
 from quodeq.services.wiring import (
     is_safe_run_segment,
@@ -46,6 +49,17 @@ _SETTLE_WAIT_S = 1.0
 # SIGKILL on POSIX; Windows has no SIGKILL but _kill_tree treats any signal as
 # "taskkill /F /T" -- the fallback to SIGTERM keeps the call valid.
 _FORCE_KILL_SIGNAL = getattr(signal, "SIGKILL", signal.SIGTERM)
+_ESCALATION_THREAD_NAME = "cancel-escalation-"
+
+
+def _start_daemon(fn: Callable[[], None], name: str) -> None:
+    """Run *fn* on its own daemon thread.
+
+    Not the shared ``BackgroundRunner``: that pool may drop a task when its
+    queue is full, and a dropped escalation would leave a SIGTERM-ignoring
+    run alive. A cancel is rare and user-initiated, so one thread each is fine.
+    """
+    threading.Thread(target=fn, name=name, daemon=True).start()
 
 
 @dataclass(frozen=True)
@@ -54,6 +68,7 @@ class ProcessControl:
 
     kill_tree: Callable[[int, int], None] = _kill_tree
     pid_alive: Callable[[int], bool] = is_pid_alive
+    start_background: Callable[[Callable[[], None], str], None] = _start_daemon
 
 
 def _wait_for_exit(
@@ -87,6 +102,21 @@ def resolve_external_run_project(
     return candidate.parent.name if candidate is not None else None
 
 
+def _escalate(control: ProcessControl, pid: int, grace: float) -> bool:
+    """Wait *grace* for *pid* to honor SIGTERM, then SIGKILL it. True once it is gone."""
+    if _wait_for_exit(control, pid, grace):
+        return True
+    _logger.warning(
+        "SIGTERM grace window (%ss) expired for pid %s; escalating to SIGKILL",
+        grace, pid,
+    )
+    control.kill_tree(pid, _FORCE_KILL_SIGNAL)
+    # Brief wait so callers that immediately read status.json see a settled state.
+    if _wait_for_exit(control, pid, _SETTLE_WAIT_S):
+        return True
+    return not control.pid_alive(pid)
+
+
 def cancel_external_run(
     project_uuid: str,
     run_id: str,
@@ -94,6 +124,7 @@ def cancel_external_run(
     *,
     grace_period_s: float | None = None,
     control: ProcessControl | None = None,
+    wait: bool = False,
 ) -> bool:
     """Stop an external run's process tree; escalate SIGTERM to SIGKILL after grace.
 
@@ -103,9 +134,13 @@ def cancel_external_run(
     (per-dim scoring on cancel, status.json finalize, cache flush) finishes;
     short enough that the user isn't left waiting on a hung run.
 
-    Returns True once the process is gone (either honored SIGTERM or was
-    killed). Returns False only when there was nothing to cancel or signal
-    delivery failed at the OS level.
+    With *wait* False (the default) SIGTERM is sent here and the grace wait
+    plus SIGKILL escalation run on ``control.start_background``, so the call
+    returns at once and True means "stop is under way". With *wait* True the
+    escalation runs inline and True means the process is gone: a caller that
+    deletes the run's files next (discard) needs that guarantee. Returns
+    False only when there was nothing to cancel, or (*wait*) the process
+    survived SIGKILL.
     """
     grace = grace_period_s if grace_period_s is not None else cancel_grace_s()
     control = control or ProcessControl()
@@ -117,18 +152,14 @@ def cancel_external_run(
         return False
 
     control.kill_tree(pid, signal.SIGTERM)
-    if _wait_for_exit(control, pid, grace):
-        return True
-
-    _logger.warning(
-        "SIGTERM grace window (%ss) expired for pid %s; escalating to SIGKILL",
-        grace, pid,
+    if wait:
+        return _escalate(control, pid, grace)
+    label = f"{_ESCALATION_THREAD_NAME}{pid}"
+    control.start_background(
+        lambda: run_isolated(lambda: _escalate(control, pid, grace), label=label, log=_logger),
+        label,
     )
-    control.kill_tree(pid, _FORCE_KILL_SIGNAL)
-    # Brief wait so callers that immediately read status.json see a settled state.
-    if _wait_for_exit(control, pid, _SETTLE_WAIT_S):
-        return True
-    return not control.pid_alive(pid)
+    return True
 
 
 def sync_indexed_run(db: sqlite3.Connection, job_id: str) -> bool:

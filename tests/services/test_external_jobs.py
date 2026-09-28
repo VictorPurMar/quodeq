@@ -282,7 +282,8 @@ class TestCancelGraceReadPerCall:
             return True
 
         monkeypatch.setattr(_external_jobs, "_wait_for_exit", fake_wait_for_exit)
-        control = ProcessControl(kill_tree=lambda *_a: None, pid_alive=lambda _pid: False)
+        # Escalation runs inline so the captured timeout is there to read.
+        control = ProcessControl(kill_tree=lambda *_a: None, pid_alive=lambda _pid: False, start_background=lambda fn, _n: fn())
 
         result = cancel_external_run("proj", "run", tmp_path, control=control)
         assert result is True

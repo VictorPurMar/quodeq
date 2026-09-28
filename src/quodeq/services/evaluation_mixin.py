@@ -214,7 +214,12 @@ class FsEvaluationMixin:
         run_dir: Path | None = None
         if reports_dir and job and job.output_project and job.output_run_id:
             run_dir = Path(reports_dir) / job.output_project / job.output_run_id
-        ok = self._jobs.cancel_job(job_id, reports_root=reports_root, run_dir=run_dir)
+        # A discard deletes the run's files next, so it must not race a
+        # process still inside its SIGTERM grace window; a keep-findings
+        # cancel returns at once and lets the escalation finish off-thread.
+        ok = self._jobs.cancel_job(
+            job_id, reports_root=reports_root, run_dir=run_dir, wait_for_exit=discard_partial,
+        )
         if ok and run_dir is not None:
             wait_for_terminal_status(run_dir)
             if discard_partial:
