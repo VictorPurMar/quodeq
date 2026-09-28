@@ -58,8 +58,10 @@ def read_json_object(path: Path) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-def replace_json_file(path: Path, data: dict) -> None:
+def replace_json_file(path: Path, data: dict, *, indent: int | None = None) -> None:
     """Write *data* as JSON via a same-directory temp file + atomic replace.
+
+    *indent* is passed to ``json.dump`` (None writes compact JSON).
 
     Uses ``tempfile.mkstemp`` (not a fixed ``.tmp`` suffix) so concurrent
     writers to the same *path* never collide on the same temp name.
@@ -67,7 +69,7 @@ def replace_json_file(path: Path, data: dict) -> None:
     fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
     cleanup_tmp: str | None = tmp_path
     try:
-        dump_json_and_replace(fd, tmp_path, path, data)
+        dump_json_and_replace(fd, tmp_path, path, data, indent=indent)
         cleanup_tmp = None  # ownership transferred to final path
     finally:
         if cleanup_tmp is not None:

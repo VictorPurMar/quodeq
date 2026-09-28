@@ -80,3 +80,30 @@ class TestJailedPayloadIo:
 
         with pytest.raises(ValueError):
             resolve_jailed_standard_path(tmp_path, "../escape")
+
+
+class TestAtomicWrite:
+    def test_write_standard_payload_leaves_no_partial_file(self, tmp_path, monkeypatch):
+        """A failed write keeps the previous standard intact and leaves no temp file."""
+        import os
+
+        from quodeq.data.fs.standards_store import write_standard_payload
+
+        target = tmp_path / "s.json"
+        target.write_text('{"old": true}')
+
+        def _disk_full(fd, *_a, **_k):
+            os.close(fd)
+            raise OSError("disk full")
+
+        monkeypatch.setattr("quodeq.data.fs.run_artifacts.dump_json_and_replace", _disk_full)
+        with pytest.raises(OSError):
+            write_standard_payload(target, {"new": True})
+        assert json.loads(target.read_text()) == {"old": True}
+        assert [p.name for p in tmp_path.iterdir()] == ["s.json"]
+
+    def test_write_standard_payload_keeps_two_space_indent(self, tmp_path):
+        from quodeq.data.fs.standards_store import write_standard_payload
+
+        write_standard_payload(tmp_path / "s.json", {"a": 1})
+        assert (tmp_path / "s.json").read_bytes() == b'{\n  "a": 1\n}'
