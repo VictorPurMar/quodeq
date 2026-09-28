@@ -55,6 +55,26 @@ describe('PrincipleDetailPage deferred compliance detail', () => {
       'proj', { kind: 'compliance', dimension: 'Security', asOf: null, principle: 'Input Validation', pathPrefix: 'b.py' },
     ));
   });
+
+  it('fetches and shows the detail /scores left out of a violation card', async () => {
+    const ref = { project: 'proj', asOf: null, dimension: 'Security', generation: 1, kind: 'violation' };
+    const slim = {
+      file: 'c.py', line: 7, endLine: null, principle: 'Input Validation', title: 'Unchecked input', severity: 'major',
+      reason: null, snippet: null, context: null, reqRefs: [], detailDeferred: true, detailRef: ref,
+    };
+    const getFindingDetail = vi.fn(async () => [{ ...slim, detailRef: undefined, detailDeferred: false, reason: 'Input reaches the shell unchecked', snippet: 'os.system(cmd)' }]);
+    render(
+      <SidePaneProvider>
+        <PrincipleDetailPage evalPrincipal={{ ...EVAL_PRINCIPAL, dimViolations: [slim] }} severityFilter={null} onDismiss={vi.fn()} />
+      </SidePaneProvider>,
+      { wrapper: withStableQueryApi({ getFindingDetail, getStandard: vi.fn(async () => null) }) },
+    );
+
+    expect(await screen.findByText('Input reaches the shell unchecked')).toBeInTheDocument();
+    await waitFor(() => expect(getFindingDetail).toHaveBeenCalledWith(
+      'proj', { kind: 'violation', dimension: 'Security', asOf: null, principle: 'Input Validation', pathPrefix: 'c.py' },
+    ));
+  });
 });
 
 describe('PrincipleDetailPage dismiss-button gating', () => {
