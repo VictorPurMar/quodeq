@@ -30,11 +30,10 @@ export function historyRoute(params, props) {
         onDimensionClick: (dim) => props.navigation.handleNavigate(NAV_TAB.EXPLORER, { dimension: dim.dimension, runId: dim.fromRunId, dateLabel: dim.fromDateLabel, fromProject: dim.fromProject }),
         onNavigate: props.navigation.handleNavigate,
         onRunChange: props.navigation.setHistorySelectedRun,
-        // Run deletion changes the accumulated rollup the Overview grade is
-        // built from — same mutation class as dismiss/restore, so it gets
-        // the same debounced ACTIVE reconcile (mark-stale alone never
-        // reaches the always-mounted Overview observer).
-        onRunDeleted: () => props.scheduleDashboardReconcile?.(),
+        // Drops the run from every cached run list at once, resets a
+        // selection that pointed at it, then the same debounced rollup
+        // reconcile dismiss/restore use, plus a projects reload.
+        onRunDeleted: props.handleRunDeleted,
       }}
       projects={props.navigation.projects}
       projectsLoaded={props.navigation.projectsLoaded}

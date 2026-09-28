@@ -17,6 +17,7 @@ import { useEvaluationLifecycle } from './useEvaluationLifecycle.js';
 import { useProjectActions } from './useProjectActions.js';
 import { useVisibleRuns } from './useVisibleRuns.js';
 import { LATEST_RUN_ID } from '../constants.js';
+import { useHandleRunDeleted } from './runDeletion.js';
 import { NAV_TAB } from '../vocab/navTab.js';
 import { projectIdOrSelf } from '../utils/projectIdentity.js';
 
@@ -244,8 +245,7 @@ export function useAppState() {
   const {
     serverConnected, setServerConnected, serverVersion, navStack, activePage,
     navPending, navPop, navGoTo, navSwapAt, navReset, navTab, projectBundle,
-    handleNavigate, handleNavigateReplace, handleRunChange, historySelectedRun,
-    setHistorySelectedRun,
+    handleNavigate, handleNavigateReplace, handleRunChange, historySelectedRun, setHistorySelectedRun,
   } = nav;
   const {
     projects, projectsLoaded, projectsLoadFailed, retryLoadProjects, setProjects, selectedProject, selectedSource,
@@ -264,12 +264,13 @@ export function useAppState() {
   // usually nearly identical. The dashboard-refreshing class dims the
   // page during the background refetch so the user sees that something
   // is happening without the jarring full-screen LoadingScreen.
-  const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, sharedProjectInfo } = useDashboard({
+  const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, dropRunFromCache, sharedProjectInfo } = useDashboard({
     selectedProject,
     selectedRun: effectiveRun,
     selectedSource,
     keepPlaceholder: !isHistoryRun && !isHistoryTab,
   });
+  const handleRunDeleted = useHandleRunDeleted({ dropRunFromCache, setSelectedRun, historySelectedRun, setHistorySelectedRun, scheduleDashboardReconcile, loadProjects });
   const { dailyRuns: rawDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useMemo(() => ({
     dailyRuns: buildPeriodRuns(availableRuns, dashboard?.trend || [], granularity),
     ...computeDerivedState(accumulated, dashboard, selectedProject, projects),
@@ -293,7 +294,7 @@ export function useAppState() {
     currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers,
     headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId,
     historySelectedRun, setHistorySelectedRun,
-    evalLifecycle, settings, activeTab, showProjectHeader, showRunNav, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile,
+    evalLifecycle, settings, activeTab, showProjectHeader, showRunNav, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, handleRunDeleted,
     granularity, onGranularityChange,
   };
 }

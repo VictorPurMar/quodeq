@@ -18,6 +18,43 @@ function invalidateProject(queryClient, selectedProject, selectedSource, options
   });
 }
 
+// The per-run arrays a project payload can carry (dashboard: trend,
+// partialRuns; scores: trend, availableRuns). History rows and the run
+// navigator are derived from these, so dropping a run here removes it
+// from every view at once, before the rollup refetch lands.
+const RUN_LIST_KEYS = ['trend', 'partialRuns', 'availableRuns'];
+
+function withoutRun(data, runId) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+  let changed = false;
+  const next = { ...data };
+  for (const key of RUN_LIST_KEYS) {
+    if (!Array.isArray(data[key])) continue;
+    const kept = data[key].filter((entry) => entry?.runId !== runId);
+    if (kept.length !== data[key].length) { next[key] = kept; changed = true; }
+  }
+  return changed ? next : data;
+}
+
+/**
+ * Drop *runId* from every run list cached under the project subtree.
+ *
+ * Fetches in flight under the project are cancelled first, so a reply that
+ * left the server before the delete cannot land afterwards and put the run
+ * back (the reconcile that follows refetches anyway). Only queries whose
+ * data actually changes are written: a blanket setQueriesData would mark
+ * every query in the subtree fresh, which would silently undo an
+ * invalidation made just before and pin the staleTime:Infinity ones.
+ */
+export function dropRunFromProjectQueries(queryClient, projectId, source, runId) {
+  const queryKey = projectKeys.project(projectId, source);
+  queryClient.cancelQueries({ queryKey });
+  for (const [key, data] of queryClient.getQueriesData({ queryKey })) {
+    const next = withoutRun(data, runId);
+    if (next !== data) queryClient.setQueryData(key, next);
+  }
+}
+
 // refreshDashboard: mark project queries stale but DON'T trigger an
 // immediate refetch. The dashboard payload is 10-20 MB on large projects
 // (one run's full violation + compliance arrays × multiple dimensions);
@@ -97,5 +134,9 @@ function useScheduleDashboardReconcile({ queryClient, selectedProject, selectedS
 export function useDashboardInvalidation({ queryClient, selectedProject, selectedSource }) {
   const { refreshDashboard, refreshDashboardActive } = useRefreshDashboard({ queryClient, selectedProject, selectedSource });
   const scheduleDashboardReconcile = useScheduleDashboardReconcile({ queryClient, selectedProject, selectedSource });
-  return { refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile };
+  const dropRunFromCache = useCallback((runId) => {
+    if (!selectedProject) return;
+    dropRunFromProjectQueries(queryClient, selectedProject, selectedSource, runId);
+  }, [queryClient, selectedProject, selectedSource]);
+  return { refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, dropRunFromCache };
 }
