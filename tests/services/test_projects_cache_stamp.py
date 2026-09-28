@@ -1,7 +1,6 @@
 """The "rebuild once warm-up moves while a summary is pending" rule, on both tiers.
 
-The full-payload tier is pinned in test_projects_cache_entities.py; this file
-pins the paginated (hydrated) tier, which shares one stamp rule with it.
+The settled full-payload case is pinned in test_projects_cache_entities.py.
 """
 from __future__ import annotations
 
@@ -45,3 +44,30 @@ def test_pending_hydrated_entries_rebuild_once_a_project_warms():
 
 def test_settled_hydrated_entries_are_served_from_the_cache():
     assert _page_twice(pending=False) == 1
+
+
+def _warms_after(calls: int):
+    """A warm-up generation that reads 0 for *calls* reads, then 1."""
+    seen = [0]
+
+    def generation() -> int:
+        seen[0] += 1
+        return 0 if seen[0] <= calls else 1
+    return generation
+
+
+def test_pending_summaries_rebuild_once_warmup_finishes_a_project(tmp_path):
+    """While any entry is summary-pending the list is rebuilt as soon as the
+    warm-up engine finishes a project, so the UI's poll sees each filled grade."""
+    pending = ProjectEntry(id="p1", name="proj", runs_count=2, latest_run_id="r2", summary_pending=True)
+    with patch(
+        "quodeq.services._projects_cache.fs_projects.build_project_list",
+        return_value=[pending],
+    ) as spy, patch(
+        _GENERATION_TARGET, side_effect=_warms_after(2),
+    ):
+        cache = ProjectsCache()
+        cache.list(str(tmp_path))
+        cache.list(str(tmp_path))
+        cache.list(str(tmp_path))
+    assert spy.call_count == 2, "a pending list is reused until warm-up moves"

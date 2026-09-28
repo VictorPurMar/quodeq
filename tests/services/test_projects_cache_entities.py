@@ -149,33 +149,6 @@ def test_route_serializes_entities_to_camel_case(tmp_path):
     assert body["projects"][0]["latestRunId"] == "r2"
 
 
-def _warms_after(calls: int):
-    """A warm-up generation that reads 0 for *calls* reads, then 1."""
-    seen = [0]
-
-    def generation() -> int:
-        seen[0] += 1
-        return 0 if seen[0] <= calls else 1
-    return generation
-
-
-def test_pending_summaries_rebuild_once_warmup_finishes_a_project(tmp_path):
-    """While any entry is summary-pending the list is rebuilt as soon as the
-    warm-up engine finishes a project, so the UI's poll sees each filled grade."""
-    pending = ProjectEntry(id="p1", name="proj", runs_count=2, latest_run_id="r2", summary_pending=True)
-    with patch(
-        "quodeq.services._projects_cache.fs_projects.build_project_list",
-        return_value=[pending],
-    ) as spy, patch(
-        "quodeq.services._projects_cache.warmup_engine.generation", side_effect=_warms_after(2),
-    ):
-        cache = ProjectsCache()
-        cache.list(str(tmp_path))
-        cache.list(str(tmp_path))
-        cache.list(str(tmp_path))
-    assert spy.call_count == 2, "a pending list is reused until warm-up moves"
-
-
 def test_settled_summaries_stamp_the_cache_again(tmp_path):
     done = ProjectEntry(id="p1", name="proj", runs_count=2, latest_run_id="r2", summary_pending=False)
     with patch(
