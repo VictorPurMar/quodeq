@@ -176,4 +176,4 @@ def test_get_dashboard_overview_has_no_bodies(tmp_path):
     body = provider.get_dashboard_overview(str(tmp_path), "proj", "latest")
     (dim,) = body["dimensions"]
     assert "violations" not in dim and "compliance" not in dim
-    assert "totalFiles" in body
+    assert body["selectedRun"]["runId"] == "run1"
