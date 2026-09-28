@@ -108,10 +108,12 @@ class TestReadFindingDetails:
 
         total = 350
         keys: set[tuple] = set()
-        for i in range(total):
-            req, file, line = f"REQ-{i}", f"src/f{i}.py", i + 1
-            _seed(tmp_path, req=req, file=file, line=line, practice_id="P1")
-            keys.add((req, file, line))
+        store = SQLiteStateStore(tmp_path)
+        with store.connection():  # one commit, not 350 fsyncs
+            for i in range(total):
+                req, file, line = f"REQ-{i}", f"src/f{i}.py", i + 1
+                _seed(tmp_path, store=store, req=req, file=file, line=line, practice_id="P1")
+                keys.add((req, file, line))
 
         out = read_finding_details(tmp_path, keys)
 
