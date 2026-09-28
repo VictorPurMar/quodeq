@@ -45,7 +45,7 @@ def test_import_uncompressed_over_limit_but_compressed_under_is_accepted(app_cli
     payload = b"".join(os.urandom(64) + b"x" * 192 for _ in range(12288))
     data = _make_zip(extra_files={"evidence.jsonl": payload})
     assert len(data) < 1024 * 1024
-    with patch("quodeq.api.import_project.max_zip_size_bytes", return_value=1024 * 1024), _patch_home(home):
+    with patch("quodeq.services.project_import.max_zip_size_bytes", return_value=1024 * 1024), _patch_home(home):
         resp = _post_zip(c, data)
     assert resp.status_code == 200, resp.get_json()
 
@@ -102,7 +102,7 @@ class TestUpdateIndexDI:
     def test_injected_repository_is_used_not_filesystem(self, tmp_path):
         """When a repository is injected, load_index/save_index on it are called
         instead of the default load_index/save_index filesystem helpers."""
-        from quodeq.api.import_project import update_index
+        from quodeq.services.project_import_identity import update_index
         from quodeq.data.fs._models import ProjectIdentity
         from quodeq.data.fs._resolution import index_key
 
@@ -133,7 +133,7 @@ class TestUpdateIndexDI:
     def test_no_repository_uses_filesystem(self, tmp_path):
         """Without a repository, update_index writes to project_index.json on disk."""
         import json
-        from quodeq.api.import_project import update_index
+        from quodeq.services.project_import_identity import update_index
         from quodeq.data.fs._models import ProjectIdentity
         from quodeq.data.fs._resolution import index_key
 

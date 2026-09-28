@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from quodeq.api.import_project import import_zip_stream
+from quodeq.services.project_import import import_zip_stream
 from tests.api._project_import_fixtures import _make_zip, _patch_home
 
 _MIB = 1024 * 1024

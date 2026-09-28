@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from quodeq.api._import_identity import find_identity_collision
-from quodeq.api.import_project import rewrite_repository_info  # re-export
+from quodeq.services.project_import_identity import rewrite_repository_info
 from quodeq.services.project_index import ProjectIdentity, index_key, load_index, save_index
 
 

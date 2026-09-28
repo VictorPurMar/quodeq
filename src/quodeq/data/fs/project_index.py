@@ -1,6 +1,6 @@
 """Public facade for the project-identity index primitives.
 
-``import_zip_stream`` (``api/import_project.py``) needs to read/write
+``import_zip_stream`` (``services/project_import.py``) needs to read/write
 ``project_index.json`` and compute an identity's index key while
 registering a freshly-imported project. Those primitives live in this
 package's internal, leading-underscore split (``_index_io``, ``_models``,
