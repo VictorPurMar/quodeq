@@ -101,7 +101,7 @@ def coerce_int(value: object, default: int, field: str) -> int:
         return default
     try:
         return int(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise InvalidEvaluationOption(f"{field} must be an integer") from exc
 
 

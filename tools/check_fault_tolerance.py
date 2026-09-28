@@ -16,7 +16,7 @@ introduced in the same change.
 
 Scans src/quodeq/**/*.py (vendored/generated dirs excluded; tests/ and
 JS/TS are out of scope for this ratchet, see the cycle 1 design doc) with
-`ast` for four kinds of violation:
+`ast` for these kinds of violation:
   - bare-except:  `except:` with no type at all
   - empty-except: the handler's entire body is `pass`, an ellipsis
     (`...`), or a docstring-only body
@@ -33,6 +33,8 @@ JS/TS are out of scope for this ratchet, see the cycle 1 design doc) with
     src/quodeq/shared/fault_isolation.py) that is not at an entry point: a
     loop-body statement, a function's only statement, or the body of a
     lambda passed to another call. Zero-tolerance, no baseline entries.
+  - int-overflow: `int(...)` inside a `try` that catches ValueError but not
+    OverflowError (rules in tools/_fault_tolerance_calls.py).
 
 `broad-except` re-raise detection is a reachability-aware scan of the
 handler's TOP LEVEL: a `raise` after a `return` does not count, and a `raise`
@@ -54,6 +56,7 @@ import sys
 from pathlib import Path
 
 import _ratchet
+from _fault_tolerance_calls import scan_calls
 from _ratchet import read_text as _read_text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -197,6 +200,7 @@ def _scan_tree(tree: ast.AST, rel: str) -> list[tuple[str, int, str]]:
             found.append((rel, node.lineno, "suppress"))
         elif _is_helper_call(node) and not _at_entry_point(node, parents):
             found.append((rel, node.lineno, "isolated-call"))
+    found.extend(scan_calls(tree, rel))
     return found
 
 

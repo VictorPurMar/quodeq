@@ -39,7 +39,7 @@ def _judgment_to_violation(obj: dict) -> dict | None:
     if line is not None:
         try:
             out["line"] = int(line)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             _logger.debug("Non-integer line value %r; omitting line", line)
     req = obj.get("req")
     if req:

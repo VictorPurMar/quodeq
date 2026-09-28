@@ -66,7 +66,7 @@ def _fold_legacy_entries(writer: ActionLogWriter, entries: list) -> int:
                 line=int(entry.get("line", 0)),
                 reason=None,
             )
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             _logger.warning("Failed to migrate dismissed entry: %s", entry)
             continue
         writer.emit(FindingDismissedEvent(payload=payload))

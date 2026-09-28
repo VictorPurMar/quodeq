@@ -23,7 +23,7 @@ from quodeq.api._terminal_ws_helpers import (
 )
 from quodeq.api._constants import CODE_INVALID_INPUT, CODE_MISSING_PARAM, CODE_UNKNOWN_SESSION
 from quodeq.api.helpers import json_error, optional_json_object_or_response
-from quodeq.core.utils.numbers import clamp
+from quodeq.core.utils.numbers import clamp, int_or_none
 from quodeq.terminal.links import (
     detect_editor,
     open_in_editor,
@@ -45,19 +45,23 @@ _WS_CLOSE_REFUSED = 4003   # terminal gate refused the handshake
 
 def _coerce_int(value) -> int | None:
     """Line/col from a JSON body: accept ints or numeric strings, else None."""
-    try:
-        n = int(value)
-    except (TypeError, ValueError):
-        return None
-    return n if n > 0 else None
+    n = int_or_none(value)
+    return n if n is not None and n > 0 else None
 
 
 _WINSIZE_MAX = 65535  # struct.pack('HH') upper bound for a terminal dimension
 
 
 def _clamp_winsize(value: int) -> int:
-    """Keep a terminal dimension within struct.pack('HH') range (1..65535)."""
-    return clamp(int(value), 1, _WINSIZE_MAX)
+    """Keep a terminal dimension within struct.pack('HH') range (1..65535).
+
+    Raises ValueError for a value int() rejects (junk or an infinite float),
+    which _apply_control's handler turns into a no-op.
+    """
+    n = int_or_none(value)
+    if n is None:
+        raise ValueError(f"terminal dimension is not an integer: {value!r}")
+    return clamp(n, 1, _WINSIZE_MAX)
 
 
 def _apply_control(manager, payload: str) -> None:

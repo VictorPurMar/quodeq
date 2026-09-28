@@ -96,7 +96,7 @@ def _search_web(query: str, max_results: int = _DEFAULT_SEARCH_RESULTS) -> dict:
         raise ToolError("query must not be empty")
     try:
         max_results = int(max_results)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ToolError("max_results must be a number") from exc
     max_results = clamp(max_results, 1, _MAX_RESULTS)
     try:

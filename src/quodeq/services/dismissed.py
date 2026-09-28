@@ -45,7 +45,7 @@ def _target_of(finding: dict) -> DismissedEntry:
     raw_line = finding.get("line", 0)
     try:
         line = int(raw_line)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"finding.line must be an integer, got {raw_line!r}") from exc
     return DismissedEntry(str(finding.get("req", "")), str(finding.get("file", "")), line)
 

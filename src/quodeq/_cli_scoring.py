@@ -37,7 +37,7 @@ def _as_int(value: object) -> int:
     """Coerce *value* to int, falling back to 0 on junk input."""
     try:
         return int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0
 
 
