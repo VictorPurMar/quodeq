@@ -110,3 +110,39 @@ def test_dismissal_invalidates_memo(tmp_path: Path) -> None:
         actions.write_text("")  # the file appearing is a stamp change
         get_live_findings(str(tmp_path), "proj", "run1", ["security"])
     assert spy.call_count == 2
+
+
+def test_error_in_one_dimension_is_reported_not_raised(tmp_path: Path) -> None:
+    run_dir = tmp_path / "proj" / "run1"
+    _write_eval(run_dir, "security", [ROW])
+    real = live_findings.fs_reports.get_dimension_eval
+
+    def boom(reports_dir, project, run_id, dimension, **kw):
+        if dimension == "usability":
+            raise OSError("disk hiccup")
+        return real(reports_dir, project, run_id, dimension, **kw)
+
+    with patch.object(live_findings.fs_reports, "get_dimension_eval", side_effect=boom):
+        body = get_live_findings(str(tmp_path), "proj", "run1", ["security", "usability"])
+    assert body["dimensions"]["security"]["state"] == LiveFindingState.READY
+    assert len(body["dimensions"]["security"]["violations"]) == 1
+    assert body["dimensions"]["usability"] == {"state": LiveFindingState.ERROR, "violations": []}
+
+
+def test_error_is_not_memoized(tmp_path: Path) -> None:
+    (tmp_path / "proj" / "run1").mkdir(parents=True)
+    with patch.object(live_findings.fs_reports, "get_dimension_eval", side_effect=OSError("x")) as spy:
+        get_live_findings(str(tmp_path), "proj", "run1", ["security"])
+        get_live_findings(str(tmp_path), "proj", "run1", ["security"])
+    assert spy.call_count == 2
+
+
+def test_waiting_is_not_memoized(tmp_path: Path) -> None:
+    # A dimension with nothing written is cheap to re-check and a swallowed
+    # read failure looks the same as "not started", so only READY is kept.
+    (tmp_path / "proj" / "run1").mkdir(parents=True)
+    with patch.object(live_findings.fs_reports, "get_dimension_eval",
+                      wraps=live_findings.fs_reports.get_dimension_eval) as spy:
+        get_live_findings(str(tmp_path), "proj", "run1", ["security"])
+        get_live_findings(str(tmp_path), "proj", "run1", ["security"])
+    assert spy.call_count == 2

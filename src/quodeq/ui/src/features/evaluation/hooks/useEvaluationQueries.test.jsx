@@ -103,4 +103,21 @@ describe("useEvaluationQueries findings mapping", () => {
     await waitFor(() => expect(result.current.job).not.toBeNull());
     expect(result.current.liveViolations).toEqual({});
   });
+
+  it("keeps the job's dimension order, not the body's key order", async () => {
+    const other = { ...REPORT_ROW, practiceId: "Clarity", file: "src/b.py" };
+    const api = makeApi([REPORT_ROW]);
+    api.getEvaluation.mockResolvedValue({
+      jobId: "job-1", status: "running", outputProject: "proj", outputRunId: "run-1",
+      dimensions: ["usability", "security"],
+    });
+    // Flask's jsonify sorts keys, so the wire order is alphabetical.
+    api.getLiveFindings.mockResolvedValue({ dimensions: {
+      security: { state: "ready", violations: [REPORT_ROW] },
+      usability: { state: "ready", violations: [other] },
+    } });
+    const { result } = renderQueries(api);
+    await waitFor(() => expect(result.current.liveViolations.usability).toHaveLength(1));
+    expect(Object.keys(result.current.liveViolations)).toEqual(["usability", "security"]);
+  });
 });

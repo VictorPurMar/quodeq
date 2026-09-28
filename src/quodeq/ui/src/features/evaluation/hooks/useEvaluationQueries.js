@@ -17,7 +17,7 @@ import { JOB_STATUS } from "../../../vocab/jobStatus.js";
 const JOB_POLL_MS = 1500;
 
 // Under SSE the cache is filled by useRunEventStream; this queryFn is a
-// no-op. Under polling, fetch every dimension's slim rows in one request
+// no-op. Under polling, fetch every dimension's rows in one request
 // and flatten them. One request instead of one per dimension: the
 // per-dimension eval carries the whole report (principles, compliance,
 // snippets) and on a 7-dimension run the poll held every browser
@@ -36,7 +36,10 @@ async function fetchFindings(api, job) {
     console.warn("Failed to fetch live findings:", err);
     return [];
   }
-  return Object.entries(body?.dimensions || {}).flatMap(([d, entry]) =>
+  // Iterate the job's own dimension order: the server's JSON keys come
+  // back sorted, and the feed's tie order before any activity is this one.
+  const byDim = body?.dimensions || {};
+  return job.dimensions.flatMap((d) =>
     // Canonical fields merged ONTO the raw row, not substituted for it.
     // The backend calls a finding's principle `practiceId` while every
     // component reads `principle`, so the raw spread left the feed's rule
@@ -44,7 +47,7 @@ async function fetchFindings(api, job) {
     // `${dim}-${file}-undefined-${line}`. Merging rather than replacing
     // keeps wire-only fields the model does not model (confidence, and
     // the SSE frame's id/verdict) available to other readers.
-    (entry?.violations || []).map((v) => ({ ...v, ...createViolation(v), dimension: d })),
+    (byDim[d]?.violations || []).map((v) => ({ ...v, ...createViolation(v), dimension: d })),
   );
 }
 

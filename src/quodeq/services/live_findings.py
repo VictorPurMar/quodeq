@@ -8,8 +8,13 @@ and tens of megabytes per tick. This returns every requested dimension in
 one body and memoizes each dimension on the stamps of the files that can
 change its rows, so an unchanged dimension costs a few ``stat`` calls. The
 rows are handed back in whatever shape the dimension eval produced; the
-route (``api/live_findings_wire.py``) camelizes them and keeps only the
-keys the feed reads.
+route (``api/live_findings_wire.py``) camelizes them.
+
+Only READY entries are memoized: a dimension with nothing written is cheap
+to re-check, and a read failure the resolver swallows into "nothing found"
+would otherwise be pinned until the process restarts. The memo holds whole
+row lists, so it is bounded to a couple of runs' worth of dimensions; the
+Evaluate screen polls one run at a time.
 """
 from __future__ import annotations
 
@@ -22,7 +27,7 @@ from quodeq.core.types import EvalPending
 from quodeq.services import fs_reports
 from quodeq.services.wiring import ACTIONS_LOG_FILENAME, DELETED_FILENAME, dimension_evidence_file
 from quodeq.shared.constants import EVIDENCE_DIRNAME
-from quodeq.shared.stamp_memo import StampCache, file_stamp, memoized_by_stamp
+from quodeq.shared.stamp_memo import StampCache, file_stamp
 
 
 class LiveFindingState(StrEnum):
@@ -31,13 +36,17 @@ class LiveFindingState(StrEnum):
     READY = "ready"      # a payload (200)
     WAITING = "waiting"  # EvalPending (202)
     MISSING = "missing"  # None (404)
+    ERROR = "error"      # the resolver raised (500); the other dimensions still render
 
 
 STATE_KEY = "state"
 VIOLATIONS_KEY = "violations"
 
+#: Whole row lists for (run, dimension): two 7-dimension runs' worth.
+MEMO_MAX_ENTRIES = 16
+
 #: Process-wide memo; tests patch this with a fresh ``StampCache``.
-_CACHE = StampCache()
+_CACHE = StampCache(max_entries=MEMO_MAX_ENTRIES)
 
 
 def _entry(state: LiveFindingState, rows: list[Any]) -> dict[str, Any]:
@@ -66,16 +75,32 @@ def _resolve(
     reports_dir: str, project: str, run_id: str, dimension: str,
     compiled_dir: Path | None, evaluators_dir: Path | None,
 ) -> dict[str, Any]:
-    payload = fs_reports.get_dimension_eval(
-        reports_dir, project, run_id, dimension,
-        compiled_dir=compiled_dir, evaluators_dir=evaluators_dir,
-    )
+    try:
+        payload = fs_reports.get_dimension_eval(
+            reports_dir, project, run_id, dimension,
+            compiled_dir=compiled_dir, evaluators_dir=evaluators_dir,
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return _entry(LiveFindingState.ERROR, [])
     if payload is None:
         return _entry(LiveFindingState.MISSING, [])
     if isinstance(payload, EvalPending):
         return _entry(LiveFindingState.WAITING, [])
     rows = payload.get(VIOLATIONS_KEY) if isinstance(payload, dict) else payload.violations
     return _entry(LiveFindingState.READY, list(rows or []))
+
+
+def _memoized_entry(run_dir: Path, dimension: str, compute: Any) -> dict[str, Any]:
+    """The READY entry stored under the dimension's file stamps, else a fresh one."""
+    key = f"{run_dir}|{dimension}"
+    stamp = live_findings_stamp(run_dir, dimension)
+    hit = _CACHE.get(key, stamp)
+    if hit is not None:
+        return hit  # type: ignore[return-value]
+    entry = compute()
+    if entry[STATE_KEY] == LiveFindingState.READY:
+        _CACHE.put(key, stamp, entry)
+    return entry
 
 
 def get_live_findings(
@@ -90,10 +115,8 @@ def get_live_findings(
         return None
     out: dict[str, Any] = {}
     for dimension in dimensions:
-        out[dimension] = memoized_by_stamp(
-            f"{run_dir}|{dimension}",
-            live_findings_stamp(run_dir, dimension),
+        out[dimension] = _memoized_entry(
+            run_dir, dimension,
             lambda d=dimension: _resolve(reports_dir, project, run_id, d, compiled_dir, evaluators_dir),
-            cache=_CACHE,
         )
     return {"project": project, "runId": run_id, "dimensions": out}

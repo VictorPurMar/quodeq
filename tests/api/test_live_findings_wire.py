@@ -5,7 +5,7 @@ from http import HTTPStatus
 
 from flask import Flask
 
-from quodeq.api.live_findings_wire import LIVE_FINDING_KEYS, live_findings_response
+from quodeq.api.live_findings_wire import live_findings_response
 from quodeq.core.types import Finding
 from quodeq.services.live_findings import LiveFindingState
 
@@ -39,26 +39,25 @@ def test_none_is_404() -> None:
     assert body["code"] == "NOT_FOUND"
 
 
-def test_stored_rows_are_slimmed() -> None:
+def test_stored_rows_keep_every_field() -> None:
+    # The feed's expanded row renders reason, reqRefs, context and snippet
+    # (components/findingDetail.jsx), so rows go through whole; only the
+    # report-level principles/compliance are left out of this endpoint.
     body, status = _body({"project": "p", "runId": "r", "dimensions": {
         "security": {"state": LiveFindingState.READY, "violations": [STORED_ROW]},
     }})
     assert status == HTTPStatus.OK
     (row,) = body["dimensions"]["security"]["violations"]
-    assert set(row) <= set(LIVE_FINDING_KEYS)
-    assert row["file"] == "src/a.py" and row["line"] == 12 and row["practiceId"] == "Authenticity"
-    assert row["severity"] == "minor" and row["title"] == "Path traversal" and row["confidence"] == 25
-    for dropped in ("context", "snippet", "reason", "reqRefs"):
-        assert dropped not in row
+    assert row == STORED_ROW
 
 
-def test_live_rows_are_camelized_and_slimmed() -> None:
+def test_live_rows_are_camelized() -> None:
     body, _ = _body({"project": "p", "runId": "r", "dimensions": {
         "security": {"state": LiveFindingState.READY, "violations": [LIVE_ROW]},
     }})
     (row,) = body["dimensions"]["security"]["violations"]
     assert row["practiceId"] == "P1" and row["file"] == "a.py" and row["severity"] == "major"
-    assert "reason" not in row and "verdict" not in row
+    assert row["reason"] == "explanation"
 
 
 def test_absent_optional_keys_are_omitted_not_null() -> None:
@@ -77,3 +76,11 @@ def test_waiting_and_missing_pass_through() -> None:
     assert body["project"] == "p" and body["runId"] == "r"
     assert body["dimensions"]["usability"] == {"state": "waiting", "violations": []}
     assert body["dimensions"]["made-up"] == {"state": "missing", "violations": []}
+
+
+def test_error_state_passes_through() -> None:
+    body, status = _body({"project": "p", "runId": "r", "dimensions": {
+        "security": {"state": LiveFindingState.ERROR, "violations": []},
+    }})
+    assert status == HTTPStatus.OK
+    assert body["dimensions"]["security"] == {"state": "error", "violations": []}
