@@ -40,7 +40,7 @@ function makeStartEvaluationHandler({ job, setBlockedStartError, storage, analys
     // already surfaces failures via jobError. Callers get the original
     // promise so they can react to success/failure themselves.
     const started = startEvaluation({ ...payload, subagentModel });
-    Promise.resolve(started).catch(() => {});
+    Promise.resolve(started).catch((err) => console.debug('[useEvaluationLifecycle] start failed, surfaced via jobError:', err));
     return started;
   };
 }

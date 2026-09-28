@@ -43,7 +43,11 @@ export default function ServerSection() {
 
   const { data: health, isLoading } = useQuery({
     queryKey: [...systemKeys.health(), 'settings-detail'],
-    queryFn: () => getHealth().then((d) => (d?.ok ? d : null)).catch(() => null),
+    queryFn: () => getHealth().then((d) => (d?.ok ? d : null)).catch((err) => {
+      // An unreachable server reads as "no health", which the section shows as offline.
+      console.debug('[ServerSection] health check failed:', err);
+      return null;
+    }),
     refetchInterval: HEALTH_POLL_MS,
     refetchOnWindowFocus: false,
   });

@@ -44,21 +44,6 @@ describe('useStageExplain', () => {
     expect(api.previewGradeExplain).toHaveBeenCalledWith('p', 'r1', 'maintainability', { baseK: 0.5 });
   });
 
-  it('a rejected draft keeps the last good stages', async () => {
-    const preview = vi.fn().mockResolvedValueOnce(live).mockRejectedValueOnce(new Error('bad'));
-    const api = { getGradeExplain: vi.fn(async () => stored), previewGradeExplain: preview };
-    const { result, rerender } = mount(api, base);
-    await waitFor(() => expect(result.current.status).toBe(STAGE_STATUS.READY));
-    rerender({ ...base, draft: { baseK: 0.5 } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(STAGE_DEBOUNCE_MS + 10); });
-    await waitFor(() => expect(result.current.live).toEqual(live));
-    rerender({ ...base, draft: { baseK: 9 } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(STAGE_DEBOUNCE_MS + 10); });
-    await waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
-    expect(result.current.live).toEqual(live);
-    expect(result.current.status).toBe(STAGE_STATUS.READY);
-  });
-
   it('is unavailable and silent when disabled', async () => {
     const api = { getGradeExplain: vi.fn(async () => stored), previewGradeExplain: vi.fn(async () => live) };
     const { result, rerender } = mount(api, { ...base, enabled: false });
@@ -108,5 +93,40 @@ describe('useStageExplain', () => {
     await waitFor(() => expect(result.current.stored).toEqual(storedOther));
     expect(result.current.live).toBeNull();
     expect(result.current.principles.map((p) => p.principleId)).toEqual(['S1']);
+  });
+
+  it('clears the live payload and warns when the preview request fails', async () => {
+    const preview = vi.fn().mockResolvedValueOnce(live).mockRejectedValueOnce(new Error('boom'));
+    const api = { getGradeExplain: vi.fn(async () => stored), previewGradeExplain: preview };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result, rerender } = mount(api, base);
+    await waitFor(() => expect(result.current.status).toBe(STAGE_STATUS.READY));
+    rerender({ ...base, draft: { baseK: 0.5 } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(STAGE_DEBOUNCE_MS + 10); });
+    await waitFor(() => expect(result.current.live).toEqual(live));
+    rerender({ ...base, draft: { baseK: 9 } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(STAGE_DEBOUNCE_MS + 10); });
+    await waitFor(() => expect(result.current.live).toBeNull());
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[grade-formula]'), expect.any(Error));
+    warn.mockRestore();
+  });
+
+  it('ignores a rejection for a superseded request', async () => {
+    let rejectFirst;
+    const preview = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve, reject) => { rejectFirst = reject; }))
+      .mockResolvedValue(live);
+    const api = { getGradeExplain: vi.fn(async () => stored), previewGradeExplain: preview };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result, rerender } = mount(api, base);
+    await waitFor(() => expect(result.current.status).toBe(STAGE_STATUS.READY));
+    rerender({ ...base, draft: { baseK: 0.5 } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(STAGE_DEBOUNCE_MS + 10); });
+    expect(preview).toHaveBeenCalledTimes(1);
+    rerender({ ...base, draft: { baseK: 0.5 }, dimension: 'security' });
+    await act(async () => { rejectFirst(new Error('late')); });
+    await waitFor(() => expect(result.current.stored).toEqual(stored));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

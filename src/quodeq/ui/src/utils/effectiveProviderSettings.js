@@ -59,9 +59,9 @@ export function readActiveProviderModel(providerId, storage) {
  * with: stored values (including an explicit 0 = unlimited) win, anything
  * unset or corrupt falls back to the effective defaults.
  */
-export function resolveProviderSettings(providerId, storage = localStorage) {
+export function resolveProviderSettings(providerId, storage) {
   const defaults = effectiveProviderDefaults(providerId);
-  const get = (key) => storage.getItem(providerKey(providerId, key));
+  const get = (key) => readString(providerKey(providerId, key), null, storage);
   const subagents = readInt(storage, providerId, PROVIDER_SETTING_KEY.SUBAGENTS);
   // Read the new key first; fall back to the legacy 'pool-budget' key.
   const timeLimitS = readInt(storage, providerId, PROVIDER_SETTING_KEY.TIME_LIMIT)

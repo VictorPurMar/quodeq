@@ -77,3 +77,9 @@ test('parseImportFile: a valid JSON object parses successfully', async () => {
   const out = await parseImportFile(file);
   assert.deepEqual(out, { ok: true, data: { id: 'my-standard' } });
 });
+
+test('parseImportFile: a file containing null fails the object-shape check', async () => {
+  const file = fakeFile({ size: 4, text: 'null' });
+  const out = await parseImportFile(file);
+  assert.deepEqual(out, { ok: false, error: PARSE_FILE_ERROR.INVALID_JSON_OBJECT });
+});
