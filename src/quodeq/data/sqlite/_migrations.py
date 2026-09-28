@@ -13,16 +13,18 @@ from quodeq.data.sqlite._migrations_additive import (
     upgrade_v8_to_v9,
 )
 from quodeq.data.sqlite._migrations_ddl import V4_REBUILD_DDL
+from quodeq.data.sqlite.errors import SqliteStoreUnreadableError
 from quodeq.data.sqlite._schema import EVALUATION_DDL, SCHEMA_VERSION
 
 
-class SchemaVersionError(sqlite3.DatabaseError):
+class SchemaVersionError(SqliteStoreUnreadableError):
     """Raised when the on-disk DB has a newer schema than this binary supports.
 
-    Subclasses ``sqlite3.DatabaseError`` (not bare ``RuntimeError``) so the
-    existing ``except sqlite3.DatabaseError`` guards around evaluation.db reads
-    degrade gracefully when an older binary opens a newer-schema DB, instead of
-    letting the error escape and crash the read.
+    An unreadable-store error (so services fall back to the JSON reports)
+    that is also a ``sqlite3.DatabaseError``, so the driver-level guards
+    around evaluation.db reads degrade gracefully when an older binary
+    opens a newer-schema DB, instead of letting the error escape and crash
+    the read.
     """
 
 
