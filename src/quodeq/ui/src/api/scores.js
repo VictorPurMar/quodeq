@@ -8,7 +8,7 @@ import { createDimensionEval } from '../models/dimension.js';
 import { request } from './request.js';
 import { attachComplianceDetailRefs } from './complianceDetail.js';
 import { createViolations } from '../models/violation.js';
-import { asOfQuery, parseAccumulated, parseSlimDimensions, parseUnifiedScores, runQuery } from './scoresShape.js';
+import { asOfQuery, parseAccumulated, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
 import { LATEST_RUN_ID } from '../constants.js';
 import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { projectPath } from './paths.js';
