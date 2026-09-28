@@ -11,10 +11,11 @@ need its own declaration.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from quodeq.services.wiring import RunInfo, has_fingerprint_files, read_run_manifest, safe_read_dir
+from quodeq.services.wiring import (
+    RunInfo, has_fingerprint_files, read_json_object, read_run_manifest, safe_read_dir,
+)
 from quodeq.shared.constants import EVIDENCE_DIRNAME
 
 
@@ -33,10 +34,8 @@ def read_language_stats(reports_root: Path, entry_name: str, runs: list[RunInfo]
 
 def read_discipline_from_eval(eval_path: Path) -> str | None:
     """Try to read a discipline string from a single evidence JSON file."""
-    try:
-        return json.loads(eval_path.read_text(encoding="utf-8")).get("discipline") or None
-    except (OSError, json.JSONDecodeError):
-        return None
+    data = read_json_object(eval_path)
+    return (data or {}).get("discipline") or None
 
 
 def find_discipline_in_run(evidence_dir: Path) -> str | None:

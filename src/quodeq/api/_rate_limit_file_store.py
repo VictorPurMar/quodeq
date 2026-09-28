@@ -87,8 +87,15 @@ class FileRateLimitStore:
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             return {}
         # The state file is plain user-writable JSON; a valid non-object value
-        # (array, scalar) would crash record()/check() at data.get(...).
-        return data if isinstance(data, dict) else {}
+        # (array, scalar) would crash record()/check() at data.get(...), and a
+        # per-IP value that is not a list of numbers would crash the
+        # timestamp comprehensions, so both are normalised away here.
+        if not isinstance(data, dict):
+            return {}
+        return {
+            ip: [t for t in stamps if isinstance(t, (int, float)) and not isinstance(t, bool)]
+            for ip, stamps in data.items() if isinstance(stamps, list)
+        }
 
     def _save(self, data: dict[str, list[float]]) -> None:
         parent = self._path.parent

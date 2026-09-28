@@ -98,6 +98,9 @@ def read_action_events(project_dir: Path, *, from_offset: int = 0) -> Iterator[B
                 continue
             try:
                 data = json.loads(line)
+                if not isinstance(data, dict):
+                    _logger.warning("Skipping non-object actions.jsonl line")
+                    continue
                 event_type = EventType(data["event_type"])
                 model_cls = EVENT_MODEL_MAP[event_type]
                 yield event_from_dict(model_cls, data)

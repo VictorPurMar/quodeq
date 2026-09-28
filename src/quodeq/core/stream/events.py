@@ -39,8 +39,10 @@ COPILOT_MCP_POLICY_REASON = "copilot_mcp_policy"
 def texts_from_assistant(event: dict) -> list[str]:
     """Extract text blocks from an ``assistant`` stream event."""
     texts: list[str] = []
-    for block in (event.get("message") or {}).get("content") or []:
-        if block.get("type") == BLOCK_TYPE_TEXT and block.get("text"):
+    message = event.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    for block in content if isinstance(content, list) else []:
+        if isinstance(block, dict) and block.get("type") == BLOCK_TYPE_TEXT and block.get("text"):
             texts.append(block["text"])
     return texts
 

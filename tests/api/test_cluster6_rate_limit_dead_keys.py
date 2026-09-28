@@ -138,4 +138,4 @@ def test_malformed_entries_are_dropped_not_crashed_on(tmp_path: Path):
 
     store.check_and_record("q", now=100.0)
 
-    assert _read_data(store_path) == {"z": [95.0, "bad"], "q": [100.0]}
+    assert _read_data(store_path) == {"z": [95.0], "q": [100.0]}
