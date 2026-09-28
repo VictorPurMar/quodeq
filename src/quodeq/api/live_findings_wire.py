@@ -9,7 +9,6 @@ and keeps only the keys the live feed reads.
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import Any
 
 from flask import Response, jsonify
 
@@ -29,14 +28,14 @@ DIMENSIONS_KEY = "dimensions"
 VIOLATIONS_KEY = "violations"
 
 
-def _slim_row(row: Any) -> dict[str, Any]:
+def _slim_row(row: object) -> dict:
     wire = to_camel_dict(row)
     if not isinstance(wire, dict):
         return {}
     return {k: wire[k] for k in LIVE_FINDING_KEYS if k in wire}
 
 
-def live_findings_response(payload: dict[str, Any] | None) -> Response | tuple[Response, int]:
+def live_findings_response(payload: dict | None) -> Response | tuple[Response, int]:
     """404 when the run does not exist, else the body with slim camelCase rows."""
     if payload is None:
         return json_error("Run not found", HTTPStatus.NOT_FOUND, CODE_NOT_FOUND)
