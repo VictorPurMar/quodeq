@@ -146,14 +146,14 @@ def test_threading_condition_wait_with_no_bound_receiver_is_not_flagged():
 
 
 def test_allowlisted_post_kill_reap_is_not_reported():
-    # Reproduce the real git_cli.py:201 site (proc.wait() right after
+    # Reproduce the real git_cli.py:208 site (proc.wait() right after
     # proc.kill()) at its actual line number and relpath; the tool's
     # ALLOWLIST must suppress it.
-    src = "\n" * 197 + (
-        "def f():\n"          # line 198
-        "    proc = subprocess.Popen([])\n"  # line 199
-        "    proc.kill()\n"   # line 200
-        "    proc.wait()\n"   # line 201
+    src = "\n" * 204 + (
+        "def f():\n"          # line 205
+        "    proc = subprocess.Popen([])\n"  # line 206
+        "    proc.kill()\n"   # line 207
+        "    proc.wait()\n"   # line 208
     )
     assert _kinds(src, rel="src/quodeq/data/git_cli.py") == []
 

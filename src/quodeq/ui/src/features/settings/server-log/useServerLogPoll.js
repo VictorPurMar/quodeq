@@ -12,6 +12,10 @@ import { BASE } from '../../../api/request.js';
 import { EMPTY_LOG_BUFFER, LOG_BUFFER_MAX_LINES, appendLines, clearLines } from '../../../utils/logBuffer.js';
 
 const POLL_MS = 2000;
+// A poll that has not answered after this many intervals is abandoned, so a
+// hung backend cannot pin the query in flight and stall every later tick.
+const SERVER_LOG_FETCH_TIMEOUT_POLLS = 3;
+const SERVER_LOG_FETCH_TIMEOUT_MS = SERVER_LOG_FETCH_TIMEOUT_POLLS * POLL_MS;
 const ISO_TIME_START = 11;
 const ISO_TIME_END = 19;
 
@@ -37,7 +41,7 @@ export function useServerLogPoll(active) {
     queryFn: async () => {
       const since = sinceRef.current;
       const url = `${BASE}/logs` + (since >= 0 ? `?since=${since}` : '');
-      const r = await fetch(url);
+      const r = await fetch(url, { signal: AbortSignal.timeout(SERVER_LOG_FETCH_TIMEOUT_MS) });
       if (!r.ok) {
         // Distinct from the fetch()-throw path swallowed below: an HTTP
         // error status resolves normally, so it needs its own trace or it

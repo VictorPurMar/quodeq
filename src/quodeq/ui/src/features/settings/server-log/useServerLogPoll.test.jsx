@@ -64,7 +64,7 @@ describe('useServerLogPoll', () => {
     await waitFor(() => {
       expect(screen.getByTestId('logs')).toHaveTextContent('[10:00:05] first|[10:00:06] second');
     });
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/logs');
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/logs', expect.anything());
   });
 
   it('passes since on subsequent polls and accumulates lines', async () => {
@@ -80,7 +80,7 @@ describe('useServerLogPoll', () => {
       expect(screen.getByTestId('logs')).toHaveTextContent('[10:00:05] a|[10:00:07] b');
     }, { timeout: 4000 });
     // The second poll passes since=5 (the cursor advanced after 'a' arrived).
-    expect(globalThis.fetch).toHaveBeenNthCalledWith(2, '/api/logs?since=5');
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(2, '/api/logs?since=5', expect.anything());
   });
 
   it('caps the buffer at 5000 lines, dropping from the front', async () => {
@@ -152,6 +152,31 @@ describe('useServerLogPoll', () => {
     renderProbe(true);
     // Wait long enough for at least one poll; logs should remain empty.
     await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByTestId('logs')).toBeEmptyDOMElement();
+  });
+
+  it('gives each poll a 6s deadline; a timed-out fetch fails the query without a retry', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
+      .mockImplementation(() => AbortSignal.abort(new DOMException('timed out', 'TimeoutError')));
+    // A fetch that only settles when its signal fires: without a signal it
+    // stays pending forever.
+    globalThis.fetch.mockImplementation((url, init) => new Promise((_resolve, reject) => {
+      const signal = init?.signal;
+      if (signal?.aborted) reject(signal.reason);
+      else signal?.addEventListener('abort', () => reject(signal.reason));
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0, staleTime: 0 } } });
+    render(
+      <QueryClientProvider client={client}>
+        <Probe active />
+      </QueryClientProvider>
+    );
+    await waitFor(() => {
+      expect(client.getQueryState(['system', 'serverLog'])?.status).toBe('error');
+    });
+    expect(timeoutSpy).toHaveBeenCalledWith(6000);
+    // retry: false: the rejection is final until the next 2s interval.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('logs')).toBeEmptyDOMElement();
   });
 

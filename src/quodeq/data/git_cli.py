@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import threading
 import unicodedata
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -179,7 +180,9 @@ def stream_log_names(
     """Yield ``git log --name-only`` lines one at a time (streaming Popen).
 
     Avoids materializing the full log for large repositories. Yields
-    nothing when git is unavailable or the command cannot start.
+    nothing when git is unavailable or the command cannot start. *timeout*
+    bounds the whole stream: past it the process is killed, its stdout hits
+    EOF, and the generator ends with the lines read so far.
     """
     try:
         proc = subprocess.Popen(
@@ -189,10 +192,14 @@ def stream_log_names(
         )
     except OSError:
         return
+    deadline = threading.Timer(timeout, proc.kill)
+    deadline.daemon = True
     try:
         assert proc.stdout is not None
+        deadline.start()
         yield from proc.stdout
     finally:
+        deadline.cancel()
         proc.stdout.close()  # type: ignore[union-attr]
         try:
             proc.wait(timeout=timeout)
