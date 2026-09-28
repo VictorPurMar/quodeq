@@ -2,13 +2,15 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api/ApiContext.jsx";
 import { useProjectScores } from "../../../hooks/useProjectScores.js";
-import { projectKeys } from "../../../api/queryKeys.js";
+import { projectKeys, sameDashboardView } from "../../../api/queryKeys.js";
 import { useScopedPlaceholder } from "../../../hooks/useScopedPlaceholder.js";
 import { isFrozenRun } from '../../../models/runRules.js';
 import { t } from '../../../strings/index.js';
 import { useDashboardInvalidation } from './useDashboardInvalidation.js';
 import { STALE_TIME_MS, refetchWhileError } from '../../../hooks/queryDefaults.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
+import { DASHBOARD_VIEW } from '../../../vocab/dashboardView.js';
+import { NAV_TAB } from '../../../vocab/navTab.js';
 
 const EMPTY_TREND = [];
 
@@ -58,10 +60,20 @@ function buildSharedProjectInfoQueryConfig({ projectKey, selectedSource, sharedG
 // dashboard-refreshing dim flash) on re-entering a run view. The rule
 // itself (including why an unknown run counts as frozen) lives in
 // models/runRules.js.
-function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope }) {
+// Run pages render the worst-files table, the report and the fix plan from
+// every dimension's bodies; every other page renders scalars, so it asks
+// for the overview shape (0.1 MB instead of 10-34 MB on large projects).
+const FULL_VIEW_PAGES = new Set([NAV_TAB.RUN, NAV_TAB.HISTORY_RUN]);
+
+/** The dashboard view a page needs. */
+export function dashboardViewForPage(page) {
+  return FULL_VIEW_PAGES.has(page) ? DASHBOARD_VIEW.FULL : DASHBOARD_VIEW.OVERVIEW;
+}
+
+function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope, view }) {
   return {
-    queryKey: projectKeys.dashboard(projectKey, selectedRun, selectedSource),
-    queryFn: () => fetchDashboard(selectedProject, selectedRun),
+    queryKey: projectKeys.dashboard(projectKey, selectedRun, selectedSource, view),
+    queryFn: () => fetchDashboard(selectedProject, selectedRun, view),
     enabled: !!selectedProject,
     staleTime: frozenRun ? Infinity : STALE_TIME_MS,
     // The webview has no focus/reconnect events, so an errored query must
@@ -73,8 +85,12 @@ function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fe
     // Disabled when keepPlaceholder=false (History run details).
     // Scoped to this project+source: a PROJECT switch must fall through to a
     // real loading state instead of parking the old project's overview on
-    // screen (see samePlaceholderScope).
-    placeholderData: keepPlaceholder ? keepInScope : undefined,
+    // screen (see samePlaceholderScope). Also scoped to this view: the
+    // overview shape has no bodies, so it never stands in for a full-view
+    // observer (see sameDashboardView).
+    placeholderData: keepPlaceholder
+      ? (prev, prevQuery) => (sameDashboardView(prevQuery, view) ? keepInScope(prev, prevQuery) : undefined)
+      : undefined,
   };
 }
 
@@ -150,7 +166,7 @@ function mergeTrendIntoDashboard(dashboardData, fallbackTrend) {
  * which History turns off because flashing a neighbouring run is misleading
  * there. Placeholders never cross a project or source boundary.
  */
-export function useDashboard({ selectedProject, selectedRun, selectedSource = PROJECT_SOURCE.LOCAL, keepPlaceholder = true } = {}) {
+export function useDashboard({ selectedProject, selectedRun, selectedSource = PROJECT_SOURCE.LOCAL, keepPlaceholder = true, view = DASHBOARD_VIEW.FULL } = {}) {
   const { getDashboard, sharedGetDashboard, sharedGetProjectInfo } = useApi();
   const fetchDashboard = selectedSource === PROJECT_SOURCE.SHARED ? sharedGetDashboard : getDashboard;
   const queryClient = useQueryClient();
@@ -169,7 +185,7 @@ export function useDashboard({ selectedProject, selectedRun, selectedSource = PR
 
   const frozenRun = isFrozenRun(selectedRun, availableRuns);
 
-  const dashboardQuery = useQuery(buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope }));
+  const dashboardQuery = useQuery(buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope, view }));
 
   const fallbackTrend = useMemo(() => computeFallbackTrend(scores, latestScores), [scores, latestScores]);
 

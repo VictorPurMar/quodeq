@@ -19,6 +19,7 @@
  * pass the caller's source explicitly if it should also match shared entries.
  */
 import { DEFAULT_PROJECT_SOURCE } from '../vocab/projectSource.js';
+import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { LATEST_RUN_ID } from '../constants.js';
 
 // Stand-in job/run id for queries kept mounted with `enabled: false`:
@@ -62,7 +63,13 @@ export const projectKeys = {
     projectId, DEFAULT_PROJECT_SOURCE, "complianceDetail", asOf || LATEST_RUN_ID, dimension, generation,
     scope.principle ?? null, scope.pathPrefix ?? null,
   ),
-  dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID),
+  // The trailing view keeps the overview (no bodies) and full shapes apart.
+  // `dashboard` is an exact key (reads, writes, prefetch); an invalidation
+  // that must reach both shapes uses `dashboardAnyView`, the prefix without it.
+  dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE, view = DASHBOARD_VIEW.FULL) =>
+    projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID, view),
+  dashboardAnyView: (projectId, run, source = DEFAULT_PROJECT_SOURCE) =>
+    projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID),
   runs: (projectId, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "runs"),
   // The help page's worked example. Inside the project subtree so dismiss and
   // formula invalidations reach it like every other per-run read.
@@ -113,6 +120,19 @@ export function samePlaceholderScope(previousQuery, projectId, source = DEFAULT_
   const key = previousQuery?.queryKey;
   if (!Array.isArray(key)) return false;
   return key[PROJECT_ID_INDEX] === projectId && key[PROJECT_SOURCE_INDEX] === source;
+}
+
+// Position of the view segment in a `projectKeys.dashboard` key.
+const DASHBOARD_VIEW_INDEX = 5;
+
+/**
+ * True when *previousQuery* is a dashboard key of the given *view*. The
+ * overview shape has no bodies, so it must never stand in as a placeholder
+ * for a full-view observer (an empty worst-files table would flash).
+ */
+export function sameDashboardView(previousQuery, view) {
+  const key = previousQuery?.queryKey;
+  return Array.isArray(key) && key[DASHBOARD_VIEW_INDEX] === view;
 }
 
 const SYSTEM_SCOPE = "system"; // query-key prefix for the systemKeys.* subtree below

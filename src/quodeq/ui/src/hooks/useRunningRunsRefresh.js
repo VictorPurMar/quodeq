@@ -31,12 +31,14 @@ import { ENV_TRUE } from '../constants.js';
 
 const SSE_ENABLED = () => import.meta.env?.VITE_USE_SSE_EVENTS === ENV_TRUE;
 
+// Dashboard invalidations use the view-less prefix so both the overview
+// entry (the root hook off run pages) and the full one (run views) go stale.
 function invalidateHistoryScope(queryClient, selectedProject, availableRuns, selectedSource) {
   queryClient.invalidateQueries({ queryKey: projectKeys.scores(selectedProject, null, selectedSource) });
-  queryClient.invalidateQueries({ queryKey: projectKeys.dashboard(selectedProject, null, selectedSource) });
+  queryClient.invalidateQueries({ queryKey: projectKeys.dashboardAnyView(selectedProject, null, selectedSource) });
   for (const r of availableRuns || []) {
     if (r?.status === RUN_STATE.RUNNING && r.runId) {
-      queryClient.invalidateQueries({ queryKey: projectKeys.dashboard(selectedProject, r.runId, selectedSource) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.dashboardAnyView(selectedProject, r.runId, selectedSource) });
     }
   }
 }

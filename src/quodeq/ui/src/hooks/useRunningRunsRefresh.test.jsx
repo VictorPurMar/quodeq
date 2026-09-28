@@ -77,10 +77,10 @@ describe('useRunningRunsRefresh', () => {
     );
     const keys = keysCalled(invalidateSpy);
     expect(keys).toContainEqual(projectKeys.scores('p1', null));
-    expect(keys).toContainEqual(projectKeys.dashboard('p1', null));
+    expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', null));
     // Neither the bare subtree nor the completed run's own caches.
     expect(keys).not.toContainEqual(projectKeys.project('p1'));
-    expect(keys).not.toContainEqual(projectKeys.dashboard('p1', 'r1'));
+    expect(keys).not.toContainEqual(projectKeys.dashboardAnyView('p1', 'r1'));
     expect(keys).not.toContainEqual(projectKeys.scores('p1', 'r1'));
   });
 
@@ -98,8 +98,8 @@ describe('useRunningRunsRefresh', () => {
       { wrapper: Wrapper },
     );
     const keys = keysCalled(invalidateSpy);
-    expect(keys).toContainEqual(projectKeys.dashboard('p1', 'r_live'));
-    expect(keys).not.toContainEqual(projectKeys.dashboard('p1', 'r_done'));
+    expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', 'r_live'));
+    expect(keys).not.toContainEqual(projectKeys.dashboardAnyView('p1', 'r_done'));
   });
 
   it('refreshes on mount AND on each tick while a run is in_progress', () => {
@@ -172,7 +172,7 @@ describe('useRunningRunsRefresh', () => {
     invalidateSpy.mockClear();
     rerender({ project: 'p2' });
     expect(refreshCount(invalidateSpy, 'p2')).toBe(1);
-    expect(keysCalled(invalidateSpy)).toContainEqual(projectKeys.dashboard('p2', null));
+    expect(keysCalled(invalidateSpy)).toContainEqual(projectKeys.dashboardAnyView('p2', null));
   });
 
   it('does nothing without a selected project', () => {
@@ -257,7 +257,7 @@ describe('useRunningRunsRefresh', () => {
       );
       const keys = keysCalled(invalidateSpy);
       expect(keys).toContainEqual(projectKeys.scores('p1', null, 'local'));
-      expect(keys).toContainEqual(projectKeys.dashboard('p1', null, 'local'));
+      expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', null, 'local'));
     });
 
     it("scopes invalidation to the 'shared' keys when selectedSource is 'shared'", () => {
@@ -273,10 +273,10 @@ describe('useRunningRunsRefresh', () => {
       );
       const keys = keysCalled(invalidateSpy);
       expect(keys).toContainEqual(projectKeys.scores('p1', null, 'shared'));
-      expect(keys).toContainEqual(projectKeys.dashboard('p1', null, 'shared'));
+      expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', null, 'shared'));
       // Never touches the local source's cache slot.
       expect(keys).not.toContainEqual(projectKeys.scores('p1', null, 'local'));
-      expect(keys).not.toContainEqual(projectKeys.dashboard('p1', null, 'local'));
+      expect(keys).not.toContainEqual(projectKeys.dashboardAnyView('p1', null, 'local'));
     });
   });
 });

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api/ApiContext.jsx";
+import { DASHBOARD_VIEW } from '../../../vocab/dashboardView.js';
 import { projectKeys } from "../../../api/queryKeys.js";
 import { STALE_TIME_MS } from "../../../hooks/queryDefaults.js";
 import { PROJECT_SOURCE } from "../../../vocab/projectSource.js";
@@ -59,8 +60,9 @@ export function usePrefetchRun(selectedProject, selectedSource = PROJECT_SOURCE.
         const staleTime = runId !== LATEST_RUN_ID ? Infinity : STALE_TIME_MS;
         // Dashboard payload (the main render).
         queryClient.prefetchQuery({
-          queryKey: projectKeys.dashboard(selectedProject, runId, selectedSource),
-          queryFn: () => fetchDashboard(selectedProject, runId),
+          // Explicitly the full shape: a hovered run opens as run-detail.
+          queryKey: projectKeys.dashboard(selectedProject, runId, selectedSource, DASHBOARD_VIEW.FULL),
+          queryFn: () => fetchDashboard(selectedProject, runId, DASHBOARD_VIEW.FULL),
           staleTime,
         });
         // Scores payload (drives accumulated + trend).

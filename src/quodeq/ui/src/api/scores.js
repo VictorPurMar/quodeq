@@ -8,8 +8,9 @@ import { createDimensionEval } from '../models/dimension.js';
 import { request } from './request.js';
 import { attachComplianceDetailRefs } from './complianceDetail.js';
 import { createViolations } from '../models/violation.js';
-import { asOfQuery, parseAccumulated, parseSlimDimensions, parseUnifiedScores, runQuery } from './scoresShape.js';
+import { asOfQuery, parseAccumulated, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
 import { LATEST_RUN_ID } from '../constants.js';
+import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { projectPath } from './paths.js';
 
 // ── Unified Scores ─────────────────────────────────────────────────────
@@ -59,9 +60,18 @@ export async function getCompareSummary(projectId) {
 
 // ── Dashboard ───────────────────────────────────────────────────────────
 
-/** @returns {Promise<import('../models/dashboard.js').Dashboard>} */
-export async function getDashboard(projectId, run = LATEST_RUN_ID) {
-  const data = await request(`${projectPath(projectId)}/dashboard${runQuery(run)}`);
+/**
+ * @param {string} projectId
+ * @param {string|null} run  LATEST_RUN_ID or a run id; falsy means the server default
+ * @param {string} view      DASHBOARD_VIEW.FULL (bodies) or OVERVIEW (scalars only)
+ * @returns {Promise<import('../models/dashboard.js').Dashboard>}
+ */
+export async function getDashboard(projectId, run = LATEST_RUN_ID, view = DASHBOARD_VIEW.FULL) {
+  const query = new URLSearchParams();
+  if (run) query.set('run', run);
+  if (view !== DASHBOARD_VIEW.FULL) query.set('view', view);
+  const qs = query.toString();
+  const data = await request(`${projectPath(projectId)}/dashboard${qs ? `?${qs}` : ''}`);
   return createDashboard(data);
 }
 

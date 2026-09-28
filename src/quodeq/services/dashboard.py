@@ -19,6 +19,7 @@ from quodeq.core.run.state import RunState
 from quodeq.core.scoring.params import ScoringParams
 from quodeq.core.scoring.report_grades import summarize_dimensions
 from quodeq.core.types import DimensionResult
+from quodeq.core.types.dashboard_view import DashboardView
 
 from quodeq.services.deleted import deleted_keys
 from quodeq.services.scoring_view import is_eligible_for_default_view
@@ -29,6 +30,7 @@ from quodeq.services.wiring import (
     load_suppression_rules,
     read_run_data,
 )
+from quodeq.services.dashboard_overview import resolve_overview_dims
 from quodeq.services.rescore import rescore_dimension
 from quodeq.services.run_metadata import read_run_metadata
 from quodeq.services.suppression_keys import SuppressionKeys
@@ -176,17 +178,10 @@ def _resolve_selected_dims(
     reports_root: Path, project: str, project_dir: Path,
     selected_run: RunInfo, params: ScoringParams,
 ) -> tuple[list[DimensionResult], dict[str, int], dict[str, int]]:
-    """Read the selected run's raw dims, rescore them, and compute the
-    dismissed/suppressed violation counts. ``read_run_data`` overlays the
-    run's SQL grade tables, but those grades only reflect dismissals
-    projected into THIS run and NOT project-wide dismissals/deletions that
-    accrued later -- so the raw selected-run score can disagree with the
-    accumulated overview. Rescore the selected run's dimensions with the
-    SAME project-wide ``rescore_dimension`` transform the accumulated view
-    and the per-run explorer use, so every path reports the identical
-    dismiss-adjusted score/grade AND drops the dismissed + deleted
-    violations from the counts. ``read_run_data`` stays the dimension source
-    here (a stable seam other callers and tests inject through).
+    """Read the selected run's raw dims, rescore them with the project-wide
+    ``rescore_dimension`` (the SQL grade overlay only knows dismissals projected
+    into THIS run, so the accumulated view and this one would otherwise
+    disagree), and count what the dismissed and deleted filters hid.
 
     Returns (selected_dims, dismissed_counts, suppressed_counts).
     """
@@ -225,17 +220,25 @@ def _resolve_params(params: ScoringParams | None) -> ScoringParams:
 
 def _select_run(
     reports_root: Path, project: str, runs: list[RunInfo], run: str, params: ScoringParams,
+    view: DashboardView = DashboardView.FULL,
 ) -> tuple[SelectedRunContext, DimensionAnnotations]:
-    """Resolve the requested run and rescore its dimensions.
+    """Resolve the requested run and rescore its dimensions (memoized and
+    slimmed for the overview view).
 
     Returns the selected-run context alongside the per-dimension annotations
     (exit reason, dismissed and suppressed counts) measured on those same
     dimensions.
     """
     selected_run, selected_index = _resolve_selected_run(runs, run)
-    selected_dims, dismissed_counts, suppressed_counts = _resolve_selected_dims(
+    resolve_full = lambda: _resolve_selected_dims(  # noqa: E731
         reports_root, project, reports_root / project, selected_run, params,
     )
+    if view is DashboardView.OVERVIEW:
+        selected_dims, dismissed_counts, suppressed_counts = resolve_overview_dims(
+            reports_root, project, selected_run, params, resolve_full,
+        )
+    else:
+        selected_dims, dismissed_counts, suppressed_counts = resolve_full()
     ctx = SelectedRunContext(
         run=selected_run,
         index=selected_index,
@@ -247,6 +250,7 @@ def _select_run(
         exit_reason=read_run_exit_reason(reports_root, project, selected_run.run_id),
         dismissed_counts=dismissed_counts,
         suppressed_counts=suppressed_counts,
+        view=view,
     )
     return ctx, annotations
 
@@ -258,6 +262,7 @@ def build_dashboard(
     *,
     cache_config: DashboardCacheConfig | None = None,
     params: ScoringParams | None = None,
+    view: DashboardView = DashboardView.FULL,
 ) -> dict[str, Any]:
     """Build a full dashboard response for *project* at *run*.
 
@@ -280,7 +285,7 @@ def build_dashboard(
             "trend": [],
         }
 
-    ctx, annotations = _select_run(reports_root, project, runs, run, params)
+    ctx, annotations = _select_run(reports_root, project, runs, run, params, view)
     payload = compute_dashboard_payload(reports_root, project, ctx, cc, params)
     metadata = read_run_metadata(reports_root / project / ctx.run.run_id)
     return build_dashboard_result(project, runs, ctx.run, payload, annotations, run_metadata=metadata)

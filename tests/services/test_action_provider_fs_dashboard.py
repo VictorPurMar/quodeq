@@ -14,6 +14,7 @@ from quodeq.services.dashboard import (
     build_dashboard,
 )
 from quodeq.services.dashboard_trend import build_accumulated_trend as _build_accumulated_trend
+from quodeq.services.filesystem import FilesystemActionProvider
 from quodeq.data.fs.report_parser.runs import RunInfo
 
 
@@ -167,3 +168,12 @@ class TestBuildDashboard:
         _setup_run(tmp_path, project, "run-1", [("maintainability", "7/10", "Good")])
         with pytest.raises(FileNotFoundError, match="Run not found"):
             build_dashboard(str(tmp_path), project, "nonexistent-run")
+
+
+def test_get_dashboard_overview_has_no_bodies(tmp_path):
+    _setup_run(tmp_path, "proj", "run1", [("security", "8.0", "A")])
+    provider = FilesystemActionProvider()
+    body = provider.get_dashboard_overview(str(tmp_path), "proj", "latest")
+    (dim,) = body["dimensions"]
+    assert "violations" not in dim and "compliance" not in dim
+    assert body["selectedRun"]["runId"] == "run1"

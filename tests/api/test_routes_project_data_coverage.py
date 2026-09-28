@@ -49,6 +49,38 @@ class TestDashboardRoute:
         assert body["error"] == "project must be a plain path segment, got '..secret'"
 
 
+class TestDashboardViewParam:
+    def test_overview_view_dispatches_to_the_overview_provider(self, client):
+        client._provider.get_dashboard_overview.return_value = {"dimensions": []}
+        resp = client.get("/api/projects/myproj/dashboard?run=r1&view=overview")
+        assert resp.status_code == 200
+        client._provider.get_dashboard_overview.assert_called_once_with(ANY, "myproj", "r1")
+        client._provider.get_dashboard.assert_not_called()
+
+    def test_full_view_and_no_view_use_the_full_provider(self, client):
+        client._provider.get_dashboard.return_value = {"dimensions": []}
+        assert client.get("/api/projects/myproj/dashboard").status_code == 200
+        assert client.get("/api/projects/myproj/dashboard?view=full").status_code == 200
+        assert client._provider.get_dashboard.call_count == 2
+        client._provider.get_dashboard_overview.assert_not_called()
+
+    def test_empty_view_means_full(self, client):
+        client._provider.get_dashboard.return_value = {"dimensions": []}
+        assert client.get("/api/projects/myproj/dashboard?view=").status_code == 200
+        client._provider.get_dashboard.assert_called_once()
+        client._provider.get_dashboard_overview.assert_not_called()
+
+    def test_unknown_view_is_400(self, client):
+        resp = client.get("/api/projects/myproj/dashboard?view=slim")
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "INVALID_INPUT"
+        assert "view" in resp.get_json()["error"]
+
+    def test_overview_not_found_is_404(self, client):
+        client._provider.get_dashboard_overview.side_effect = FileNotFoundError()
+        assert client.get("/api/projects/myproj/dashboard?view=overview").status_code == 404
+
+
 class TestAccumulatedRoute:
     def test_success(self, client):
         client._provider.get_accumulated.return_value = {"dims": []}
