@@ -12,6 +12,7 @@ from quodeq.data.cache_store.index import close_all_for_tests
 from quodeq.data.fs._index_cache import clear_index_cache
 from quodeq.services.dashboard import clear_shared_dimension_cache
 from quodeq.services.score_cache import clear_stale_payloads
+from tests._sharding import ENV_VAR, parse_shard, select_shard
 
 # Deep enough to exhaust the C JSON decoder's call stack on a default 8MB
 # main-thread stack. ~160KB of text -- trivially producible by hand or by a
@@ -253,3 +254,16 @@ class RecordingLog:
 @pytest.fixture
 def recording_log() -> RecordingLog:
     return RecordingLog()
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Keep only this job's shard of the test files (tests/_sharding.py).
+
+    Unset or ``1/1`` leaves collection untouched, so only the sharded CI legs
+    see a difference.
+    """
+    index, total = parse_shard(os.environ.get(ENV_VAR))
+    kept, dropped = select_shard(items, index, total)
+    if dropped:
+        config.hook.pytest_deselected(items=dropped)
+        items[:] = kept
