@@ -27,11 +27,13 @@ from tests.api._routes_shared_fixtures import (  # noqa: F401 -- client/_clean_p
     client,
 )
 
+_CONFIRMED = "/api/shared/config?confirm=true"
+
 
 def test_delete_config_clears(client, monkeypatch, tmp_path):
     monkeypatch.setenv("QUODEQ_DIR", str(tmp_path))
     (tmp_path / "shared.json").write_text(json.dumps({"url": "git@github.com:t/r.git"}))
-    resp = client.delete("/api/shared/config", headers=_ORIGIN)
+    resp = client.delete(_CONFIRMED, headers=_ORIGIN)
     assert resp.status_code == 200
     assert client.get("/api/shared/status").get_json()["configured"] is False
 
@@ -49,9 +51,26 @@ def test_delete_config_removes_cache_dir(client, monkeypatch, tmp_path):
     assert shared_repo_path(url).is_dir()
 
     (tmp_path / "shared.json").write_text(json.dumps({"url": url}))
-    resp = client.delete("/api/shared/config", headers=_ORIGIN)
+    resp = client.delete(_CONFIRMED, headers=_ORIGIN)
     assert resp.status_code == 200
     assert not cache_dir.exists()
+
+
+def test_delete_config_without_confirm_is_refused_and_keeps_the_clone(client, monkeypatch, tmp_path):
+    """Disconnect deletes the local clone for good, so it needs ?confirm=true."""
+    monkeypatch.setenv("QUODEQ_DIR", str(tmp_path))
+    origin = tmp_path / "origin.git"
+    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True)
+    url = f"file://{origin}"
+    assert ensure_shared_clone(url) is not None
+    (tmp_path / "shared.json").write_text(json.dumps({"url": url}))
+
+    for path in ("/api/shared/config", "/api/shared/config?confirm=1", "/api/shared/config?confirm=false"):
+        resp = client.delete(path, headers=_ORIGIN)
+        assert resp.status_code == 400, path
+        assert resp.get_json()["code"] == "CONFIRMATION_REQUIRED"
+    assert shared_cache_dir(url).is_dir()
+    assert client.get("/api/shared/status").get_json()["configured"] is True
 
 
 def test_delete_config_refused_while_connecting(client, monkeypatch, tmp_path):
@@ -62,7 +81,7 @@ def test_delete_config_refused_while_connecting(client, monkeypatch, tmp_path):
     status.claim("git@github.com:t/r.git")
     monkeypatch.setattr(shared_connect_job, "_default_status", status)
     (tmp_path / "shared.json").write_text(json.dumps({"url": "git@github.com:t/r.git"}))
-    resp = client.delete("/api/shared/config", headers=_ORIGIN)
+    resp = client.delete(_CONFIRMED, headers=_ORIGIN)
     assert resp.status_code == 409
     assert resp.get_json()["code"] == "CONNECT_IN_PROGRESS"
     assert client.get("/api/shared/status").get_json()["configured"] is True
@@ -72,7 +91,7 @@ def test_delete_config_when_unconfigured_does_not_crash(client, monkeypatch, tmp
     """Guard for url=None: disconnecting when nothing is configured must be
     a no-op, not attempt shutil.rmtree on a None-derived path."""
     monkeypatch.setenv("QUODEQ_DIR", str(tmp_path))
-    resp = client.delete("/api/shared/config", headers=_ORIGIN)
+    resp = client.delete(_CONFIRMED, headers=_ORIGIN)
     assert resp.status_code == 200
     assert resp.get_json()["configured"] is False
 
@@ -116,7 +135,7 @@ def test_delete_config_waits_for_clone_lock(client, monkeypatch, tmp_path):
     bg_client = client.application.test_client()
 
     def _do_delete():
-        results.append(bg_client.delete("/api/shared/config", headers=_ORIGIN))
+        results.append(bg_client.delete(_CONFIRMED, headers=_ORIGIN))
 
     delete_thread = threading.Thread(target=_do_delete, name="delete")
     delete_thread.start()

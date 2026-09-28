@@ -95,3 +95,35 @@ def test_resolve_addresses_is_empty_when_dns_fails(monkeypatch):
     monkeypatch.setattr(ssrf.socket, "getaddrinfo", _fail)
     assert ssrf.resolve_addresses("nowhere.invalid") == ()
     assert ssrf.is_private_address("nowhere.invalid") is True
+
+
+def _no_dns(*_args, **_kwargs):
+    raise ssrf.socket.gaierror("DNS disabled in this test")
+
+
+class TestIsLoopbackAddress:
+    """is_loopback_address shares resolve_addresses with is_private_address,
+    so an encoded loopback literal gets the same verdict from both."""
+
+    # DNS is blocked so the verdict can only come from literal parsing:
+    # libc's getaddrinfo happens to accept some encodings, which would hide
+    # a weaker literal check.
+    def test_hex_loopback_literal(self, monkeypatch):
+        monkeypatch.setattr(ssrf.socket, "getaddrinfo", _no_dns)
+        assert ssrf.is_loopback_address("0x7f000001") is True
+
+    def test_octal_dword_loopback_literal(self, monkeypatch):
+        monkeypatch.setattr(ssrf.socket, "getaddrinfo", _no_dns)
+        assert ssrf.is_loopback_address("017700000001") is True
+
+    def test_encoded_private_literal_is_not_loopback(self):
+        assert ssrf.is_loopback_address("012.0.0.1") is False
+
+    def test_dns_answer_must_be_all_loopback(self, monkeypatch):
+        answers = [(2, 1, 6, "", ("127.0.0.1", 0)), (2, 1, 6, "", ("10.0.0.1", 0))]
+        monkeypatch.setattr(ssrf.socket, "getaddrinfo", lambda *_a, **_k: answers)
+        assert ssrf.is_loopback_address("mixed.example") is False
+
+    def test_unresolvable_name_is_not_loopback(self, monkeypatch):
+        monkeypatch.setattr(ssrf.socket, "getaddrinfo", _no_dns)
+        assert ssrf.is_loopback_address("nowhere.example") is False

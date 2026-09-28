@@ -5,6 +5,7 @@ import {
 import { useSidePane } from '../../side-pane/SidePaneContext.jsx';
 import { saveProviderKey } from '../../../api/providers.js';
 import { t } from '../../../strings/index.js';
+import { apiErrorKey, apiErrorMessage } from '../../../strings/apiErrors.js';
 import { STORED_FALSE, STORED_TRUE } from '../../../adapters/storage.js';
 
 export { PROVIDER_CONFIGURED_MARKER };
@@ -143,10 +144,14 @@ export default function useProviderSettings(providerId, defaults, { storage = lo
     setState(prev => ({ ...prev, [key]: String(value) }));
     const onPersistError = () => showToast(t('settings.persistError'));
     if (key === PROVIDER_SETTING_KEY.API_KEY) {
+      // A coded backend refusal (e.g. KEYRING_UNAVAILABLE) says what to do;
+      // anything else keeps the generic persist copy.
+      const onKeyError = (err) => showToast(
+        apiErrorKey(err?.code) ? apiErrorMessage(err, 'settings.persistError') : t('settings.persistError'));
       // Fire and forget: saveProviderApiKey catches its own failures, reports
       // them through onPersistError and resolves false, so there is nothing
       // left here to reject.
-      void saveProviderApiKey(providerId, String(value), storage, { onPersistError }).then((ok) => {
+      void saveProviderApiKey(providerId, String(value), storage, { onPersistError: onKeyError }).then((ok) => {
         // Clear the field rather than parking the sentinel in live state:
         // state['api-key'] is passed to providers as a real credential (see
         // OmlxTab), and the sentinel is not one. Storage still records it,

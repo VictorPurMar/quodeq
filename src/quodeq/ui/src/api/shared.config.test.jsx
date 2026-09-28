@@ -127,9 +127,9 @@ describe('shared repo API client', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('disconnectShared DELETEs /shared/config', async () => {
+    it('disconnectShared DELETEs /shared/config with the confirm flag', async () => {
       await shared.disconnectShared();
-      expect(calls[0].url).toBe('/api/shared/config');
+      expect(calls[0].url).toBe('/api/shared/config?confirm=true');
       expect(calls[0].opts.method).toBe('DELETE');
     });
 

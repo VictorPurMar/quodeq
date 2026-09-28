@@ -94,3 +94,11 @@ test('the fallback key is used only when there is no message at all', () => {
   assert.equal(apiErrorMessage(null, 'standards.deleteFailed'), catalog['standards.deleteFailed']);
   assert.equal(apiErrorMessage(undefined, 'standards.deleteFailed'), catalog['standards.deleteFailed']);
 });
+
+test('KEYRING_UNAVAILABLE copy names the env var from the envelope', () => {
+  const err = { code: 'KEYRING_UNAVAILABLE', message: 'raw', body: { code: 'KEYRING_UNAVAILABLE', envVar: 'GEMINI_API_KEY' } };
+  const msg = apiErrorMessage(err, 'x.y');
+  assert.ok(msg.includes('GEMINI_API_KEY'), msg);
+  assert.ok(msg.includes('QUODEQ_ALLOW_PLAINTEXT_KEY=1'), msg);
+  assert.ok(!msg.includes('{envVar}'), msg);
+});

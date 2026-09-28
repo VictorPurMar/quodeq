@@ -124,10 +124,7 @@ def get_repo_info() -> tuple[str, str]:
 def snapshot_run_dirs(output_dir: Path) -> set[Path]:
     """Snapshot existing run directories (those containing an evidence/ subdir).
 
-    Both full/incremental runs and diff-mode runs write ``evidence/``, so
-    globbing on it catches every run shape. Diff-mode runs do not write
-    ``evaluation/``, so the old "glob on evaluation" approach would miss
-    them.
+    Every run shape writes ``evidence/``; diff-mode runs skip ``evaluation/``.
     """
     if not output_dir.exists():
         return set()
@@ -244,18 +241,50 @@ def _post_review_or_dry_run(args, payload: dict, owner: str, repo: str, pr_numbe
     if not getattr(args, "yes", False) and not confirm_post(owner, repo, pr_number):
         print("Review not posted. Re-run with --yes to skip the prompt, or --dry-run to print it.")
         return 1
+    return _post_to_github(payload, owner, repo, pr_number)
 
+
+def _post_to_github(payload: dict, owner: str, repo: str, pr_number: int) -> int:
+    """Post *payload*; a gh or GitHub API failure prints a worded error, returns 1."""
     try:
         token = get_github_token()
     except ReviewError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-
     from quodeq.ci.reporter import post_review
     print(f"Posting review to {owner}/{repo} PR #{pr_number}...")
-    post_review(owner=owner, repo=repo, pr_number=pr_number, payload=payload, token=token)
+    try:
+        post_review(owner=owner, repo=repo, pr_number=pr_number, payload=payload, token=token)
+    except RuntimeError as exc:
+        print(f"Error: could not post the review: {exc}", file=sys.stderr)
+        return 1
     print(f"Review posted to https://github.com/{owner}/{repo}/pull/{pr_number}")
     return 0
+
+
+def _evaluate_pr_diff(args, base_branch: str) -> tuple[int, Path | None, int]:
+    """Run the PR-diff evaluation; (exit_code, evidence_dir, duration), with
+    evidence_dir None (and the reason printed) whenever exit_code is non-zero."""
+    output_dir = Path(getattr(args, "output", None) or get_evaluations_dir())
+    output_dir.mkdir(parents=True, exist_ok=True)
+    dims, pool_budget = getattr(args, "dimensions", None), getattr(args, "pool_budget", None)
+    exit_code, evidence_dir, duration = _run_pr_diff_and_locate_evidence(
+        output_dir, base_branch, dims, pool_budget)
+    if exit_code != 0:
+        print(f"Evaluation failed with exit code {exit_code}", file=sys.stderr)
+        return exit_code, None, duration
+    if evidence_dir is None:
+        print("Error: no new evaluation directory produced.", file=sys.stderr)
+        return 1, None, duration
+    return 0, evidence_dir, duration
+
+
+def _summarize_review(evidence_dir: Path, duration: int) -> dict:
+    """Build the review payload and print the violation count and verdict."""
+    report, payload = _build_diff_report_and_payload(evidence_dir, duration)
+    print(f"Evaluation complete: {len(report['violations'])} violation(s) found in diff")
+    print(f"Verdict: {payload['event']}")
+    return payload
 
 
 def handle_review(args) -> int:
@@ -264,25 +293,8 @@ def handle_review(args) -> int:
     if resolved is None:
         return 1
     pr_number, base_branch, owner, repo = resolved
-
-    output_dir = Path(getattr(args, "output", None) or get_evaluations_dir())
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    dims = getattr(args, "dimensions", None)
-    pool_budget = getattr(args, "pool_budget", None)
-    exit_code, evidence_dir, duration = _run_pr_diff_and_locate_evidence(
-        output_dir, base_branch, dims, pool_budget,
-    )
-    if exit_code != 0:
-        print(f"Evaluation failed with exit code {exit_code}", file=sys.stderr)
-        return exit_code
+    exit_code, evidence_dir, duration = _evaluate_pr_diff(args, base_branch)
     if evidence_dir is None:
-        print("Error: no new evaluation directory produced.", file=sys.stderr)
-        return 1
-
-    report, payload = _build_diff_report_and_payload(evidence_dir, duration)
-    total_violations = len(report["violations"])
-    print(f"Evaluation complete: {total_violations} violation(s) found in diff")
-    print(f"Verdict: {payload['event']}")
-
+        return exit_code
+    payload = _summarize_review(evidence_dir, duration)
     return _post_review_or_dry_run(args, payload, owner, repo, pr_number)

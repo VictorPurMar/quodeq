@@ -19,6 +19,13 @@ from quodeq.services.evaluation_mixin import FsEvaluationMixin
 from quodeq.services.filesystem import FilesystemActionProvider
 
 
+def _cancel_then_exit(*_args, on_exit=None, **_kwargs):
+    """A cancel_job stand-in that, like the real one, runs on_exit once the process is gone."""
+    if on_exit is not None:
+        on_exit()
+    return True
+
+
 class TestDiscardSkipsScoring:
     def test_discard_does_not_score_completed_evidence(self):
         """With discard_partial=True, cancel must NOT write eval reports.
@@ -48,7 +55,7 @@ class TestDiscardSkipsScoring:
         """Without discard, the cancel path keeps scoring completed dims."""
         m = FsEvaluationMixin()
         m._jobs = MagicMock()
-        m._jobs.cancel_job.return_value = True
+        m._jobs.cancel_job.side_effect = _cancel_then_exit
         m._jobs.get_job.return_value = JobSnapshot(
             job_id="j1", status="running",
             output_project="proj", output_run_id="run1",

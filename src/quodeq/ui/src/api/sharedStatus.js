@@ -125,11 +125,12 @@ export async function connectShared(url) {
 }
 
 /**
- * Disconnect from the shared repository.
+ * Disconnect from the shared repository. The server deletes the local clone
+ * and requires ?confirm=true; callers show their own confirm step first.
  * @returns {Promise<{configured: boolean}>}
  */
 export function disconnectShared() {
-  return request('/shared/config', {
+  return request('/shared/config?confirm=true', {
     method: 'DELETE',
   });
 }

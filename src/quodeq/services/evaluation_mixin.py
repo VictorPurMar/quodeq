@@ -180,7 +180,7 @@ class FsEvaluationMixin:
 
     def cancel_evaluation(
         self, job_id: str, reports_dir: str | None = None,
-        *, discard_partial: bool = False,
+        *, discard_partial: bool = False, wait_for_exit: bool = False,
     ) -> bool:
         """Cancel a running evaluation job; score completed dims unless discarding.
 
@@ -189,9 +189,14 @@ class FsEvaluationMixin:
         resolve correctly via the SQLite index (``FilesystemActionProvider``
         overrides the status lookup). Before this, ``get_job`` returned
         ``None`` for ``ext-`` ids and the scoring block was dead for them.
-        ``score_completed_evidence`` is idempotent (skips dimensions whose
-        report file already exists), so double-firing with the route-level
-        scoring in ``_evaluation_routes`` is a no-op.
+
+        Keep-findings scoring runs as ``cancel_job``'s *on_exit*: only after
+        the process is gone, since it writes its own cancel-time reports
+        until then. For an external run that is on the escalation thread, so
+        this returns without waiting the SIGTERM grace window. The GET-route
+        salvage scoring (``score_terminal_run_once``) holds off the same way
+        while the run's process is alive. ``score_completed_evidence`` skips
+        dimensions whose report already exists, so the two firing is a no-op.
 
         After ``cancel_job`` returns we wait briefly for the run lifecycle
         handler in the subprocess to write ``status.json`` to a terminal
@@ -214,13 +219,24 @@ class FsEvaluationMixin:
         run_dir: Path | None = None
         if reports_dir and job and job.output_project and job.output_run_id:
             run_dir = Path(reports_dir) / job.output_project / job.output_run_id
-        ok = self._jobs.cancel_job(job_id, reports_root=reports_root, run_dir=run_dir)
+        on_exit = None
+        if run_dir is not None and not discard_partial:
+            ref = _run_ref(job)
+
+            def on_exit() -> None:
+                score_completed_evidence(reports_dir, ref)
+        # A discard deletes the run's files next, so it must not race a
+        # process still inside its SIGTERM grace window; a keep-findings
+        # cancel returns at once and scores once the escalation is done,
+        # unless the caller (window close, about to kill this server) waits.
+        ok = self._jobs.cancel_job(
+            job_id, reports_root=reports_root, run_dir=run_dir,
+            wait_for_exit=discard_partial or wait_for_exit, on_exit=on_exit,
+        )
         if ok and run_dir is not None:
             wait_for_terminal_status(run_dir)
             if discard_partial:
                 discard_run_state(reports_dir, _run_ref(job))
-            else:
-                score_completed_evidence(reports_dir, _run_ref(job))
         return ok
 
     def score_failed_evaluation(self, job_id: str, reports_dir: str) -> bool:

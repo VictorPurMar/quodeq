@@ -9,6 +9,8 @@ from pathlib import Path
 
 import keyring
 
+from quodeq.config.ai_provider_errors import PlaintextKeyRefusedError
+from quodeq.config.credentials_env import ALLOW_PLAINTEXT_KEY_ENV, plaintext_key_fallback_allowed
 from quodeq.config.paths import ConfigPaths, default_paths
 from quodeq.config.provider import PROVIDERS
 from quodeq.shared.constants import SECRET_SUFFIX_CHARS
@@ -36,9 +38,15 @@ _VALID_PROVIDER_RE = re.compile(r"[A-Za-z0-9_-]+")
 def _read_export_value(env_file: Path, prefix: str) -> str | None:
     """The first ``export NAME=`` line matching *prefix*, as the shell would read it.
 
-    None when no line matches.
+    None when no line matches or the file cannot be read, the same way
+    ``_existing_env_lines`` treats an unreadable file.
     """
-    for line in env_file.read_text(encoding="utf-8").splitlines():
+    try:
+        lines = env_file.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        log_debug(f"cannot read {env_file}: {exc}")
+        return None
+    for line in lines:
         if line.strip().startswith(prefix):
             return line.split("=", 1)[1].strip()
     return None
@@ -97,6 +105,8 @@ def _validate_env_write(provider: str | None, api_key_var: str, api_key_value: s
             # PROVIDERS maps keyless providers (ollama, llamacpp) to "",
             # which would otherwise produce a malformed `export =<key>` line.
             raise ValueError("Provider has no API key environment variable")
+        if not plaintext_key_fallback_allowed():
+            raise PlaintextKeyRefusedError(api_key_var)
     if provider is not None:
         validate_provider_name(provider)
 
@@ -149,26 +159,15 @@ def _build_env_lines(
     lines.extend(body)
     if not api_key_value:
         return lines
-    # SECURITY: The raw API key value is written to the env file in
-    # cleartext because it must be sourced by subprocesses at runtime.
-    # The file is created with mode 0600 (owner read/write only) via
-    # atomic write + fchmod.  This is a known trade-off for local CLI
-    # tools where no platform keychain integration is available.
-    #
-    # For production / shared-server deployments:
-    #   - Use the QUODEQ_API_KEY environment variable directly, or
-    #   - Store the key in a platform keychain (macOS Keychain,
-    #     GNOME Keyring, Windows Credential Manager), or
-    #   - Use a secrets manager (Vault, AWS Secrets Manager, etc.)
+    # SECURITY: opt-in only (see _validate_env_write). Cleartext because
+    # subprocesses source the file; mode 0600 via atomic write + fchmod.
     lines.append(f"export {api_key_var}={api_key_value}")
     masked = ("***" + api_key_value[-SECRET_SUFFIX_CHARS:]
               if len(api_key_value) > SECRET_SUFFIX_CHARS else "****")
     log_warning(
-        f"API key ({masked}) will be stored in cleartext at "
-        f"{paths.env_file} (mode 0600). For production deployments, "
-        f"prefer the QUODEQ_API_KEY environment variable, a platform "
-        f"keychain, or a secrets manager instead of writing keys to disk."
-    )
+        f"API key ({masked}) will be stored in cleartext at {paths.env_file} "
+        f"(mode 0600, {ALLOW_PLAINTEXT_KEY_ENV} is set). Export {api_key_var} "
+        f"in your shell instead to keep it off disk.")
     return lines
 
 
@@ -218,18 +217,19 @@ def configure_provider_noninteractive(provider: str, paths: ConfigPaths) -> int:
         valid = ", ".join(sorted(PROVIDERS.keys()))
         log_error(f"Invalid provider: {provider}. Expected one of: {valid}")
         return 1
-    api_key_var = PROVIDERS[provider]
-    api_key_value = ""
-    _write_env(paths, provider, api_key_var, api_key_value)
-    _ensure_gitignore(paths)
+    try:
+        _write_env(paths, provider, PROVIDERS[provider], "")
+        _ensure_gitignore(paths)
+    except (OSError, ValueError) as exc:
+        log_error(f"Failed to save provider config to {paths.env_file}: {exc}")
+        return 1
     log_success(f"Provider set to '{provider}'. Config saved to .quodeq.env")
     return 0
 
 
 def _api_key_var_for(provider: str) -> str:
     """Return the env var name used to persist *provider*'s key in cleartext."""
-    api_key_var = PROVIDERS.get(provider, f"{provider.upper()}_API_KEY")
-    return api_key_var
+    return PROVIDERS.get(provider, f"{provider.upper()}_API_KEY")
 
 
 def store_api_key(provider: str, api_key: str,
@@ -238,8 +238,10 @@ def store_api_key(provider: str, api_key: str,
 
     Raises ValueError for a provider name that is not identifier-shaped.
     Checked here, before either backend, so the keyring and the cleartext
-    paths are both covered by one guard. *paths* overrides where the
-    cleartext fallback writes; it defaults to ``default_paths()``.
+    paths are both covered by one guard. The cleartext fallback is opt-in:
+    without ``QUODEQ_ALLOW_PLAINTEXT_KEY`` a keyring failure raises
+    PlaintextKeyRefusedError. *paths* overrides where that fallback writes;
+    it defaults to ``default_paths()``.
     """
     validate_provider_name(provider)
     try:
@@ -266,13 +268,13 @@ def store_api_key(provider: str, api_key: str,
 
 def store_api_key_secure(provider: str, api_key: str,
                          paths: ConfigPaths | None = None) -> bool:
-    """Persist *provider*'s API key, preferring the OS keyring over cleartext.
-
-    Tries the platform keyring first; on failure falls back to the existing
-    cleartext `.quodeq.env` write path, under *paths* (``default_paths()``
-    when None). Returns True if either succeeded.
-    """
-    stored, _secure = store_api_key(provider, api_key, paths)
+    """Persist *provider*'s API key; :func:`store_api_key` without the
+    secure flag. True when it was stored anywhere."""
+    try:
+        stored, _secure = store_api_key(provider, api_key, paths)
+    except PlaintextKeyRefusedError as exc:
+        log_error(str(exc))
+        return False
     return stored
 
 

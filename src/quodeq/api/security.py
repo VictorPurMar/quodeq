@@ -179,6 +179,11 @@ def _check_rate_limit(store: RateLimitStore) -> Response | tuple[Response, int] 
         return None
     if request.path in _RATE_LIMIT_EXEMPT_PATHS:
         return None
+    return _count_attempt(store)
+
+
+def _count_attempt(store: RateLimitStore) -> Response | tuple[Response, int] | None:
+    """Record one attempt for this client; a 429 once it is over the cap."""
     ip = request.remote_addr or "unknown"
     now = time.monotonic()
     if hasattr(store, "check_and_record"):
@@ -256,7 +261,12 @@ def configure_security(
 
     @app.before_request
     def _security_checks() -> Response | tuple[Response, int] | None:
-        return _check_auth(api_key) or _check_csrf() or _check_rate_limit(rate_limit_store)
+        denied = _check_auth(api_key)
+        if denied is not None:
+            # A failed auth always counts, whatever the method or path, so
+            # key guessing hits the limit. Passing requests are unaffected.
+            return _count_attempt(rate_limit_store) or denied
+        return _check_csrf() or _check_rate_limit(rate_limit_store)
 
     @app.after_request
     def _add_security_headers(response: Response) -> Response:

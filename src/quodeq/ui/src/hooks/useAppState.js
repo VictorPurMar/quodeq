@@ -1,25 +1,19 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { t } from '../strings/index.js';
 import { formatRunDate } from '../utils/formatters.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSidePane } from '../features/side-pane/SidePaneContext.jsx';
-import { useDashboard, dashboardViewForPage } from '../features/dashboard/hooks/useDashboard.js';
-import { usePrefetchAdjacentRuns } from '../features/dashboard/hooks/usePrefetchAdjacentRuns.js';
-import { buildPeriodRuns } from '../utils/dailyGrouping.js';
 import { readScoreHistoryGranularity, writeScoreHistoryGranularity } from '../utils/scoreHistoryPrefs.js';
 import { projectKeys } from '../api/queryKeys.js';
 import { useServerHealth } from './useServerHealth.js';
 import { useNavStack } from './useNavStack.js';
-import { useRunNavigator } from './useRunNavigator.js';
 import { useProjectState } from './useProjectState.js';
 import { useAppSettings } from './useAppSettings.js';
 import { useEvaluationLifecycle } from './useEvaluationLifecycle.js';
 import { useProjectActions } from './useProjectActions.js';
-import { useVisibleRuns } from './useVisibleRuns.js';
+import { useSelectedRunDashboard, useRunPeriods, useOverviewRunNavigation } from './useAppRunState.js';
 import { LATEST_RUN_ID } from '../constants.js';
-import { useHandleRunDeleted } from './runDeletion.js';
 import { NAV_TAB } from '../vocab/navTab.js';
-import { projectIdOrSelf } from '../utils/projectIdentity.js';
 
 // Tab aliases imported by useAppState.reconcile.test.jsx and
 // useNativeNavBridge.js. The values live in vocab/navTab.js; this file's own
@@ -35,64 +29,6 @@ export const KNOWN_TABS = [
 // 'compare' is appended after these four on purpose (see comment above).
 const PROJECT_TAB_COUNT = 4;
 export const PROJECT_TABS = KNOWN_TABS.slice(0, PROJECT_TAB_COUNT);
-
-// The accumulated dimensions all carry the same discipline and repository;
-// take the first non-empty of each and stop as soon as both are known.
-function findDimensionFacets(dims) {
-  let discipline = null, repository = null;
-  for (const d of dims) {
-    if (!discipline && d.discipline) discipline = d.discipline;
-    if (!repository && d.repository) repository = d.repository;
-    if (discipline && repository) break;
-  }
-  return { discipline, repository };
-}
-
-// Dimensions that did not scan source report no count, so the first one that
-// does is the run's file count.
-function firstSourceFileCount(dims) {
-  for (const d of dims) {
-    if (d.sourceFileCount) return d.sourceFileCount;
-  }
-  return null;
-}
-
-function buildHeaderMeta(accumulated, dashboard, selectedProject, projects) {
-  const accDims = accumulated?.dimensions || [];
-  if (accDims.length === 0) return null;
-  const { discipline, repository } = findDimensionFacets(accDims);
-  const totalFiles = firstSourceFileCount(dashboard?.dimensions || []);
-  const project = new Map(projects.map((p) => [p.id, p])).get(selectedProject);
-  return { discipline, repository, totalFiles, languageStats: project?.languageStats ?? null };
-}
-
-// Projects are keyed by id, but older entries only have a name, so both are
-// tried before falling back to the raw reference.
-function projectLabel(entry, fallback) {
-  return entry?.displayName || entry?.name || fallback;
-}
-
-function resolveSelectedProjectNames(selectedProject, projects) {
-  if (!selectedProject || !projects.length) {
-    return { selectedDisplayName: selectedProject, selectedProjectParent: null, selectedProjectParentId: null };
-  }
-  const projectById = new Map(projects.map((p) => [projectIdOrSelf(p), p]));
-  const data = projectById.get(selectedProject);
-  const parentRef = data?.parent || null;
-  const parentData = parentRef ? projectById.get(parentRef) : null;
-  return {
-    selectedDisplayName: projectLabel(data, selectedProject),
-    selectedProjectParent: projectLabel(parentData, parentRef),
-    selectedProjectParentId: parentData ? (parentData.id || parentData.name || parentRef) : null,
-  };
-}
-
-function computeDerivedState(accumulated, dashboard, selectedProject, projects) {
-  return {
-    headerMeta: buildHeaderMeta(accumulated, dashboard, selectedProject, projects),
-    ...resolveSelectedProjectNames(selectedProject, projects),
-  };
-}
 
 function useProjects({ onNoProjects }) {
   const projectState = useProjectState({ onNoProjects });
@@ -229,6 +165,30 @@ function useScoreHistoryGranularity() {
   return { granularity, onGranularityChange };
 }
 
+// Theme settings and the score-history bucket size: both are display
+// preferences, grouped so useAppState composes one settings hook.
+function useDisplaySettings() {
+  const settings = useAppSettings();
+  const { granularity, onGranularityChange } = useScoreHistoryGranularity();
+  return { settings, granularity, onGranularityChange };
+}
+
+function useAppEvaluationLifecycle({ navTab, navReset, projectBundle }) {
+  const { loadProjects, setProjects, selectProjectAndRun, selectedProject } = projectBundle;
+  return useEvaluationLifecycle({ navigation: { navTab, navReset }, projects: { loadProjects, setProjects, selectProjectAndRun }, selectedProject });
+}
+
+// The derived chrome flags, plus the Overview-return reconcile that keys off
+// the same nav state.
+function useAppChrome({ activePage, navStack, projectBundle, visibleDailyRuns }) {
+  const { projects, selectedProject, selectedSource } = projectBundle;
+  const activeTab = resolveActiveTab(activePage);
+  const showProjectHeader = PROJECT_TABS.includes(activeTab) && projects.length > 0 && !!selectedProject;
+  const showRunNav = activeTab === NAV_TAB.OVERVIEW && showProjectHeader && visibleDailyRuns.length > 0 && navStack.length === 1;
+  useOverviewReturnReconcile({ rootTab: navStack[0]?.page, selectedProject, selectedSource });
+  return { activeTab, showProjectHeader, showRunNav };
+}
+
 /**
  * The app shell's whole state in one object: navigation stack, project
  * selection, dashboard/score data for the selected project and run, run
@@ -236,55 +196,30 @@ function useScoreHistoryGranularity() {
  * flags (`activeTab`, `showProjectHeader`, `showRunNav`).
  *
  * Called once, at the root; every screen reads its slice from the result
- * rather than re-deriving it. Composes useAppNavigation, useDashboard,
- * useEvaluationLifecycle and useAppSettings, so hook order here is the app's
- * hook order.
+ * rather than re-deriving it. Composes useAppNavigation, the display
+ * settings, the selected run's dashboard and run navigation (useAppRunState.js),
+ * the evaluation lifecycle and the chrome flags, so hook order here is the
+ * app's hook order.
  */
 export function useAppState() {
   const nav = useAppNavigation();
   const {
     serverConnected, setServerConnected, serverVersion, navStack, activePage,
-    navPending, navPop, navGoTo, navSwapAt, navReset, navTab, projectBundle,
-    handleNavigate, handleNavigateReplace, handleRunChange, historySelectedRun, setHistorySelectedRun,
+    navPending, navPop, navGoTo, navSwapAt, navTab, projectBundle,
+    handleNavigate, handleNavigateReplace, historySelectedRun, setHistorySelectedRun,
   } = nav;
   const {
-    projects, projectsLoaded, projectsLoadFailed, retryLoadProjects, setProjects, selectedProject, selectedSource,
-    selectedRun, setSelectedRun, loadProjects, handleProjectChange,
-    selectProjectAndRun, handleDeleteProject, handleExportProject, handleRelocateProject, handleImportProject,
+    projects, projectsLoaded, projectsLoadFailed, retryLoadProjects, selectedProject, selectedSource,
+    selectedRun, loadProjects, handleProjectChange,
+    handleDeleteProject, handleExportProject, handleRelocateProject, handleImportProject,
   } = projectBundle;
-  const settings = useAppSettings();
-  const { granularity, onGranularityChange } = useScoreHistoryGranularity();
-  const isHistoryRun = activePage.page === NAV_TAB.HISTORY_RUN, isHistoryTab = activePage.page === NAV_TAB.HISTORY;
-  const effectiveRun = isHistoryRun ? historySelectedRun : selectedRun;
-  // History views (the History tab and its run-detail page) show specific
-  // past runs in a comparison-oriented mental model — flashing the previous
-  // run's data via placeholderData is confusing. Overview navigation, by
-  // contrast, benefits from the instant swap because consecutive runs are
-  // usually nearly identical. The dashboard-refreshing class dims the
-  // page during the background refetch so the user sees that something
-  // is happening without the jarring full-screen LoadingScreen.
-  const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, dropRunFromCache, sharedProjectInfo } = useDashboard({
-    selectedProject,
-    selectedRun: effectiveRun,
-    selectedSource,
-    keepPlaceholder: !isHistoryRun && !isHistoryTab,
-    view: dashboardViewForPage(activePage.page),
-  });
-  const handleRunDeleted = useHandleRunDeleted({ dropRunFromCache, setSelectedRun, historySelectedRun, setHistorySelectedRun, scheduleDashboardReconcile, loadProjects });
-  const { dailyRuns: rawDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useMemo(() => ({
-    dailyRuns: buildPeriodRuns(availableRuns, dashboard?.trend || [], granularity),
-    ...computeDerivedState(accumulated, dashboard, selectedProject, projects),
-  }), [availableRuns, dashboard, accumulated, selectedProject, projects, granularity]);
-  const visibleDailyRuns = useVisibleRuns(rawDailyRuns, dashboard, setSelectedRun, granularity);
-  const { overviewRunIndex, currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect } = useRunNavigator({ selectedRun, availableRuns: visibleDailyRuns, onRunChange: handleRunChange, onNavigate: handleNavigate });
-  const prefetchHandlers = usePrefetchAdjacentRuns({ selectedProject, selectedSource, availableRuns: visibleDailyRuns, overviewRunIndex });
-  const evalLifecycle = useEvaluationLifecycle({ navigation: { navTab, navReset }, projects: { loadProjects, setProjects, selectProjectAndRun }, selectedProject });
-
-  const activeTab = resolveActiveTab(activePage);
-  const showProjectHeader = PROJECT_TABS.includes(activeTab) && projects.length > 0 && !!selectedProject;
-  const showRunNav = activeTab === NAV_TAB.OVERVIEW && showProjectHeader && visibleDailyRuns.length > 0 && navStack.length === 1;
-
-  useOverviewReturnReconcile({ rootTab: navStack[0]?.page, selectedProject, selectedSource });
+  const { settings, granularity, onGranularityChange } = useDisplaySettings();
+  const dashboardState = useSelectedRunDashboard({ activePage, projectBundle, historySelectedRun, setHistorySelectedRun });
+  const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, sharedProjectInfo, handleRunDeleted } = dashboardState;
+  const { visibleDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useRunPeriods({ dashboardState, projectBundle, granularity });
+  const { overviewRunIndex, currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers } = useOverviewRunNavigation({ projectBundle, visibleDailyRuns, onNavigate: handleNavigate });
+  const evalLifecycle = useAppEvaluationLifecycle(nav);
+  const { activeTab, showProjectHeader, showRunNav } = useAppChrome({ activePage, navStack, projectBundle, visibleDailyRuns });
 
   return {
     serverConnected, setServerConnected, serverVersion, navStack, activePage, navPending, navPop, navGoTo, navSwapAt, navTab,

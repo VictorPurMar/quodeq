@@ -175,10 +175,7 @@ def _read_and_validate_member_payloads(
     manifest.json members; return the parsed repository_info dict."""
     repo_info_arc = f"{top_dir}/{REPO_INFO_FILENAME}"
     if repo_info_arc not in members:
-        raise bad_request(
-            f"Archive missing required {REPO_INFO_FILENAME}.",
-            "MISSING_REPO_INFO",
-        )
+        raise bad_request(f"Archive missing required {REPO_INFO_FILENAME}.", "MISSING_REPO_INFO")
     repo_info = read_member_json(zf, members[repo_info_arc])
     validate_repository_info(repo_info, top_dir, log=log)
 
@@ -206,6 +203,66 @@ def _build_success_outcome(
     })
 
 
+def _plan_import(
+    zf: zipfile.ZipFile, reports_root: Path, action: str | None, size_limit: int, log: LogSink,
+) -> tuple[_ImportTarget, dict[str, zipfile.ZipInfo]] | ImportOutcome:
+    """Validate the archive and resolve where it lands, or the collision outcome."""
+    # An OSError reading the archive here is not caught: it propagates as a
+    # read failure, not the write failure of ``_commit_import``.
+    top_dir, members = validate_archive(zf, max_total_bytes=size_limit * EXTRACT_HEADROOM)
+    repo_info = _read_and_validate_member_payloads(zf, members, top_dir, log)
+    identity = identity_from_info(repo_info)
+    resolution = _resolve_import_conflict(reports_root, top_dir, action, identity, log)
+    if isinstance(resolution, ImportOutcome):
+        return resolution
+    target_uuid, replace_existing = resolution
+    return _ImportTarget(reports_root, top_dir, target_uuid, identity, replace_existing), members
+
+
+def _commit_import(
+    zf: zipfile.ZipFile, members: dict[str, zipfile.ZipInfo], target: _ImportTarget, log: LogSink,
+) -> ImportOutcome | None:
+    """Materialize *target*; a filesystem failure becomes the IO_ERROR outcome."""
+    try:
+        _stage_and_commit(zf, members, target, log)
+    except OSError as exc:
+        log.warning(f"import: filesystem error: {exc}")
+        return error_outcome(IO_ERROR_MESSAGE, HTTPStatus.INTERNAL_SERVER_ERROR, IO_ERROR_CODE)
+    return None
+
+
+def _import_archive(
+    upload: Any, reports_root: Path, action: str | None, size_limit: int, log: LogSink,
+) -> _ImportTarget | ImportOutcome:
+    """Open *upload* as a zip and import it; bad archives become 400 outcomes."""
+    try:
+        with zipfile.ZipFile(upload) as zf:
+            plan = _plan_import(zf, reports_root, action, size_limit, log)
+            if isinstance(plan, ImportOutcome):
+                return plan
+            target, members = plan
+            return _commit_import(zf, members, target, log) or target
+    except ImportValidationError as exc:
+        return error_outcome(exc.public_message, exc.status, exc.code)
+    except zipfile.BadZipFile:
+        return error_outcome("File is not a valid zip archive.", HTTPStatus.BAD_REQUEST, "BAD_ZIP")
+
+
+def _import_upload(
+    upload: Any, reports_dir: str, action: str | None, size_limit: int, log: LogSink,
+) -> _ImportTarget | ImportOutcome:
+    """Check the upload size and reports dir, then import the archive."""
+    if upload is None:
+        return error_outcome(
+            f"Archive exceeds the {size_limit // (1024 * 1024)} MB import limit.",
+            HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "TOO_LARGE",
+        )
+    reports_root = Path(reports_dir).resolve()
+    if not reports_root.is_dir():
+        return error_outcome("reports directory does not exist", HTTPStatus.INTERNAL_SERVER_ERROR, "NO_REPORTS_DIR")
+    return _import_archive(upload, reports_root, action, size_limit, log)
+
+
 def import_zip_stream(
     stream: Any, reports_dir: str, action: str | None, *,
     remote_addr: str | None = None, log: LogSink = NULL_LOG,
@@ -224,40 +281,10 @@ def import_zip_stream(
         )
     size_limit = max_zip_size_bytes()
     with open_upload(stream, size_limit) as upload:
-        if upload is None:
-            return error_outcome(
-                f"Archive exceeds the {size_limit // (1024 * 1024)} MB import limit.",
-                HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "TOO_LARGE",
-            )
-        reports_root = Path(reports_dir).resolve()
-        if not reports_root.is_dir():
-            return error_outcome("reports directory does not exist", HTTPStatus.INTERNAL_SERVER_ERROR, "NO_REPORTS_DIR")
-        try:
-            with zipfile.ZipFile(upload) as zf:
-                # An OSError reading the archive up to here is not caught: it
-                # propagates as a read failure, not the write failure below.
-                top_dir, members = validate_archive(zf, max_total_bytes=size_limit * EXTRACT_HEADROOM)
-                repo_info = _read_and_validate_member_payloads(zf, members, top_dir, log)
-                identity = identity_from_info(repo_info)
-                resolution = _resolve_import_conflict(reports_root, top_dir, action, identity, log)
-                if isinstance(resolution, ImportOutcome):
-                    return resolution
-                target_uuid, replace_existing = resolution
-                target = _ImportTarget(reports_root, top_dir, target_uuid, identity, replace_existing)
-                try:
-                    _stage_and_commit(zf, members, target, log)
-                except OSError as exc:
-                    log.warning(f"import: filesystem error: {exc}")
-                    return error_outcome(IO_ERROR_MESSAGE, HTTPStatus.INTERNAL_SERVER_ERROR, IO_ERROR_CODE)
-        except ImportValidationError as exc:
-            return error_outcome(exc.public_message, exc.status, exc.code)
-        except zipfile.BadZipFile:
-            return error_outcome(
-                "File is not a valid zip archive.",
-                HTTPStatus.BAD_REQUEST, "BAD_ZIP",
-            )
-
-    return _build_success_outcome(target, action, remote_addr, log)
+        result = _import_upload(upload, reports_dir, action, size_limit, log)
+    if isinstance(result, ImportOutcome):
+        return result
+    return _build_success_outcome(result, action, remote_addr, log)
 
 
 __all__ = [

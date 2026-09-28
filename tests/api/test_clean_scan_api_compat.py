@@ -23,7 +23,7 @@ class _StubProvider(ActionProvider):
     def get_evaluation_status(self, job_id, reports_dir=None):
         return None
 
-    def cancel_evaluation(self, job_id, reports_dir=None, discard_partial=False):
+    def cancel_evaluation(self, job_id, reports_dir=None, discard_partial=False, wait_for_exit=False):
         return False
 
     def list_evaluations(self, *, limit=0, reports_dir=None, states=None):

@@ -808,6 +808,10 @@ button.term-sev-badge--clickable:focus-visible {
   font-family: var(--term-font-mono);
 }
 
+.vlive-detail--terminal .vlive-detail-reason--unavailable {
+  color: var(--color-text-muted);
+}
+
 /* ---------- Code block + "-- see code · N lines" affordance ---------- */
 .vlive-detail--terminal .scope-bar {
   font-family: var(--term-font-mono);

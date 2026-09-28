@@ -68,20 +68,13 @@ def is_private_address(hostname: str) -> bool:
 
 
 def is_loopback_address(hostname: str) -> bool:
-    """Return True if *hostname* is a loopback address (127.x.x.x or ::1) or 'localhost'."""
+    """Return True if *hostname* is a loopback address (127.x.x.x or ::1) or 'localhost'.
+
+    Resolves through :func:`resolve_addresses`, so it reads encoded IPv4
+    literals exactly as :func:`is_private_address` does. A name that does
+    not resolve is not loopback.
+    """
     if hostname in (LOCALHOST, LOCALHOST_LOCALDOMAIN):
         return True
-    try:
-        addr = ipaddress.ip_address(hostname)
-        return bool(addr.is_loopback)
-    except ValueError:
-        _logger.debug("Cannot parse %r as IP literal, falling through to DNS", hostname)
-    try:
-        for _fam, _typ, _pro, _can, sockaddr in socket.getaddrinfo(hostname, None):
-            addr = ipaddress.ip_address(sockaddr[0])
-            if not addr.is_loopback:
-                return False
-        return True
-    except (socket.gaierror, OSError) as exc:
-        _logger.warning("DNS resolution failed for %r - treating as non-loopback: %s", hostname, exc)
-        return False
+    addresses = resolve_addresses(hostname)
+    return bool(addresses) and all(ipaddress.ip_address(a).is_loopback for a in addresses)

@@ -8,13 +8,15 @@ remains here.
 The cancel path is SIGTERM first, then SIGKILL after a grace window if the
 process hasn't died. Tree kill is delegated to ``_kill_tree`` so subagent
 children get reaped alongside the parent on both POSIX (``killpg``) and
-Windows (``taskkill /T``). Returning True means the process is now gone;
-returning False means there was nothing to cancel or signal delivery failed.
+Windows (``taskkill /T``). By default only the SIGTERM is delivered on the
+caller's thread; the grace wait and SIGKILL escalation run on a daemon
+thread so a cancel request never holds an HTTP worker for the grace window.
 """
 from __future__ import annotations
 
 import logging
 import signal
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +32,7 @@ from quodeq.core.run.job_status import strip_external_prefix
 from quodeq.services._run_index_fs import (
     scan_reports_root_for_run, sync_external_run_by_scan,
 )
+from quodeq.shared.fault_isolation import run_isolated
 from quodeq.shared.process import is_pid_alive
 from quodeq.services.wiring import (
     is_safe_run_segment,
@@ -46,6 +49,17 @@ _SETTLE_WAIT_S = 1.0
 # SIGKILL on POSIX; Windows has no SIGKILL but _kill_tree treats any signal as
 # "taskkill /F /T" -- the fallback to SIGTERM keeps the call valid.
 _FORCE_KILL_SIGNAL = getattr(signal, "SIGKILL", signal.SIGTERM)
+_ESCALATION_THREAD_NAME = "cancel-escalation-"
+
+
+def _start_daemon(fn: Callable[[], None], name: str) -> None:
+    """Run *fn* on its own daemon thread.
+
+    Not the shared ``BackgroundRunner``: that pool may drop a task when its
+    queue is full, and a dropped escalation would leave a SIGTERM-ignoring
+    run alive. A cancel is rare and user-initiated, so one thread each is fine.
+    """
+    threading.Thread(target=fn, name=name, daemon=True).start()
 
 
 @dataclass(frozen=True)
@@ -54,6 +68,7 @@ class ProcessControl:
 
     kill_tree: Callable[[int, int], None] = _kill_tree
     pid_alive: Callable[[int], bool] = is_pid_alive
+    start_background: Callable[[Callable[[], None], str], None] = _start_daemon
 
 
 def _wait_for_exit(
@@ -87,6 +102,46 @@ def resolve_external_run_project(
     return candidate.parent.name if candidate is not None else None
 
 
+@dataclass(frozen=True)
+class ExitHandling:
+    """What ``cancel_external_run`` does once the process is gone.
+
+    *wait* runs the grace wait and SIGKILL escalation on the caller's thread
+    instead of in the background. *on_exit* runs after the process is
+    confirmed gone (on whichever thread escalated), never while it may still
+    be writing its own cancel-time reports; it is skipped if the process
+    survives SIGKILL.
+    """
+
+    wait: bool = False
+    on_exit: Callable[[], None] | None = None
+
+
+def _stop_then(control: ProcessControl, pid: int, grace: float, after: ExitHandling) -> bool:
+    """Escalate until *pid* is gone, then run ``after.on_exit``. True once it is gone."""
+    gone = _escalate(control, pid, grace)
+    if not gone:
+        _logger.warning("pid %s survived SIGKILL; skipping post-exit work", pid)
+    elif after.on_exit is not None:
+        after.on_exit()
+    return gone
+
+
+def _escalate(control: ProcessControl, pid: int, grace: float) -> bool:
+    """Wait *grace* for *pid* to honor SIGTERM, then SIGKILL it. True once it is gone."""
+    if _wait_for_exit(control, pid, grace):
+        return True
+    _logger.warning(
+        "SIGTERM grace window (%ss) expired for pid %s; escalating to SIGKILL",
+        grace, pid,
+    )
+    control.kill_tree(pid, _FORCE_KILL_SIGNAL)
+    # Brief wait so callers that immediately read status.json see a settled state.
+    if _wait_for_exit(control, pid, _SETTLE_WAIT_S):
+        return True
+    return not control.pid_alive(pid)
+
+
 def cancel_external_run(
     project_uuid: str,
     run_id: str,
@@ -94,6 +149,7 @@ def cancel_external_run(
     *,
     grace_period_s: float | None = None,
     control: ProcessControl | None = None,
+    after: ExitHandling | None = None,
 ) -> bool:
     """Stop an external run's process tree; escalate SIGTERM to SIGKILL after grace.
 
@@ -103,9 +159,13 @@ def cancel_external_run(
     (per-dim scoring on cancel, status.json finalize, cache flush) finishes;
     short enough that the user isn't left waiting on a hung run.
 
-    Returns True once the process is gone (either honored SIGTERM or was
-    killed). Returns False only when there was nothing to cancel or signal
-    delivery failed at the OS level.
+    By default SIGTERM is sent here and the grace wait, SIGKILL escalation
+    and ``after.on_exit`` run on ``control.start_background``, so the call
+    returns at once and True means "stop is under way". With ``after.wait``
+    all of that runs inline and True means the process is gone: a caller that
+    deletes the run's files next (discard) needs that guarantee. Returns
+    False only when there was nothing to cancel, or (``after.wait``) the
+    process survived SIGKILL.
     """
     grace = grace_period_s if grace_period_s is not None else cancel_grace_s()
     control = control or ProcessControl()
@@ -116,19 +176,16 @@ def cancel_external_run(
     if pid is None:
         return False
 
+    after = after or ExitHandling()
     control.kill_tree(pid, signal.SIGTERM)
-    if _wait_for_exit(control, pid, grace):
-        return True
-
-    _logger.warning(
-        "SIGTERM grace window (%ss) expired for pid %s; escalating to SIGKILL",
-        grace, pid,
+    if after.wait:
+        return _stop_then(control, pid, grace, after)
+    label = f"{_ESCALATION_THREAD_NAME}{pid}"
+    control.start_background(
+        lambda: run_isolated(lambda: _stop_then(control, pid, grace, after), label=label, log=_logger),
+        label,
     )
-    control.kill_tree(pid, _FORCE_KILL_SIGNAL)
-    # Brief wait so callers that immediately read status.json see a settled state.
-    if _wait_for_exit(control, pid, _SETTLE_WAIT_S):
-        return True
-    return not control.pid_alive(pid)
+    return True
 
 
 def sync_indexed_run(db: sqlite3.Connection, job_id: str) -> bool:

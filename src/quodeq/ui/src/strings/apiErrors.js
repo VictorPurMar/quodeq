@@ -49,6 +49,9 @@ const CODE_KEYS = {
   MISSING_API_KEY: 'apiError.missingApiKey',
   PROVIDER_UNAVAILABLE: 'apiError.providerUnavailable',
   MODEL_REQUIRED: 'apiError.modelRequired',
+  // POST /api/provider/key with no OS keyring and no plaintext opt-in; the
+  // envelope's envVar fills the copy's {envVar}.
+  KEYRING_UNAVAILABLE: 'apiError.keyringUnavailable',
 
   // Evaluation lifecycle.
   ALREADY_FINISHED: 'apiError.alreadyFinished',
@@ -109,6 +112,11 @@ export function apiErrorKey(code) {
   return Object.hasOwn(CODE_KEYS, normalized) ? CODE_KEYS[normalized] : null;
 }
 
+function envelopeVars(err) {
+  const body = err?.body;
+  return (body !== null && typeof body === 'object' && !Array.isArray(body)) ? body : undefined;
+}
+
 /**
  * Message to show for a failed API call.
  *
@@ -123,7 +131,9 @@ export function apiErrorKey(code) {
  */
 export function apiErrorMessage(err, fallbackKey) {
   const key = apiErrorKey(err?.code);
-  if (key) return t(key);
+  // The envelope's extra fields (err.body, see api/request.js) fill any
+  // {placeholder} in the mapped copy.
+  if (key) return t(key, envelopeVars(err));
   const message = err?.message;
   return (typeof message === 'string' && message !== '') ? message : t(fallbackKey);
 }

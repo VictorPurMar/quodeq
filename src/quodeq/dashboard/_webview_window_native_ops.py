@@ -25,12 +25,15 @@ from pathlib import Path
 
 import webview
 
+from quodeq.config.services_env import cancel_escalation_window_s
 from quodeq.shared.constants import LOCALHOST, PLATFORM_WIN32, SCHEME_HTTP, SCHEME_HTTPS
 
 _logger = logging.getLogger(__name__)
 
 _EVAL_CHECK_TIMEOUT_S = 0.5
-_CANCEL_TIMEOUT_S = 5.0
+# On top of the cancel escalation window: scoring the run's finished dims,
+# which the server does before it answers a ?wait=true cancel.
+_CANCEL_SCORING_HEADROOM_S = 30.0
 _DOWNLOAD_TIMEOUT_S = 120
 _LOOPBACK_IPV4 = "127.0.0.1"  # loopback address a reload URL may target
 _LOOPBACK_IPV6 = "::1"  # loopback address (IPv6) a reload URL may target
@@ -65,18 +68,24 @@ def send_cancel_evaluation(base_url: str, job_id: str | None) -> None:
     it explicitly to the dashboard base URL; without it the call 403s and
     silently no-ops. Best-effort: any failure is swallowed so a close is
     never blocked by a failed cancel, but logged so it's diagnosable.
+
+    ``wait=true`` because the API server is killed right after the window
+    closes: a cancel that returned early would lose the server's background
+    escalation and the scoring of the run's finished dims. ``intent=cancel``
+    so a run that finished meanwhile is never purged instead.
     """
     if not job_id or not base_url:
         return
     try:
         req = urllib.request.Request(
-            f"{base_url}/api/evaluations/{urllib.parse.quote(job_id)}",
+            f"{base_url}/api/evaluations/{urllib.parse.quote(job_id)}?intent=cancel&wait=true",
             method="DELETE",
             headers={"Origin": base_url},
         )
-        # Give the API time to SIGTERM the scan and respond; the 0.5s used
-        # for the eval-check poll is too tight here.
-        with urllib.request.urlopen(req, timeout=_CANCEL_TIMEOUT_S):
+        # The API answers once the run is gone: up to the SIGTERM grace, the
+        # SIGKILL settle, then the scoring.
+        timeout = cancel_escalation_window_s() + _CANCEL_SCORING_HEADROOM_S
+        with urllib.request.urlopen(req, timeout=timeout):
             pass
     except (OSError, http.client.HTTPException):
         _logger.warning("cancel-on-quit for job %s failed", job_id, exc_info=True)
