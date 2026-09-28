@@ -1,6 +1,7 @@
 """Priority configuration loading and shared constants."""
 from __future__ import annotations
 
+import copy
 import json
 import logging
 from dataclasses import dataclass
@@ -86,11 +87,11 @@ def load_priority_config() -> dict:
         loaded = json.loads(config_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, PermissionError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         _logger.warning("Failed to load file_priority.json, using defaults: %s", exc)
-        return dict(_DEFAULT_PRIORITY_CONFIG)
+        return copy.deepcopy(_DEFAULT_PRIORITY_CONFIG)
     if not isinstance(loaded, dict):
         _logger.warning("file_priority.json is not a JSON object, using defaults")
-        return dict(_DEFAULT_PRIORITY_CONFIG)
-    return {**_DEFAULT_PRIORITY_CONFIG, **loaded}
+        return copy.deepcopy(_DEFAULT_PRIORITY_CONFIG)
+    return {**copy.deepcopy(_DEFAULT_PRIORITY_CONFIG), **loaded}
 
 
 def reset_priority_config_cache() -> None:

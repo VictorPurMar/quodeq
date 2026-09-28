@@ -165,7 +165,7 @@ def test_read_and_scrollback_wait_while_a_respawn_holds_the_ring():
         thread.join(budget(5))
         assert not thread.is_alive()
     assert errors == []
-    assert m.scrollback() in ("", "whole chunk")
+    assert m.scrollback() == ""
 
 
 def test_a_read_that_returns_after_a_respawn_is_dropped():

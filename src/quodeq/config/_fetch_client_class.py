@@ -3,6 +3,8 @@
 QUODEQ_CIRCUIT_THRESHOLD consecutive failures open the circuit; after
 QUODEQ_CIRCUIT_RESET_S seconds one probe request goes out, and its success
 closes the circuit while its failure opens it for another cooldown.
+QUODEQ_CIRCUIT_RESET_S=0 means the circuit never blocks: every call after the
+threshold is a probe.
 """
 from __future__ import annotations
 

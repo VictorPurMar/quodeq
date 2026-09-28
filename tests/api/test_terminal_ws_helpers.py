@@ -7,6 +7,7 @@ by tests/api/test_terminal_routes.py.
 """
 from __future__ import annotations
 
+import logging
 import threading
 from unittest.mock import patch
 
@@ -139,3 +140,39 @@ class TestPumpTerminalOut:
         with pytest.raises(RuntimeError):
             ws_helpers.pump_terminal_out(_OneShotManager(), _WeirdWs(), stop)
         assert stop.is_set()
+
+
+class _ReceiveRaisesWs:
+    def __init__(self, exc):
+        self._exc = exc
+
+    def receive(self, timeout=None):
+        raise self._exc
+
+
+def _unused_apply_control(manager, payload):
+    raise AssertionError("no control frame is sent")
+
+
+class TestTerminalReadLoop:
+    """A client disconnect is the normal end of a session: it stops the loop
+    without a warning. Any other failure still warns with the traceback."""
+
+    def test_client_disconnect_stops_the_loop_without_a_warning(self, caplog):
+        stop = threading.Event()
+        with caplog.at_level(logging.DEBUG, logger=ws_helpers.__name__):
+            ws_helpers.terminal_read_loop(
+                _ReceiveRaisesWs(ConnectionClosed()), _OkManager(), stop, _unused_apply_control
+            )
+        assert stop.is_set()
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+    def test_os_error_still_warns_with_the_traceback(self, caplog):
+        stop = threading.Event()
+        with caplog.at_level(logging.DEBUG, logger=ws_helpers.__name__):
+            ws_helpers.terminal_read_loop(
+                _ReceiveRaisesWs(OSError("pty gone")), _OkManager(), stop, _unused_apply_control
+            )
+        assert stop.is_set()
+        warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert len(warnings) == 1 and warnings[0].exc_info is not None

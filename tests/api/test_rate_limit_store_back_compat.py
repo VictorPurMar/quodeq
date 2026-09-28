@@ -84,3 +84,17 @@ def test_file_store_load_drops_malformed_per_ip_values(tmp_path, monkeypatch):
     assert store.check_and_record("b", now=3.0) is True
     assert store.check_and_record("c", now=3.0) is False
     assert store.check_and_record("c", now=3.0) is True
+
+
+def test_file_store_tolerates_a_state_file_that_is_not_utf8(tmp_path):
+    """A state file holding bytes that are not UTF-8 reads as empty state
+    instead of raising on every request."""
+    from quodeq.api.app import create_rate_limit_store
+
+    path = tmp_path / "rl.json"
+    path.write_bytes(b"\xff")
+    store = create_rate_limit_store(
+        env={"QUODEQ_RATE_LIMIT_BACKEND": "file", "QUODEQ_RATE_LIMIT_FILE": str(path)},
+    )
+
+    assert store.check_and_record("a", now=1.0) is False

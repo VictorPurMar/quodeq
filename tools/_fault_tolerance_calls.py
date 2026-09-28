@@ -32,6 +32,14 @@ Known evasions, documented rather than closed:
   - `builtins.int(...)` (an attribute call) is not matched
   - `int` rebound to another name (`to_int = int` then `to_int(v)`)
   - an exception type reached through a name alias (`E = OverflowError`)
+  - `int()` in a decorator or a default-argument expression of a function
+    defined inside a flagged `try` runs in the enclosing try but is not
+    flagged (the guard resets at the function node)
+  - `mkstemp-before-try` needs the `try` to be the very next statement, so a
+    statement in between (e.g. `config/ai_provider.py`, which re-raises) is
+    not flagged
+  - alias spellings (`from tempfile import mkstemp as mk`,
+    `import tempfile as tf`) are not matched
 """
 from __future__ import annotations
 

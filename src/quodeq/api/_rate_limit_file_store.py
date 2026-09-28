@@ -84,7 +84,7 @@ class FileRateLimitStore:
     def _load(self) -> dict[str, list[float]]:
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
+        except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, OSError):
             return {}
         # The state file is plain user-writable JSON; a valid non-object value
         # (array, scalar) would crash record()/check() at data.get(...), and a

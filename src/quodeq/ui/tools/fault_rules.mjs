@@ -6,6 +6,10 @@
 // are tuned to catch the shapes the audit actually found, and anything they
 // over-report is grandfathered per-file in tools/fault_baseline.json, same
 // contract as the other gates. Counted by tools/check_fault.mjs.
+//
+// Known evasions, not matched: `const s = window.localStorage`,
+// `let s; s = localStorage`, `.catch(noop)` (a named handler) and
+// `.then(ok, () => {})`.
 
 // --- swallowed-catch ---------------------------------------------------
 
