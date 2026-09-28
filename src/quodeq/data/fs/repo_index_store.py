@@ -35,11 +35,12 @@ def write_repo_index(path: Path, data: dict[str, str], *, log: LogSink = NULL_LO
     logged as a debug message via *log* rather than raised, so the original
     write failure is always what propagates.
     """
-    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    tmp_path: str | None = None
     try:
+        fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
         dump_json_and_replace(fd, tmp_path, path, data, indent=2)
     except OSError:
-        if os.path.exists(tmp_path):
+        if tmp_path is not None and os.path.exists(tmp_path):
             try:
                 os.unlink(tmp_path)
             except OSError as inner_exc:

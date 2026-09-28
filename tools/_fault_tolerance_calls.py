@@ -20,6 +20,13 @@ Kinds:
     lambda starts a fresh scope: its body does not run inside the
     enclosing `try`. A handler that re-raises still counts as catching.
     Keyed at the call's line.
+  - mkstemp-before-try: an assignment (`=` or annotated) whose value is a
+    call to `tempfile.mkstemp` or bare `mkstemp`, where the next statement
+    in the same body is a `try` with a handler naming `OSError`, `IOError`,
+    `Exception` or `BaseException` (directly or in a tuple), or a bare
+    `except:`. That handler was written for the temp-file write, and the
+    creation raises the same class outside it. Move the `mkstemp` call to
+    the first statement of the `try`. Keyed at the `mkstemp` line.
 
 Known evasions, documented rather than closed:
   - `builtins.int(...)` (an attribute call) is not matched
@@ -37,6 +44,9 @@ _NON_STR_PARSE = {"ValueError", "TypeError"}
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _TRY_NODES = (ast.Try, ast.TryStar)
 _BARE_EXCEPT = "BaseException"
+_MKSTEMP_BEFORE_TRY = "mkstemp-before-try"
+_MKSTEMP = "mkstemp"
+_OSERROR_CATCHERS = {"OSError", "IOError"} | _CATCH_ALL
 
 
 def _type_names(type_node: ast.expr | None) -> set[str]:
@@ -80,8 +90,38 @@ def _visit(node: ast.AST, guard: ast.AST | None, rel: str, found: list[tuple[str
             _visit(child, inner, rel, found)
 
 
+def _is_mkstemp_assign(stmt: ast.AST) -> bool:
+    """True for `x = mkstemp(...)`/`x: T = tempfile.mkstemp(...)`."""
+    if not isinstance(stmt, (ast.Assign, ast.AnnAssign)) or not isinstance(stmt.value, ast.Call):
+        return False
+    func = stmt.value.func
+    if isinstance(func, ast.Name):
+        return func.id == _MKSTEMP
+    return (isinstance(func, ast.Attribute) and func.attr == _MKSTEMP
+            and isinstance(func.value, ast.Name) and func.value.id == "tempfile")
+
+
+def _catches_oserror(stmt: ast.AST) -> bool:
+    """True when *stmt* is a try with a handler that catches OSError."""
+    if not isinstance(stmt, _TRY_NODES):
+        return False
+    return any(_type_names(h.type) & _OSERROR_CATCHERS for h in stmt.handlers)
+
+
+def _scan_mkstemp(tree: ast.AST, rel: str, found: list[tuple[str, int, str]]) -> None:
+    """Flag each mkstemp assignment directly followed by an OSError-catching try."""
+    for node in ast.walk(tree):
+        for _field, stmts in ast.iter_fields(node):
+            if not isinstance(stmts, list):
+                continue
+            for stmt, nxt in zip(stmts, stmts[1:]):
+                if _is_mkstemp_assign(stmt) and _catches_oserror(nxt):
+                    found.append((rel, stmt.lineno, _MKSTEMP_BEFORE_TRY))
+
+
 def scan_calls(tree: ast.AST, rel: str) -> list[tuple[str, int, str]]:
     """Return (relpath, lineno, kind) call-site violations in one parsed module."""
     found: list[tuple[str, int, str]] = []
     _visit(tree, None, rel, found)
+    _scan_mkstemp(tree, rel, found)
     return found

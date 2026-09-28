@@ -24,10 +24,11 @@ def persist_json(data: dict, path: Path) -> None:
     write: serialize to a same-directory temp file and publish via rename.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(
-        dir=str(path.parent), suffix=".tmp", prefix=f".{path.name}.",
-    )
+    tmp_path: str | None = None
     try:
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(path.parent), suffix=".tmp", prefix=f".{path.name}.",
+        )
         dump_json_and_replace(fd, tmp_path, path, data, indent=2)
         tmp_path = None
     except OSError as exc:

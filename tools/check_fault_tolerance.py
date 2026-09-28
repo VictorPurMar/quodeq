@@ -33,8 +33,12 @@ JS/TS are out of scope for this ratchet, see the cycle 1 design doc) with
     src/quodeq/shared/fault_isolation.py) that is not at an entry point: a
     loop-body statement, a function's only statement, or the body of a
     lambda passed to another call. Zero-tolerance, no baseline entries.
-  - int-overflow: `int(...)` inside a `try` that catches ValueError but not
-    OverflowError (rules in tools/_fault_tolerance_calls.py).
+  - int-overflow: `int(...)` inside a `try` that catches both ValueError
+    and TypeError but not OverflowError (rules in
+    tools/_fault_tolerance_calls.py).
+  - mkstemp-before-try: a `mkstemp` assignment directly followed by a
+    `try` whose handlers catch OSError (rules in
+    tools/_fault_tolerance_calls.py).
 
 `broad-except` re-raise detection is a reachability-aware scan of the
 handler's TOP LEVEL: a `raise` after a `return` does not count, and a `raise`

@@ -130,9 +130,19 @@ class FileJobStore(InMemoryJobStore):
         self._write_data(job.job_id, job_data)
 
     def delete(self, job_id: str) -> None:
+        """Drop *job_id* from memory and remove its file, best-effort.
+
+        A file that cannot be unlinked (EACCES, EBUSY on Windows) is logged
+        and left on disk: the job is gone for this process, but the next
+        start's ``_load_all`` reads it back, and ``_cleanup_stale`` removes
+        it once it ended more than 24 hours ago.
+        """
         with self._lock:
             self._jobs.pop(job_id, None)
-            self._job_path(job_id).unlink(missing_ok=True)
+            try:
+                self._job_path(job_id).unlink(missing_ok=True)
+            except OSError:
+                logger.warning("job file for %s not removed", job_id, exc_info=True)
 
     # -- persistence helpers -------------------------------------------------
 
