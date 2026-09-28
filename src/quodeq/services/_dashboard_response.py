@@ -26,11 +26,13 @@ class DimensionAnnotations:
     ``exit_reason`` is the run-level ``status.json`` exit reason (also reported
     on ``selectedRun``); the two count maps are keyed by dimension name and
     explain how many scan findings the dismissed filter alone, and dismissals
-    plus deletions together, hid from the response.
+    plus deletions together, hid from the response. ``view`` is the payload
+    shape asked for: the overview drops each dimension's bodies.
     """
     exit_reason: str | None = None
     dismissed_counts: dict[str, int] = field(default_factory=dict)
     suppressed_counts: dict[str, int] = field(default_factory=dict)
+    view: DashboardView = DashboardView.FULL
 
 
 def attach_exit_reason_to_dim(
@@ -101,7 +103,6 @@ def build_dashboard_result(
     payload: DashboardPayload,
     annotations: DimensionAnnotations,
     run_metadata: dict[str, Any] | None = None,
-    view: DashboardView = DashboardView.FULL,
 ) -> dict[str, Any]:
     """Assemble the final dashboard response dict from pre-computed parts.
 
@@ -117,7 +118,7 @@ def build_dashboard_result(
         )
         for d in payload.dimensions_with_trend
     ]
-    if view is DashboardView.OVERVIEW:
+    if annotations.view is DashboardView.OVERVIEW:
         # Absent, not empty: the client tells "no bodies shipped" from "no
         # findings" by the key (to_camel_dict keeps empty lists).
         for d in dim_dicts:

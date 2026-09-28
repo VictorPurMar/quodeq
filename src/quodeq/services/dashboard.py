@@ -30,7 +30,7 @@ from quodeq.services.wiring import (
     load_suppression_rules,
     read_run_data,
 )
-from quodeq.services._dashboard_overview import resolve_overview_dims
+from quodeq.services.dashboard_overview import resolve_overview_dims
 from quodeq.services.rescore import rescore_dimension
 from quodeq.services.run_metadata import read_run_metadata
 from quodeq.services.suppression_keys import SuppressionKeys
@@ -250,6 +250,7 @@ def _select_run(
         exit_reason=read_run_exit_reason(reports_root, project, selected_run.run_id),
         dismissed_counts=dismissed_counts,
         suppressed_counts=suppressed_counts,
+        view=view,
     )
     return ctx, annotations
 
@@ -287,7 +288,7 @@ def build_dashboard(
     ctx, annotations = _select_run(reports_root, project, runs, run, params, view)
     payload = compute_dashboard_payload(reports_root, project, ctx, cc, params)
     metadata = read_run_metadata(reports_root / project / ctx.run.run_id)
-    return build_dashboard_result(project, runs, ctx.run, payload, annotations, run_metadata=metadata, view=view)
+    return build_dashboard_result(project, runs, ctx.run, payload, annotations, run_metadata=metadata)
 
 
 __all__ = [

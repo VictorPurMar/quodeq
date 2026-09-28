@@ -10,7 +10,7 @@ import pytest
 
 import quodeq.services.dashboard as dashboard_mod
 from quodeq.core.types.dashboard_view import DashboardView
-from quodeq.services import _dashboard_overview
+from quodeq.services import dashboard_overview
 from quodeq.services.dashboard import build_dashboard
 from quodeq.services.dismissed import dismiss_finding
 from quodeq.shared.stamp_memo import StampCache
@@ -44,7 +44,7 @@ def _write_run(reports: Path, project: str = "proj", run_id: str = RUN) -> Path:
 
 @pytest.fixture(autouse=True)
 def _fresh_memo():
-    with patch.object(_dashboard_overview, "_CACHE", StampCache()):
+    with patch.object(dashboard_overview, "_CACHE", StampCache()):
         yield
 
 
