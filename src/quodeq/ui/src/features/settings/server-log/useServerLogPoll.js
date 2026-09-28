@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BASE } from '../../../api/request.js';
+import { getServerLogs } from '../../../api/serverLog.js';
 import { EMPTY_LOG_BUFFER, LOG_BUFFER_MAX_LINES, appendLines, clearLines } from '../../../utils/logBuffer.js';
 
 const POLL_MS = 2000;
@@ -38,18 +38,19 @@ export function useServerLogPoll(active) {
   useQuery({
     queryKey: ['system', 'serverLog'],
     enabled: !!active,
-    queryFn: async () => {
-      const since = sinceRef.current;
-      const url = `${BASE}/logs` + (since >= 0 ? `?since=${since}` : '');
-      const r = await fetch(url, { signal: AbortSignal.timeout(SERVER_LOG_FETCH_TIMEOUT_MS) });
-      if (!r.ok) {
-        // Distinct from the fetch()-throw path swallowed below: an HTTP
-        // error status resolves normally, so it needs its own trace or it
-        // is indistinguishable from "no new log lines."
-        console.warn(`Server log poll failed: HTTP ${r.status}`);
+    // TanStack's signal aborts the in-flight poll on unmount or disable.
+    queryFn: async ({ signal }) => {
+      let data;
+      try {
+        data = await getServerLogs(sinceRef.current, { signal, timeout: SERVER_LOG_FETCH_TIMEOUT_MS });
+      } catch (err) {
+        // An HTTP error status carries err.status. It needs its own trace or
+        // it is indistinguishable from "no new log lines." A network failure
+        // or timeout has no status and fails the query (retried next tick).
+        if (err?.status === undefined) throw err;
+        console.warn(`Server log poll failed: HTTP ${err.status}`);
         return null;
       }
-      const data = await r.json();
       if (!data || !data.lines) return null;
       if (data.lines.length) {
         const formatted = data.lines.map(format);

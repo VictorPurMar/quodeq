@@ -155,16 +155,25 @@ describe('useServerLogPoll', () => {
     expect(screen.getByTestId('logs')).toBeEmptyDOMElement();
   });
 
-  it('gives each poll a 6s deadline; a timed-out fetch fails the query without a retry', async () => {
-    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
-      .mockImplementation(() => AbortSignal.abort(new DOMException('timed out', 'TimeoutError')));
-    // A fetch that only settles when its signal fires: without a signal it
-    // stays pending forever.
+  // A fetch that only settles when its signal fires: without a signal it
+  // stays pending forever.
+  function mockFetchUntilAborted() {
     globalThis.fetch.mockImplementation((url, init) => new Promise((_resolve, reject) => {
       const signal = init?.signal;
       if (signal?.aborted) reject(signal.reason);
       else signal?.addEventListener('abort', () => reject(signal.reason));
     }));
+  }
+
+  it('gives each poll a 6s deadline; a timed-out fetch fails the query without a retry', async () => {
+    const POLL_DEADLINE_MS = 6000;
+    const realSetTimeout = globalThis.setTimeout;
+    // Fire the request() deadline immediately; leave every other timer alone.
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn, ms, ...args) => {
+      if (ms === POLL_DEADLINE_MS) { fn(...args); return 0; }
+      return realSetTimeout(fn, ms, ...args);
+    });
+    mockFetchUntilAborted();
     const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0, staleTime: 0 } } });
     render(
       <QueryClientProvider client={client}>
@@ -174,10 +183,20 @@ describe('useServerLogPoll', () => {
     await waitFor(() => {
       expect(client.getQueryState(['system', 'serverLog'])?.status).toBe('error');
     });
-    expect(timeoutSpy).toHaveBeenCalledWith(6000);
+    expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), POLL_DEADLINE_MS);
     // retry: false: the rejection is final until the next 2s interval.
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('logs')).toBeEmptyDOMElement();
+  });
+
+  it('aborts the in-flight poll on unmount', async () => {
+    mockFetchUntilAborted();
+    const { unmount } = renderProbe(true);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
+    const { signal } = globalThis.fetch.mock.calls[0][1];
+    expect(signal.aborted).toBe(false);
+    unmount();
+    await waitFor(() => expect(signal.aborted).toBe(true));
   });
 
   it('logs an HTTP-status failure distinctly from "no new lines", without throwing', async () => {
@@ -185,7 +204,7 @@ describe('useServerLogPoll', () => {
     // fetch() exception), so it was silently indistinguishable from a
     // successful empty poll. It needs its own trace.
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    globalThis.fetch.mockResolvedValue({ ok: false, status: 503 });
+    globalThis.fetch.mockResolvedValue({ ok: false, status: 503, json: () => Promise.resolve({}) });
     renderProbe(true);
 
     await waitFor(() => {
