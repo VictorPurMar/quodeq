@@ -17,34 +17,35 @@ import { JOB_STATUS } from "../../../vocab/jobStatus.js";
 const JOB_POLL_MS = 1500;
 
 // Under SSE the cache is filled by useRunEventStream; this queryFn is a
-// no-op. Under polling, fetch each dimension's eval and flatten violations.
+// no-op. Under polling, fetch every dimension's slim rows in one request
+// and flatten them. One request instead of one per dimension: the
+// per-dimension eval carries the whole report (principles, compliance,
+// snippets) and on a 7-dimension run the poll held every browser
+// connection and most of the API process for the whole 2 s tick.
 async function fetchFindings(api, job) {
   if (SSE_ENABLED) return [];
   if (!job?.outputProject || !job?.outputRunId || !job?.dimensions?.length) {
     return [];
   }
-  const results = await Promise.all(
-    job.dimensions.map((d) =>
-      api.getDimensionEval(job.outputProject, job.outputRunId, d)
-        // Canonical fields merged ONTO the raw row, not substituted for it.
-        // The backend calls a finding's principle `practiceId` while every
-        // component reads `principle`, so the raw spread left the feed's rule
-        // column blank and collapsed the row key to
-        // `${dim}-${file}-undefined-${line}`. Merging rather than replacing
-        // keeps wire-only fields the model does not model (confidence, and
-        // the SSE frame's id/verdict) available to other readers.
-        .then((data) => (data?.violations || []).map(
-          (v) => ({ ...v, ...createViolation(v), dimension: d }),
-        ))
-        // Tolerate not-yet-written dimension evals during live polling,
-        // but leave a diagnostic so a real fetch failure is visible.
-        .catch((err) => {
-          console.warn(`Failed to fetch ${d} evaluation:`, err);
-          return [];
-        }),
-    ),
+  let body;
+  try {
+    body = await api.getLiveFindings(job.outputProject, job.outputRunId, job.dimensions);
+  } catch (err) {
+    // Tolerate a run whose files are not there yet during live polling,
+    // but leave a diagnostic so a real fetch failure is visible.
+    console.warn("Failed to fetch live findings:", err);
+    return [];
+  }
+  return Object.entries(body?.dimensions || {}).flatMap(([d, entry]) =>
+    // Canonical fields merged ONTO the raw row, not substituted for it.
+    // The backend calls a finding's principle `practiceId` while every
+    // component reads `principle`, so the raw spread left the feed's rule
+    // column blank and collapsed the row key to
+    // `${dim}-${file}-undefined-${line}`. Merging rather than replacing
+    // keeps wire-only fields the model does not model (confidence, and
+    // the SSE frame's id/verdict) available to other readers.
+    (entry?.violations || []).map((v) => ({ ...v, ...createViolation(v), dimension: d })),
   );
-  return results.flat();
 }
 
 // One final fetch on the running->terminal edge: the last dimension's

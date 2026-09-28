@@ -20,7 +20,7 @@ const fakeApi = {
   getEvaluation: vi.fn(),
   startEvaluation: vi.fn(),
   cancelEvaluation: vi.fn(),
-  getDimensionEval: vi.fn(),
+  getLiveFindings: vi.fn().mockResolvedValue({ dimensions: {} }),
   listEvaluations: vi.fn().mockResolvedValue([]),
 };
 
