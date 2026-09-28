@@ -850,11 +850,11 @@ tests/services/test_accumulated_scoring.py:28:private-module:quodeq.services._ac
 tests/services/test_accumulated_scoring.py:40:private-module:quodeq.services._accumulated_data.read_all_run_data
 tests/services/test_accumulated_show_all.py:17:private-name:quodeq.services.accumulated._build_accumulated_for_runs
 tests/services/test_action_provider_fs_dashboard.py:10:private-module:quodeq.services._dashboard_stale.collect_stale_dimensions
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._cache_lookup
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._cache_store
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._fetch_and_store
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._fetch_dimensions_from_disk
-tests/services/test_cache.py:10:private-name:quodeq.services.cache._wait_for_inflight
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._cache_lookup
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._cache_store
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._fetch_and_store
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._fetch_dimensions_from_disk
+tests/services/test_cache.py:12:private-name:quodeq.services.cache._wait_for_inflight
 tests/services/test_cancel_discard_purge_state.py:18:private-module:quodeq.services._external_jobs.ProcessControl
 tests/services/test_cancel_evaluation_orphan.py:18:private-module:quodeq.services._external_jobs.ProcessControl
 tests/services/test_carried_forward_read_paths.py:10:private-module:quodeq.data.fs.report_parser._report_parsing.build_finding

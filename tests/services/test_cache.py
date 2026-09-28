@@ -5,7 +5,9 @@ from __future__ import annotations
 import threading
 from collections import OrderedDict
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import pytest
 
 from quodeq.services.cache import (
     DimensionCacheContext,
@@ -202,6 +204,16 @@ class TestMakeLruDimensionFetcher:
         assert results[1] is not None
         # Only one disk read should have occurred
         assert call_count["n"] == 1
+
+    def test_reader_exception_releases_inflight_entry(self, tmp_path):
+        ctx = _make_ctx()
+        ctx.reader = Mock(side_effect=RuntimeError("boom"))
+        fetcher = make_lru_dimension_fetcher(tmp_path, "proj", ctx)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            fetcher("run1")
+
+        assert ctx.inflight == {}, "a failed read must not leave later callers waiting on its event"
 
 
 # ---------------------------------------------------------------------------

@@ -141,14 +141,20 @@ def _fetch_and_store(
     key: tuple, reports_root: Path, project: str, run_id: str,
     ctx: DimensionCacheContext,
 ) -> list[DimensionResult]:
-    """Perform the disk fetch, store in cache, and notify waiters."""
-    data = _fetch_dimensions_from_disk(reports_root, project, run_id, ctx.get_reader())
-    if data:
-        _cache_store(key, data, ctx)
-    with ctx.lock:
-        notify_event = ctx.inflight.pop(key, None)
-    if notify_event is not None:
-        notify_event.set()
+    """Perform the disk fetch, store in cache, and notify waiters.
+
+    The inflight entry is released and its waiters woken even when the
+    reader raises; the exception still reaches the caller.
+    """
+    try:
+        data = _fetch_dimensions_from_disk(reports_root, project, run_id, ctx.get_reader())
+        if data:
+            _cache_store(key, data, ctx)
+    finally:
+        with ctx.lock:
+            notify_event = ctx.inflight.pop(key, None)
+        if notify_event is not None:
+            notify_event.set()
     return data
 
 

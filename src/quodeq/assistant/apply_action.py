@@ -81,6 +81,9 @@ def apply_drafted_action(
     except ActionConflict as exc:
         repo.set_action_status(action_id, ActionStatus.DRAFTED)
         return ApplyOutcome(ActionOutcomeKind.CONFLICT, detail=str(exc))
+    except Exception:
+        repo.set_action_status(action_id, ActionStatus.DRAFTED)
+        raise
     return ApplyOutcome(ActionOutcomeKind.APPLIED, result=result)
 
 
