@@ -26,6 +26,7 @@ from quodeq.core.run.state import (  # noqa: F401 — re-exported API
     UnsupportedSchemaError,
     validate_transition,
 )
+from quodeq.data.fs.run_artifacts import replace_json_file
 from quodeq.shared.clock import ISO_SECONDS, utc_now_iso
 
 _logger = logging.getLogger(__name__)
@@ -76,17 +77,15 @@ def _build_status_payload(status: RunStatus) -> dict[str, Any]:
 def write_status(run_dir: Path, status: RunStatus) -> None:
     """Atomically write status.json for *status*.
 
-    Uses write-tmp-then-rename so readers never see a partial file.
+    Writes a unique temp file and renames it over status.json, so readers
+    never see a partial file.
     Caller is responsible for calling ``validate_transition`` first if a
     transition is being performed.
     """
     payload = _build_status_payload(status)
-    body = json.dumps(payload, indent=2)
-    tmp_path = run_dir / (STATUS_FILENAME + ".tmp")
     final_path = run_dir / STATUS_FILENAME
     with _write_lock:
-        tmp_path.write_text(body, encoding="utf-8")
-        tmp_path.replace(final_path)
+        replace_json_file(final_path, payload, indent=2)
 
 
 def read_status(run_dir: Path) -> dict[str, Any] | None:
