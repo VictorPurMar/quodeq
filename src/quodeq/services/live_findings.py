@@ -18,6 +18,8 @@ Evaluate screen polls one run at a time.
 """
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
@@ -27,7 +29,10 @@ from quodeq.core.types import EvalPending
 from quodeq.services import fs_reports
 from quodeq.services.wiring import ACTIONS_LOG_FILENAME, DELETED_FILENAME, dimension_evidence_file
 from quodeq.shared.constants import EVIDENCE_DIRNAME
+from quodeq.shared.log_throttle import LogThrottle
 from quodeq.shared.stamp_memo import StampCache, file_stamp
+
+_logger = logging.getLogger(__name__)
 
 
 class LiveFindingState(StrEnum):
@@ -47,6 +52,11 @@ MEMO_MAX_ENTRIES = 16
 
 #: Process-wide memo; tests patch this with a fresh ``StampCache``.
 _CACHE = StampCache(max_entries=MEMO_MAX_ENTRIES)
+
+#: The feed polls every 2 s per dimension, so a persistent read failure is
+#: logged at most once per interval.
+_UNREADABLE_LOG_INTERVAL_S = 60.0
+_unreadable_log_throttle = LogThrottle(_UNREADABLE_LOG_INTERVAL_S)
 
 
 def _entry(state: LiveFindingState, rows: list[Any]) -> dict[str, Any]:
@@ -80,7 +90,9 @@ def _resolve(
             reports_dir, project, run_id, dimension,
             compiled_dir=compiled_dir, evaluators_dir=evaluators_dir,
         )
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        if _unreadable_log_throttle.should_emit(time.monotonic()):
+            _logger.warning("live findings unreadable for run %s dimension %s: %r", run_id, dimension, exc)
         return _entry(LiveFindingState.ERROR, [])
     if payload is None:
         return _entry(LiveFindingState.MISSING, [])

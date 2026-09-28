@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from unittest.mock import patch
@@ -146,3 +147,20 @@ def test_waiting_is_not_memoized(tmp_path: Path) -> None:
         get_live_findings(str(tmp_path), "proj", "run1", ["security"])
         get_live_findings(str(tmp_path), "proj", "run1", ["security"])
     assert spy.call_count == 2
+
+
+def test_a_read_failure_is_logged_once_per_interval(tmp_path: Path, monkeypatch, caplog) -> None:
+    from quodeq.shared.log_throttle import LogThrottle
+
+    (tmp_path / "proj" / "run1").mkdir(parents=True)
+    monkeypatch.setattr(live_findings, "_unreadable_log_throttle", LogThrottle(60.0), raising=False)
+    with patch.object(live_findings.fs_reports, "get_dimension_eval", side_effect=ValueError("bad json")), \
+            caplog.at_level(logging.WARNING):
+        for _ in range(2):
+            body = get_live_findings(str(tmp_path), "proj", "run1", ["security"])
+            assert body is not None
+            assert body["dimensions"]["security"] == {"state": LiveFindingState.ERROR, "violations": []}
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "run1" in warnings[0].getMessage() and "security" in warnings[0].getMessage()
+    assert "bad json" in warnings[0].getMessage()

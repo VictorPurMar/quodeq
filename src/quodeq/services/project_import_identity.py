@@ -91,15 +91,20 @@ def find_identity_collision(
     return _walk_for_collision(reports_root, identity, ignore_uuid, log=log)
 
 
-def rewrite_repository_info(project_dir: Path, new_uuid: str, *, log: LogSink = NULL_LOG) -> None:
-    """Update the imported project's repository_info.json with its new UUID."""
+def rewrite_repository_info(project_dir: Path, new_uuid: str, *, log: LogSink = NULL_LOG) -> bool:
+    """Update the imported project's repository_info.json with its new UUID.
+
+    False (after a warning) when the file cannot be read or written.
+    """
     data = read_repository_info(project_dir)
     if data is None:
         log.warning(f"import: could not read repository_info.json for {project_dir}")
-        return
+        return False
     data["uuid"] = new_uuid
     if not write_repository_info(project_dir, data):
         log.warning(f"import: could not rewrite repository_info.json for {project_dir}")
+        return False
+    return True
 
 
 def update_index(

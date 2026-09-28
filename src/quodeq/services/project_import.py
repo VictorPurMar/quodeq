@@ -132,8 +132,14 @@ class _ImportTarget:
 def _stage_and_commit(
     zf: zipfile.ZipFile, members: dict[str, zipfile.ZipInfo], target: _ImportTarget, log: LogSink,
 ) -> None:
-    """Extract into a staging dir, atomically rename into place, then update
-    the repository_info.json UUID (if renamed) and the project index."""
+    """Extract into a staging dir, set the target UUID in the staged
+    repository_info.json, atomically rename into place, then update the
+    project index.
+
+    The rename is the commit point: a failure before it leaves no project
+    directory and removes the staging dir; after it the project is complete
+    and only the best-effort index update remains.
+    """
     staging = Path(tempfile.mkdtemp(prefix="quodeq_import_", dir=str(target.reports_root)))
     keep_staging = False  # set when the staging dir holds the only copy of the old project
     try:
@@ -141,6 +147,10 @@ def _stage_and_commit(
         staged_project = staging / target.top_dir
         if not staged_project.is_dir():
             raise bad_request("Archive missing top-level project directory.", "BAD_LAYOUT")
+        if target.target_uuid != target.top_dir and not rewrite_repository_info(
+            staged_project, target.target_uuid, log=log,
+        ):
+            raise OSError(f"could not set uuid {target.target_uuid} in the staged {REPO_INFO_FILENAME}")
         final_path = target.reports_root / target.target_uuid
         if target.replace_existing and final_path.exists():
             swap_into_place(staged_project, final_path, staging, log=log)
@@ -154,9 +164,6 @@ def _stage_and_commit(
     finally:
         if not keep_staging:
             shutil.rmtree(staging, ignore_errors=True)
-
-    if target.target_uuid != target.top_dir:
-        rewrite_repository_info(final_path, target.target_uuid, log=log)
 
     update_index(target.reports_root, target.identity, target.target_uuid, log=log)
 
