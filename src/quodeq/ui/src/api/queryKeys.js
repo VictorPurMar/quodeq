@@ -19,6 +19,7 @@
  * pass the caller's source explicitly if it should also match shared entries.
  */
 import { DEFAULT_PROJECT_SOURCE } from '../vocab/projectSource.js';
+import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { LATEST_RUN_ID } from '../constants.js';
 
 // Stand-in job/run id for queries kept mounted with `enabled: false`:
@@ -62,7 +63,10 @@ export const projectKeys = {
     projectId, DEFAULT_PROJECT_SOURCE, "complianceDetail", asOf || LATEST_RUN_ID, dimension, generation,
     scope.principle ?? null, scope.pathPrefix ?? null,
   ),
-  dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID),
+  // The trailing view keeps the overview (no bodies) and full shapes apart;
+  // a key without it is a prefix of both, so prefix invalidations reach both.
+  dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE, view = DASHBOARD_VIEW.FULL) =>
+    projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID, view),
   runs: (projectId, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "runs"),
   // The help page's worked example. Inside the project subtree so dismiss and
   // formula invalidations reach it like every other per-run read.

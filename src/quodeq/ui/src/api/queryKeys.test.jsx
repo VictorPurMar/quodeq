@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { evaluationKeys, projectKeys, systemKeys, standardsKeys, settingsKeys } from "./queryKeys";
+import { DASHBOARD_VIEW } from "../vocab/dashboardView.js";
 
 describe("query key factories", () => {
   it("evaluationKeys.evaluation returns the run-scope prefix", () => {
@@ -39,15 +40,21 @@ describe("query key factories", () => {
   });
 
   it("projectKeys.dashboard includes run when provided", () => {
-    expect(projectKeys.dashboard("p1", "run-1")).toEqual(["project", "p1", "local", "dashboard", "run-1"]);
+    expect(projectKeys.dashboard("p1", "run-1")).toEqual(["project", "p1", "local", "dashboard", "run-1", "full"]);
   });
 
   it("projectKeys.dashboard uses 'latest' when run is null", () => {
-    expect(projectKeys.dashboard("p1", null)).toEqual(["project", "p1", "local", "dashboard", "latest"]);
+    expect(projectKeys.dashboard("p1", null)).toEqual(["project", "p1", "local", "dashboard", "latest", "full"]);
   });
 
   it("projectKeys.dashboard embeds an explicit source", () => {
-    expect(projectKeys.dashboard("p1", "run-1", "shared")).toEqual(["project", "p1", "shared", "dashboard", "run-1"]);
+    expect(projectKeys.dashboard("p1", "run-1", "shared")).toEqual(["project", "p1", "shared", "dashboard", "run-1", "full"]);
+  });
+
+  it("projectKeys.dashboard keys the overview view separately from the full one", () => {
+    expect(projectKeys.dashboard("p1", "run-1", "local", DASHBOARD_VIEW.OVERVIEW))
+      .toEqual(["project", "p1", "local", "dashboard", "run-1", "overview"]);
+    expect(projectKeys.dashboard("p1", "run-1")).toEqual(["project", "p1", "local", "dashboard", "run-1", "full"]);
   });
 
   it("a local prefix does not match a shared key (cache isolation)", () => {
