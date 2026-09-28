@@ -36,9 +36,15 @@ _VALID_PROVIDER_RE = re.compile(r"[A-Za-z0-9_-]+")
 def _read_export_value(env_file: Path, prefix: str) -> str | None:
     """The first ``export NAME=`` line matching *prefix*, as the shell would read it.
 
-    None when no line matches.
+    None when no line matches or the file cannot be read, the same way
+    ``_existing_env_lines`` treats an unreadable file.
     """
-    for line in env_file.read_text(encoding="utf-8").splitlines():
+    try:
+        lines = env_file.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        log_debug(f"cannot read {env_file}: {exc}")
+        return None
+    for line in lines:
         if line.strip().startswith(prefix):
             return line.split("=", 1)[1].strip()
     return None
@@ -149,17 +155,9 @@ def _build_env_lines(
     lines.extend(body)
     if not api_key_value:
         return lines
-    # SECURITY: The raw API key value is written to the env file in
-    # cleartext because it must be sourced by subprocesses at runtime.
-    # The file is created with mode 0600 (owner read/write only) via
-    # atomic write + fchmod.  This is a known trade-off for local CLI
-    # tools where no platform keychain integration is available.
-    #
-    # For production / shared-server deployments:
-    #   - Use the QUODEQ_API_KEY environment variable directly, or
-    #   - Store the key in a platform keychain (macOS Keychain,
-    #     GNOME Keyring, Windows Credential Manager), or
-    #   - Use a secrets manager (Vault, AWS Secrets Manager, etc.)
+    # SECURITY: the raw key is written in cleartext (the file is sourced by
+    # subprocesses), mode 0600 via atomic write + fchmod. Prefer the
+    # QUODEQ_API_KEY env var, a platform keychain or a secrets manager.
     lines.append(f"export {api_key_var}={api_key_value}")
     masked = ("***" + api_key_value[-SECRET_SUFFIX_CHARS:]
               if len(api_key_value) > SECRET_SUFFIX_CHARS else "****")
@@ -218,10 +216,12 @@ def configure_provider_noninteractive(provider: str, paths: ConfigPaths) -> int:
         valid = ", ".join(sorted(PROVIDERS.keys()))
         log_error(f"Invalid provider: {provider}. Expected one of: {valid}")
         return 1
-    api_key_var = PROVIDERS[provider]
-    api_key_value = ""
-    _write_env(paths, provider, api_key_var, api_key_value)
-    _ensure_gitignore(paths)
+    try:
+        _write_env(paths, provider, PROVIDERS[provider], "")
+        _ensure_gitignore(paths)
+    except (OSError, ValueError) as exc:
+        log_error(f"Failed to save provider config to {paths.env_file}: {exc}")
+        return 1
     log_success(f"Provider set to '{provider}'. Config saved to .quodeq.env")
     return 0
 
