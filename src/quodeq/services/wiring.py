@@ -70,6 +70,7 @@ from quodeq.data.fs.run_files import (  # noqa: F401
     read_run_status_json,
     remove_matching_files,
     run_fingerprint,
+    tail_run_log,
 )
 
 # Run-directory removal (rmtree) and reports-root fallback scanning.
@@ -89,8 +90,7 @@ from quodeq.data.fs.repo_index_store import read_repo_index, write_repo_index  #
 
 # Agent stream files.
 from quodeq.data.fs.stream_files import (  # noqa: F401
-    count_active_agent_streams,
-    iter_stream_lines,
+    count_active_agent_streams, count_files_in_stream, decode_jsonl_objects, iter_stream_lines,
     latest_dim_activity_mtime,
 )
 
@@ -142,9 +142,7 @@ from quodeq.data.fs.suppression_rules import load_suppression_rules  # noqa: F40
 # Evaluator req-id -> principle-name mapping, compiled-refs lookup, and the
 # closed-dimension-set check.
 from quodeq.data.fs.standards_loader import (  # noqa: F401
-    is_known_dimension,
-    load_compiled_refs,
-    read_req_to_principle_map,
+    build_req_refs_lookup, is_known_dimension, load_compiled_refs, read_req_to_principle_map,
 )
 
 # Per-project standards-visibility preferences.
@@ -208,6 +206,7 @@ from quodeq.data.fs.shared_repo import (  # noqa: F401
     refresh_shared_clone,
     remove_clone_dir,
     run_git,
+    stage_publish_paths,
     shared_cache_dir,
     shared_evaluations_root,
     shared_index_db_path,
