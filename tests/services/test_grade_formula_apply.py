@@ -213,6 +213,9 @@ def test_a_failing_rescore_backs_off_with_jitter_and_logs_once(
     base = 0.15
     assert result.failed == ["run-bad"]
     assert sleeps == [base + jitter, 2 * base + jitter]
-    assert [r.getMessage() for r in caplog.records].count(
-        f"Rescore failed for {run_dir} after 3 attempts; it will keep the old formula's grades.",
-    ) == 1
+    exhausted = [
+        r for r in caplog.records
+        if r.getMessage() == f"Rescore failed for {run_dir} after 3 attempts; it will keep the old formula's grades."
+    ]
+    assert len(exhausted) == 1
+    assert exhausted[0].exc_info[0] is RuntimeError

@@ -118,18 +118,20 @@ def _recompute_with_retries(run_dir: Path, params: ScoringParams) -> bool:
     Returns True on success. On exhausting the retries, logs the failure
     itself and returns False -- the caller decides what to do with that.
     """
+    last_exc: Exception | None = None
     for attempt in range(_APPLY_RETRIES + 1):
         try:
             recompute_grades(run_dir, params=params)
             return True
-        except (sqlite3.Error, OSError, ValueError, RuntimeError):
+        except (sqlite3.Error, OSError, ValueError, RuntimeError) as exc:
+            last_exc = exc
             if attempt == _APPLY_RETRIES:
                 break
             time.sleep(_APPLY_RETRY_SLEEP_S * 2 ** attempt + random.uniform(0, RETRY_JITTER_S))
     _logger.warning(
         "Rescore failed for %s after %d attempts; it will "
         "keep the old formula's grades.",
-        run_dir, _APPLY_RETRIES + 1, exc_info=True,
+        run_dir, _APPLY_RETRIES + 1, exc_info=last_exc,
     )
     return False
 
