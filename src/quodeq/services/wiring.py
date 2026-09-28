@@ -138,7 +138,10 @@ from quodeq.data.actions_log import (  # noqa: F401
 from quodeq.data.migrations.dismissed_json_to_actions_log import migrate_if_needed  # noqa: F401
 
 # Per-project suppression_rules.json pattern store.
-from quodeq.data.fs.suppression_rules import load_suppression_rules  # noqa: F401
+from quodeq.data.fs.suppression_rules import (  # noqa: F401
+    SUPPRESSION_RULES_FILENAME,
+    load_suppression_rules,
+)
 
 # Evaluator req-id -> principle-name mapping, compiled-refs lookup, and the
 # closed-dimension-set check.

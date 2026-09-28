@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from quodeq.core.types.dashboard_view import DashboardView
 from quodeq.core.types import DimensionResult
 from quodeq.shared.serialization import to_camel_dict
 
@@ -100,6 +101,7 @@ def build_dashboard_result(
     payload: DashboardPayload,
     annotations: DimensionAnnotations,
     run_metadata: dict[str, Any] | None = None,
+    view: DashboardView = DashboardView.FULL,
 ) -> dict[str, Any]:
     """Assemble the final dashboard response dict from pre-computed parts.
 
@@ -115,6 +117,12 @@ def build_dashboard_result(
         )
         for d in payload.dimensions_with_trend
     ]
+    if view is DashboardView.OVERVIEW:
+        # Absent, not empty: the client tells "no bodies shipped" from "no
+        # findings" by the key (to_camel_dict keeps empty lists).
+        for d in dim_dicts:
+            d.pop("violations", None)
+            d.pop("compliance", None)
     return {
         "project": project,
         "availableRuns": [{**run_info_payload(item), "status": item.status} for item in runs],
