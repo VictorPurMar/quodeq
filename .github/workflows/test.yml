@@ -17,11 +17,14 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     # Cap the whole job so a hanging test fails fast instead of burning
-    # runner minutes. Ubuntu + macOS run in ~2-3 min. Windows is far slower
-    # per test (no fork(), slow git-subprocess startup, NTFS small-file I/O,
-    # Defender scanning), so it runs under pytest-xdist (-n auto) with a
-    # Defender exclusion to stay well within this budget.
-    timeout-minutes: 15
+    # runner minutes. A genuine hang is already bounded by --timeout per
+    # test, so this cap only has to cover a slow runner: the Windows leg
+    # takes ~8 min under pytest-xdist (-n auto) and has hit 14m36s on a
+    # runner that was uniformly 2x slower (run 36233174070), so 15 left no
+    # headroom. Windows is far slower per test (no fork(), slow
+    # git-subprocess startup, NTFS small-file I/O, Defender scanning) and
+    # gets a Defender exclusion on top.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +89,7 @@ jobs:
         # xdist blames it on "worker crashed while running <test>" - a
         # segfault-shaped message for what is really a timeout. 60 * 4 keeps
         # the cap proportional to the waits it has to cover; a genuine
-        # deadlock still fails inside the job's 15-minute budget.
+        # deadlock still fails inside the job's 25-minute budget.
         env:
           QUODEQ_TEST_TIMEOUT_SCALE: "4"
         run: uv run pytest tests/ -v -ra --tb=short -m "not integration" -n auto --timeout=240
