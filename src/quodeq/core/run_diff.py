@@ -32,6 +32,7 @@ class RunDiff:
     types_opened: list[str] = field(default_factory=list)
     per_req: dict[str, tuple[int, int]] = field(default_factory=dict)
     majors_delta: int = 0
+    critical_delta: int = 0
 
 
 def identity(finding: dict) -> tuple:
@@ -51,6 +52,10 @@ def _content_key(finding: dict) -> tuple | None:
 
 def _blocking(findings: list[dict]) -> int:
     return sum(1 for f in findings if f.get("severity") in _BLOCKING)
+
+
+def _criticals(findings: list[dict]) -> int:
+    return sum(1 for f in findings if f.get("severity") == Severity.CRITICAL)
 
 
 def _classify_current(diff: RunDiff, current: list[dict], prev_ids: set, prev_content: set) -> None:
@@ -95,4 +100,8 @@ def diff_findings(previous: list[dict], current: list[dict], *, current_files: s
         diff.per_req[req] = (prev_reqs[req], curr_reqs[req])
     diff.types_closed.extend(r for r in sorted(prev_reqs) if r not in curr_reqs)
     diff.types_opened.extend(r for r in sorted(curr_reqs) if r not in prev_reqs)
-    return replace(diff, majors_delta=_blocking(current) - _blocking(previous))
+    return replace(
+        diff,
+        majors_delta=_blocking(current) - _blocking(previous),
+        critical_delta=_criticals(current) - _criticals(previous),
+    )

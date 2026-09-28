@@ -16,9 +16,8 @@ import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
 import { HELP_SECTION } from '../../../vocab/helpSection.js';
-import HelpLink from '../../../components/HelpLink.jsx';
-import { buildHeadline, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
-import ConvergenceStrip from '../../dashboard/components/ConvergenceStrip.jsx';
+import { buildHeadline, chipDeltas, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
+import { overviewLearnMore } from '../../dashboard/overviewLearnMore.js';
 
 /** Empty/loading/error states, checked in order — extracted so the main
  * render stays a single happy-path return. */
@@ -122,14 +121,9 @@ function ExplorerTopGrid({
         allViolations={d.allViolations}
         totalCompliant={d.totalCompliant}
         sev={d.severityCounts}
-        strip={(
-          <ConvergenceStrip
-            headline={buildHeadline([dimensionHeadlineInput(d.allViolations, d.severityCounts, d.evalData)])}
-            since={sinceBaseline ? sumSinceBaseline({ entry: sinceBaseline }) : null}
-            showSince={false}
-            onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
-          />
-        )}
+        deltas={chipDeltas(sinceBaseline ? sumSinceBaseline({ entry: sinceBaseline }) : null)}
+        density={buildHeadline([dimensionHeadlineInput(d.allViolations, d.severityCounts, d.evalData)]).density}
+        learnMore={overviewLearnMore(onNavigate)}
         onSeverityBadge={onSeverityBadge}
         onNavigate={onNavigate}
         onCardNavigate={handleCardNavigate}
@@ -173,7 +167,6 @@ function ExplorerPageBody({
       <section className="qd-cards-panel" aria-label={t('explorer.principlesAria')}>
         <div className="qd-cards-panel__head">
           <SectionLabel>{t('explorer.principlesLabel')} · {radialPrinciples.length}</SectionLabel>
-          <HelpLink onNavigate={onNavigate} target={NAV_TAB.GRADE_FORMULA} params={{ dimension: dim }} label={t('explorer.whyThisGrade')} />
         </div>
         <PrinciplesCardsRow
           principles={enrichedPrinciples}

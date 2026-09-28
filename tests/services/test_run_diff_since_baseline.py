@@ -57,6 +57,7 @@ def test_since_baseline_counts_only_findings_in_changed_files(tmp_path: Path, sc
     assert [f["req"] for f in since["new"]] == ["M-MDF-1"]
     assert [f["req"] for f in since["resolved"]] == ["M-ANA-9"]
     assert since["majorsDelta"] == 1
+    assert "criticalDelta" in since and isinstance(since["criticalDelta"], int)
     # Types are scoped too: the b.py requirement is out of scope on both sides.
     assert since["types"] == {"closed": ["M-ANA-9"], "opened": ["M-MDF-1"]}
 

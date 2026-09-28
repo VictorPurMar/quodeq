@@ -52,11 +52,6 @@ export function buildHeadline(dimensions) {
   };
 }
 
-/** One decimal, or "-" when there is no density. */
-export function formatDensity(density) {
-  return density === null || density === undefined ? '-' : density.toFixed(1);
-}
-
 function unique(values) {
   return [...new Set(values)];
 }
@@ -91,6 +86,7 @@ export function sumSinceBaseline(sinceBaseline) {
   const changed = entries.map((e) => e.sinceBaseline.changedFiles);
   return {
     majorsDelta: blocks.reduce((acc, b) => acc + (b.majorsDelta || 0), 0),
+    criticalDelta: blocks.reduce((acc, b) => acc + (b.criticalDelta || 0), 0),
     typesClosed: unique(blocks.flatMap((b) => b.types?.closed || [])),
     typesOpened: unique(blocks.flatMap((b) => b.types?.opened || [])),
     newCount: blocks.reduce((acc, b) => acc + (b.counts?.new || 0), 0),
@@ -107,6 +103,19 @@ export function sumSinceBaseline(sinceBaseline) {
 export function isUnchangedSince(since) {
   return since.scope === SCOPE_CHANGED && since.changedFiles === 0 && since.majorsDelta === 0
     && since.typesClosed.length === 0 && since.typesOpened.length === 0;
+}
+
+/**
+ * The arrows on the CRIT and MAJ chips: the criticals delta, and the
+ * blocking delta with the criticals taken out (major only, as the chip
+ * counts majors only).
+ * @param {{majorsDelta: number, criticalDelta: number}|null} since sumSinceBaseline()'s output
+ * @returns {{critical: number, major: number}|null}
+ */
+export function chipDeltas(since) {
+  if (!since) return null;
+  const critical = since.criticalDelta || 0;
+  return { critical, major: (since.majorsDelta || 0) - critical };
 }
 
 /** The map restricted to the named dimensions (case-insensitive), so a

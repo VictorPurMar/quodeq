@@ -60,3 +60,16 @@ def test_carried_counts_separately_and_majors_delta() -> None:
             _f("M-MOD-4", "c.py", 3, "cycle", severity="major")]
     d = diff_findings(prev, curr, current_files={"a.py", "c.py"})
     assert (len(d.carried), len(d.same), d.majors_delta) == (1, 0, 1)
+
+
+def test_critical_delta_moves_with_criticals_only() -> None:
+    prev = [_f("S-INJ-1", "a.py", 1, "eval(x)", severity="critical"),
+            _f("S-INJ-2", "b.py", 2, "exec(y)", severity="critical"),
+            _f("M-MOD-3", "c.py", 3, "import x", severity="major")]
+    curr = [_f("S-INJ-1", "a.py", 1, "eval(x)", severity="critical"),
+            _f("M-MOD-3", "c.py", 3, "import x", severity="major"),
+            _f("M-MOD-4", "d.py", 4, "cycle", severity="major"),
+            _f("M-MOD-5", "e.py", 5, "cycle2", severity="major")]
+    d = diff_findings(prev, curr, current_files={"a.py", "b.py", "c.py", "d.py", "e.py"})
+    assert (d.critical_delta, d.majors_delta) == (-1, 1)
+

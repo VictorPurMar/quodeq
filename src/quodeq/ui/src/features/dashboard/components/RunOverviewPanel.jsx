@@ -10,13 +10,12 @@ import { withDimensionsStr } from '../../../utils/dimensionUtils.js';
 import buildRunSummary from '../buildRunSummary.js';
 import { t } from '../../../strings/index.js';
 import { RunHeroSection } from './RunHeroSection.jsx';
-import ConvergenceStrip from './ConvergenceStrip.jsx';
-import { buildHeadline, sumSinceBaseline } from '../headlineStats.js';
-import { useSeeFindings } from '../hooks/useSeeFindings.js';
+import { buildHeadline, chipDeltas, sumSinceBaseline } from '../headlineStats.js';
 import { useRunReportSpecs } from './runReportSpecs.jsx';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
+import { overviewLearnMore } from '../overviewLearnMore.js';
 
 export { RunHeroSection };
 
@@ -90,24 +89,20 @@ function useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, 
 
 // The run's derived view data: summary, worst files, hero-card navigation and
 // the per-dimension deltas; also registers this run's report specs.
-function useRunOverviewModel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, onNavigate }) {
+function useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate }) {
   const runSummary = useMemo(() => buildRunSummary(dashboard?.dimensions), [dashboard]);
   const since = sumSinceBaseline(dashboard?.sinceBaseline);
-  const selectedRun = dashboard?.selectedRun;
-  const { seeFindings } = useSeeFindings({
-    project: selectedProject, runId: selectedRun?.runId, dateLabel: selectedRun?.dateLabel, since, onNavigate, selectedSource,
-  });
   const runTopFiles = useMemo(() => withDimensionsStr(buildTopOffendingFiles(dashboard?.dimensions || [])), [dashboard]);
   const runDateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
   const onCardNavigate = useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, onNavigate });
   const headline = useMemo(() => buildHeadline(dashboard?.dimensions), [dashboard]);
   useRunReportSpecs({ dashboard, runSummary, selectedRunId, projectName, headline, since });
   const trendDeltas = useTrendDeltas(dashboard);
-  return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings, headline };
+  return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline };
 }
 
-export default function RunOverviewPanel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, availableRuns = [], onDimensionClick, onFileClick, onNavigate }) {
-  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, seeFindings, headline } = useRunOverviewModel({ dashboard, selectedRunId, selectedProject, selectedSource, projectName, onNavigate });
+export default function RunOverviewPanel({ dashboard, selectedRunId, projectName, onDimensionClick, onFileClick, onNavigate }) {
+  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline } = useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate });
 
   const isLoading = !dashboard || !dashboard.dimensions;
   if (isLoading) {
@@ -121,11 +116,7 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, selectedPro
 
   return (
     <div className="run-overview-fade run-overview-ready">
-      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} />
-      <ConvergenceStrip
-        headline={headline} since={since} selectedRun={dashboard?.selectedRun} availableRuns={availableRuns}
-        onSeeFindings={seeFindings} onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
-      />
+      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} deltas={chipDeltas(since)} density={headline.density} learnMore={overviewLearnMore(onNavigate)} />
       <section className="quality-dimensions" aria-label={t('overview.qualityDimensionsAria')}>
         <div className="quality-dimensions__head">
           <SectionLabel>{t('overview.qualityDimensionsLabel')} · {dimCount}</SectionLabel>

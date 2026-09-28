@@ -1,8 +1,8 @@
 import TrendBadge from '../../../components/TrendBadge.jsx';
-import { complianceRatio, extDisplayName } from '../../../utils/formatters.js';
+import { extDisplayName } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import { TermHeader, Stat } from '../../../components/terminal/index.js';
-import { HeroPanel, ComplianceAndRatioStats, GradeChip, heroCardHandlers } from './heroSectionParts.jsx';
+import { HeroPanel, ComplianceAndRatioStats, ScoreStat, heroCardHandlers, ratioDisplay } from './heroSectionParts.jsx';
 import LastFetchedLine from '../../../components/LastFetchedLine.jsx';
 import SharedReadOnlyBadge from '../../../components/SharedReadOnlyBadge.jsx';
 import SeverityBadgeRow from './SeverityBadgeRow.jsx';
@@ -21,32 +21,26 @@ function buildLanguageSub(projectInfo) {
     .join('  ');
 }
 
-function AccumulatedStatStrip({ scoreDisplay, scoreDelta, grade, customFormula, violations, compliance, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity }) {
+function AccumulatedStatStrip({ scoreDisplay, scoreDelta, grade, customFormula, violations, compliance, totalChecks, ratio, handleViolations, handleCompliance, handleSeverity, severity, deltas, density, learnMore }) {
   return (
     <>
-      <Stat
-        label={t('overview.statScore')}
-        value={scoreDisplay}
-        trailing={<>{<GradeChip grade={grade} score={scoreDisplay} />}{scoreDelta !== null ? <TrendBadge delta={scoreDelta} showLabel={false} /> : null}</>}
-        // A tuned formula shifts every score at once with no other trace, so
-        // say so where the grade is read rather than only on the settings
-        // page that changed it.
+      {/* A tuned formula shifts every score at once with no other trace, so
+          say so where the grade is read rather than only on the settings
+          page that changed it. */}
+      <ScoreStat
+        scoreDisplay={scoreDisplay}
+        grade={grade}
+        extraTrailing={scoreDelta !== null ? <TrendBadge delta={scoreDelta} showLabel={false} /> : null}
         hint={customFormula ? t('overview.customFormulaNote') : null}
       />
       <Stat
         label={t('overview.statViolations')}
         value={violations}
-        hint={<SeverityBadgeRow severity={severity} onSeverityClick={handleSeverity} />}
+        hint={<SeverityBadgeRow severity={severity} onSeverityClick={handleSeverity} deltas={deltas} />}
         onClick={handleViolations}
         ariaLabel={violations > 0 ? t('overview.showAllViolationsAria') : undefined}
       />
-      <ComplianceAndRatioStats
-        compliance={compliance}
-        totalChecks={totalChecks}
-        ratio={ratio}
-        onCompliance={handleCompliance}
-        complianceAriaKey="overview.showComplianceAria"
-      />
+      <ComplianceAndRatioStats compliance={compliance} totalChecks={totalChecks} ratio={ratio} density={density} learnMore={learnMore} onCompliance={handleCompliance} complianceAriaKey="overview.showComplianceAria" />
     </>
   );
 }
@@ -61,7 +55,7 @@ function accumulatedStats(summary) {
     violations,
     compliance,
     totalChecks: violations + compliance,
-    ratio: complianceRatio(violations, compliance),
+    ratio: ratioDisplay(violations, compliance),
     severity: summary?.severity,
   };
 }
@@ -72,7 +66,7 @@ function heroSubLine(projectInfo, lastDate) {
     || (lastDate ? t('overview.lastEvaluated', { date: lastDate }) : null);
 }
 
-export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false }) {
+export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false, deltas = null, density = null, learnMore }) {
   const stats = accumulatedStats(accumulated?.summary);
   const { handleViolations, handleCompliance, handleSeverity } = heroCardHandlers(
     onCardNavigate,
@@ -94,6 +88,9 @@ export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, proj
         {...stats}
         scoreDelta={scoreDelta}
         customFormula={customFormula}
+        deltas={deltas}
+        density={density}
+        learnMore={learnMore}
         handleViolations={handleViolations}
         handleCompliance={handleCompliance}
         handleSeverity={handleSeverity}

@@ -1,19 +1,17 @@
 import { Stat, SevBadge } from '../../../components/terminal/index.js';
-import { complianceRatio } from '../../../utils/formatters.js';
 import { formatScoreDisplay } from '../../../utils/gradeFormatting.js';
 import StatGrid2x2 from './StatGrid2x2.jsx';
 import DimensionScoreHistoryPanel from './DimensionScoreHistoryPanel.jsx';
 import { t } from '../../../strings/index.js';
 import { SEVERITY_ORDER } from '../../../vocab/severity.js';
 import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
-import { GradeChip } from '../../dashboard/components/heroSectionParts.jsx';
+import { GradeChip, RatioDensityStat, ratioDisplay } from '../../dashboard/components/heroSectionParts.jsx';
 
-/** The score/violations/compliance/ratio stat grid, the convergence strip
- * (`strip`) under it, and the run-history bar chart: the left column of the
- * dimension page's top grid. */
+/** The score/violations/compliance/ratio stat grid and the run-history bar
+ * chart: the left column of the dimension page's top grid. */
 export default function ExplorerStatsPanel({
   overallScoreNum, overallGrade, allViolations, totalCompliant, sev, onSeverityBadge,
-  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, strip = null,
+  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, deltas = null, density = null, learnMore,
 }) {
   return (
     <div className="qd-top-left">
@@ -26,13 +24,14 @@ export default function ExplorerStatsPanel({
         <Stat
           label={t('overview.statViolations')}
           value={allViolations.length}
-          hint={SEVERITY_ORDER.some((level) => sev[level]) ? (
+          hint={SEVERITY_ORDER.some((level) => sev[level] || deltas?.[level]) ? (
             <span className="principle-detail-sev-row">
-              {SEVERITY_ORDER.map((level) => sev[level] > 0 && (
+              {SEVERITY_ORDER.map((level) => (sev[level] > 0 || Boolean(deltas?.[level])) && (
                 <SevBadge
                   key={level}
                   level={level}
-                  count={sev[level]}
+                  count={sev[level] || 0}
+                  delta={deltas?.[level]}
                   onClick={onNavigate ? onSeverityBadge(level) : undefined}
                 />
               ))}
@@ -48,14 +47,8 @@ export default function ExplorerStatsPanel({
           onClick={onNavigate && totalCompliant > 0 ? () => onCardNavigate('compliance') : undefined}
           ariaLabel={totalCompliant > 0 ? t('overview.showComplianceAria') : undefined}
         />
-        <Stat
-          label={t('overview.statRatio')}
-          value={complianceRatio(allViolations.length, totalCompliant)}
-          hint={t('overview.ratioHint')}
-        />
+        <RatioDensityStat ratio={ratioDisplay(allViolations.length, totalCompliant)} density={density} learnMore={learnMore} />
       </StatGrid2x2>
-
-      {strip}
 
       <DimensionScoreHistoryPanel
         trend={trend}

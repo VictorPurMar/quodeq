@@ -9,14 +9,13 @@ import { SectionLabel } from '../../../components/terminal/index.js';
 import { t } from '../../../strings/index.js';
 import { DEFAULT_SCORE_HISTORY_GRANULARITY } from '../../../constants.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
-import ConvergenceStrip from './ConvergenceStrip.jsx';
-import { buildHeadline, filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
-import { useSeeFindings } from '../hooks/useSeeFindings.js';
+import { buildHeadline, chipDeltas, filterSinceBaseline, sumSinceBaseline } from '../headlineStats.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { useAccumulatedComputations, computeAccumulatedStats } from '../hooks/useAccumulatedComputations.js';
 import { AccumulatedHeroSection } from './AccumulatedHeroSection.jsx';
 import { useAccumulatedReportSpec } from './accumulatedReportSpecs.jsx';
 import { NAV_TAB } from '../../../vocab/navTab.js';
+import { overviewLearnMore } from '../overviewLearnMore.js';
 
 const runHistoryPanelImport = () => import('./RunHistoryPanel.jsx');
 const RunHistoryPanel = lazy(runHistoryPanelImport);
@@ -117,10 +116,6 @@ function AccumulatedOverviewSections({
   filteredAccumulated, filteredStats, chartMountable, dimTrends, topFiles, onCardNavigate, headline, since,
 }) {
   const { onRunClick, onDimensionClick, onNavigate } = callbacks;
-  const { seeFindings } = useSeeFindings({
-    project: data.selectedProject, runId: data.selectedRun?.runId, dateLabel: data.selectedRun?.dateLabel, since, onNavigate,
-    selectedSource: data.selectedSource, dimensionNames: (filteredDimensions || []).map((d) => d.dimension),
-  });
   return (
     <>
       <AccumulatedHeroSection
@@ -131,12 +126,10 @@ function AccumulatedOverviewSections({
         onCardNavigate={onCardNavigate}
         selectedSource={data.selectedSource}
         customFormula={data.customFormula}
+        deltas={chipDeltas(since)}
+        density={headline.density}
+        learnMore={overviewLearnMore(onNavigate)}
       />
-      <ConvergenceStrip
-        headline={headline} since={since} selectedRun={data.selectedRun} availableRuns={data.availableRuns}
-        onSeeFindings={seeFindings} onLearnMore={onNavigate ? (section) => onNavigate(NAV_TAB.HELP, { section }) : undefined}
-      />
-
       <HistoryPanelsRow
         chartMountable={chartMountable}
         filteredPeriodTrend={filteredPeriodTrend}

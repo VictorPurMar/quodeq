@@ -151,11 +151,12 @@ describe('HelpPage grade formula parameters', () => {
 });
 
 describe('HelpPage overview header stats', () => {
-  it('describes majors, open types, density and the since-baseline panel', () => {
+  it('describes the badges, the ratio and the density, and no since-baseline panel', () => {
     render(<HelpPage initialSection="overview" />);
-    for (const name of ['Majors', 'Open types', 'Density', 'Since baseline']) {
+    for (const name of ['MAJ badges', 'Density']) {
       expect(screen.getAllByText(name, { exact: false }).length).toBeGreaterThan(0);
     }
+    expect(screen.queryAllByText('Since baseline', { exact: false })).toHaveLength(0);
   });
 });
 
@@ -168,13 +169,14 @@ describe('HelpPage violations by type', () => {
   });
 });
 
-describe('HelpPage overview: tiles and the strip', () => {
-  it('documents the four tiles and the convergence strip', () => {
+describe('HelpPage overview: the four tiles', () => {
+  it('documents the chips\' arrows, the ratio reading and density in the tile, and no strip', () => {
     const { container } = render(<HelpPage initialSection="overview" />);
-    expect(screen.getByRole('heading', { level: 3, name: /The strip/ })).toBeInTheDocument();
-    for (const word of ['Score', 'Violations', 'Compliance', 'Ratio', 'Criticals', 'Majors', 'Open types', 'Density']) {
-      expect((container.textContent.match(new RegExp(word, 'g')) || []).length).toBeGreaterThan(0);
-    }
+    expect(screen.queryByRole('heading', { level: 3, name: /The strip/ })).not.toBeInTheDocument();
+    expect(container.textContent).toMatch(/change since the baseline run/);
+    expect(container.textContent).toMatch(/violations to compliance/);
+    expect(container.textContent).toMatch(/per 100 files read/);
+    expect(container.textContent).not.toMatch(/Open types|see findings/);
   });
 });
 
@@ -190,6 +192,6 @@ describe('HelpPage history counts', () => {
 
   it('describes the report order on the Overview page', () => {
     render(<HelpPage initialSection="overview" />);
-    expect(screen.getByText(/report follows the header/)).toBeInTheDocument();
+    expect(screen.getByText(/report opens with the header's numbers/)).toBeInTheDocument();
   });
 });
