@@ -194,3 +194,54 @@ class TestBuildRouterContextPrecedentReader:
         assert seams["read_dismissed"] is read_dismissed_snippets_strict
         assert seams["source_stamp"] is dismissed_source_stamp
         assert ctx.precedent_fingerprints == {"fp"}
+
+
+class TestPrecedentSnapshot:
+    def test_later_spawns_of_a_run_reuse_the_first_spawns_read(self, tmp_path, monkeypatch):
+        """Each agent is its own findings-server process with an empty memo;
+        the run's snapshot saves every later spawn from opening every past DB."""
+        import quodeq.analysis.mcp.precedent_signals as precedent_signals_module
+
+        loads = []
+
+        def fake_load(project_dir, **kwargs):
+            loads.append(project_dir)
+            return {"fp"}
+
+        monkeypatch.setattr(precedent_signals_module, "load_precedent_fingerprints", fake_load)
+        run_dir = tmp_path / "run-1"
+        (run_dir / "evidence").mkdir(parents=True)
+
+        first = precedent_signals_module.precedent_signals(tmp_path, run_dir)["precedent_fingerprints"]
+        second = precedent_signals_module.precedent_signals(tmp_path, run_dir)["precedent_fingerprints"]
+        (tmp_path / "run-0").mkdir()
+        (tmp_path / "run-0" / "evaluation.db").write_bytes(b"x")
+        third = precedent_signals_module.precedent_signals(tmp_path, run_dir)["precedent_fingerprints"]
+
+        assert first == second == third == {"fp"}
+        assert len(loads) == 2, "a new or changed run DB invalidates the snapshot"
+
+    def test_a_real_history_is_opened_once_per_run(self, tmp_path, monkeypatch):
+        import quodeq.analysis.mcp.precedent_signals as precedent_signals_module
+        from quodeq.core.events.models import Judgment
+        from quodeq.data.sqlite.state_store import SQLiteStateStore
+
+        past = tmp_path / "run-0"
+        past.mkdir()
+        SQLiteStateStore(past).record_finding(Judgment(
+            practice_id="P1", verdict="violation", dimension="Security",
+            file="a.py", line=1, reason="r", req="S-1", severity="minor",
+        ))
+        run_dir = tmp_path / "run-1"
+        (run_dir / "evidence").mkdir(parents=True)
+        opened = []
+        real = precedent_signals_module.read_dismissed_snippets_strict
+        monkeypatch.setattr(
+            precedent_signals_module, "read_dismissed_snippets_strict",
+            lambda d: (opened.append(d), real(d))[1],
+        )
+
+        precedent_signals_module.precedent_signals(tmp_path, run_dir)
+        precedent_signals_module.precedent_signals(tmp_path, run_dir)
+
+        assert opened == [past]
