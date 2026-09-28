@@ -13,9 +13,9 @@ _logger = logging.getLogger(__name__)
 
 LANG_ALIASES = {"typescript": "javascript", "jsx": "javascript", "tsx": "javascript", "kotlin": "java"}
 
-# The keys priority_scoring indexes without a fallback of its own, with the
-# values config/file_priority.json ships. A missing or partial file scores
-# with these rather than raising KeyError on every file.
+# Every key the priority modules read, with the values
+# config/file_priority.json ships. A missing or partial file scores with
+# these rather than raising KeyError on every file.
 _DEFAULT_PRIORITY_CONFIG: dict = {
     "path_boost": {
         "src/": 5, "lib/": 5, "app/": 5, "core/": 5,
@@ -32,6 +32,37 @@ _DEFAULT_PRIORITY_CONFIG: dict = {
         "frontend": ["component", "page", "hook", "store", "reducer", "context"],
     },
     "category_keyword_boost": 2,
+    "dimension_keywords": {
+        "security": [
+            "auth", "login", "crypto", "token", "session", "password", "secret", "sanitiz", "validat",
+            "permission", "route", "handler", "middleware",
+        ],
+        "reliability": [
+            "error", "exception", "retry", "fallback", "timeout", "recovery", "health", "monitor",
+            "migration", "database", "circuit",
+        ],
+        "maintainability": [],
+        "performance": ["cache", "query", "database", "pool", "batch", "stream", "index", "optimize", "buffer"],
+        "flexibility": ["config", "plugin", "adapter", "factory", "interface", "abstract", "registry", "provider"],
+        "usability": ["accessibility", "a11y", "i18n", "locale", "input", "form", "validation", "aria"],
+    },
+    "dimension_keyword_boost": 5,
+    "maintainability_size_divisor": 2000,
+    "fan_in_divisor": 3,
+    "fan_in_max": 5,
+    "git_churn_divisor": 4,
+    "git_churn_max": 5,
+    "git_recency_days": 14,
+    "git_recency_multiplier": 1.5,
+    "git_lookback_months": 3,
+    "previous_violations_max": 5,
+    "import_patterns": {
+        "python": [r"^\s*(?:from|import)\s+(\S+)"],
+        "javascript": [r"""(?:import|require)\s*\(?['"]([^'"]+)""", r"""from\s+['"]([^'"]+)"""],
+        "java": [r"^\s*import\s+([\w.]+)"],
+        "go": [r'"([^"]+)"'],
+        "swift": [r"^\s*import\s+(\w+)"],
+    },
 }
 
 

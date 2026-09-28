@@ -65,6 +65,8 @@ class TerminalManager:
             return ""
         raw = backend.read(max_bytes)  # blocks: never under the lock
         with self._lock:
+            if backend is not self._backend:  # the session was replaced mid-read
+                return ""
             data = self._decoder.decode(raw)
             if data:
                 self._append_scrollback(data)

@@ -166,3 +166,19 @@ def test_read_and_scrollback_wait_while_a_respawn_holds_the_ring():
         assert not thread.is_alive()
     assert errors == []
     assert m.scrollback() in ("", "whole chunk")
+
+
+def test_a_read_that_returns_after_a_respawn_is_dropped():
+    gates = {name: threading.Event() for name in ("reading", "release_read")}
+    m = TerminalManager(backend_factory=lambda: _BlockingBackend(gates))
+    m.ensure_session(cwd="/", cols=80, rows=24)
+    errors, results = [], []
+    reader = _run(lambda: results.append(m.read()), errors)
+    assert gates["reading"].wait(budget(5))
+    m._backend._alive = False
+    m.ensure_session(cwd="/", cols=80, rows=24)  # the dead session's read is still parked
+    gates["release_read"].set()
+    reader.join(budget(5))
+    assert not reader.is_alive() and errors == []
+    assert results == [""]
+    assert m.scrollback() == ""
