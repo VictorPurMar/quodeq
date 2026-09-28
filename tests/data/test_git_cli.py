@@ -257,14 +257,25 @@ class TestStreamLogNamesDeadline:
         proc.kill.assert_not_called()
         assert proc.returncode == 0
 
-    def test_a_stream_past_its_deadline_is_killed_and_the_generator_ends(self, tmp_path, monkeypatch):
+    def test_a_stream_past_its_deadline_is_killed_and_the_generator_ends(
+        self, tmp_path, monkeypatch, caplog,
+    ):
+        import logging
+
+        import quodeq.data.git_cli as git_cli
         from quodeq.data.git_cli import stream_log_names
 
+        monkeypatch.setattr(git_cli, "_GIT_LOG_STREAM_TIMEOUT_S", 0.5)
         procs = _stream_python(
             monkeypatch, "import time; print('first', flush=True); time.sleep(20)",
         )
-        lines = list(stream_log_names(tmp_path, timeout=0.5))
+        with caplog.at_level(logging.WARNING, logger=git_cli.__name__):
+            lines = list(stream_log_names(tmp_path))
         assert lines == ["first\n"]
         (proc,) = procs
         proc.kill.assert_called()
         assert proc.poll() is not None
+        (record,) = [r for r in caplog.records if r.name == git_cli.__name__]
+        assert record.levelno == logging.WARNING
+        assert str(tmp_path) in record.getMessage()
+        assert "0.5s" in record.getMessage()
