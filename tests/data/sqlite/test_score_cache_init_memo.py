@@ -125,7 +125,7 @@ def test_a_locked_score_cache_is_not_deleted(db_path, monkeypatch) -> None:
     already active by the time the CREATE TABLE write blocks -- otherwise
     the journal_mode statement itself would block first and ride
     sqlite3.connect's default 5s busy handler instead of the monkeypatched
-    one, making the test slow. _purge_run_keys_on_epoch_change swallows
+    one, making the test slow. _sync_cache_meta swallows
     sqlite3.Error internally (a separate, out-of-scope broad catch), so a
     lock hit there would never reach this test; blocking on the schema's
     own CREATE TABLE avoids that path entirely.

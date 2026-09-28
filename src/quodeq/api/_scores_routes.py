@@ -22,6 +22,7 @@ from quodeq.api.routes_common import reports_dir
 from quodeq.core.types.finding_type import FindingType, parse_finding_type
 from quodeq.services.scoring import get_project_scores_stamped, get_scores_slim
 from quodeq.services.scoring.compliance_detail import defer_finding_detail, finding_detail
+from quodeq.services.warmup import engine as warmup_engine
 from quodeq.shared.stamp_memo import StampCache
 
 _logger = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ def register_scores_routes(app: Flask) -> None:
         err = validate_segment(project)
         if err:
             return err
+        warmup_engine.prioritise(project)
         loaded, err = _load_scores(project)
         if err:
             return err

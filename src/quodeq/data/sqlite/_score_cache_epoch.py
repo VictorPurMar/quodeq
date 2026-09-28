@@ -41,3 +41,11 @@ from __future__ import annotations
 # have none, which History rendered as 0 majors and 0 types for every finished
 # run. This bump retires them so they rebuild with the counts.
 CACHE_WRITER_EPOCH = "8"
+
+# Shape of the ``run_keys`` rows, versioned apart from the epoch because the key
+# sets are the costly part of a rebuild and most epoch bumps change only score
+# rows. Bump it (not only the epoch) when the stored key sets change meaning, as
+# epochs "4" (partial snapshots) and "7" (fingerprint keys) did; the table is
+# purged once. A cache from epoch "7" or later already holds shape "1".
+RUN_KEYS_SHAPE_VERSION = "1"
+RUN_KEYS_SHAPE_SINCE_EPOCH = 7

@@ -167,6 +167,7 @@ def _scalars_to_dimension_results(
             overall_score=f'{r["score"]}/10',
             overall_grade=r.get("grade"),
             principles=principles_by_dim.get(r["dimension"], []),
+            files_read=r.get("files_read"),
             **_scalar_counts((counts or {}).get(r["dimension"])),
         )
         for r in dim_rows
@@ -181,7 +182,7 @@ def _scalar_counts(c: "DimensionCounts | None") -> dict:
         return {}
     tally = SeverityTally(critical=c.critical, major=c.major, minor=c.minor)
     return {
-        "totals": Totals(violation_count=c.violations, severity=tally),
+        "totals": Totals(violation_count=c.violations, compliance_count=c.compliance, severity=tally),
         "open_types": c.open_types,
     }
 

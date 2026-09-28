@@ -162,6 +162,7 @@ def _make_heavy_trend_fetcher(
         reports_root, project, params=params,
         base_fetcher=deps.base_fetcher_factory(reports_root, project), deps=deps,
     )
+    base = _read_untouched_runs_as_scalars(reports_root, project, base, deps)
     version_for = _suppression_version_for(
         reports_root / project, project, params, cacheable_run_ids, deps,
     )
@@ -172,6 +173,42 @@ def _make_heavy_trend_fetcher(
     return make_cache_backed_fetcher(
         project, version_for, base, is_cacheable=is_cacheable, log=SHARED_LOG,
     )
+
+
+def _read_untouched_runs_as_scalars(
+    reports_root: Path, project: str, rescoring: _Fetcher, deps: ScoringDeps,
+) -> _Fetcher:
+    """Serve a run no dismissal or deletion touches from its scalar grades.
+
+    The rescore returns such a run unchanged, so reading every finding to feed it
+    is wasted; its scalars are what the fast path serves for it. Only the runs a
+    suppression actually touches (by the same key intersection that versions
+    them, ``run_scoped_version``) are read in full and rescored. Suppression
+    rules match by pattern, not by key, so with any rule every run is rescored.
+    """
+    project_dir = reports_root / project
+    if load_suppression_rules(project_dir):
+        return rescoring
+    from quodeq.services.run_keys import read_run_key_sets  # noqa: PLC0415
+    from quodeq.services.score_cache import load_run_keys_or_empty  # noqa: PLC0415
+    from quodeq.services.suppression_keys import as_dismissed_keys  # noqa: PLC0415
+
+    dismissed = as_dismissed_keys((deps.dismissed_keys or _default_dismissed_keys)(project_dir))
+    deleted = (deps.deleted_keys or _default_deleted_keys)(project_dir)
+    read_scalars = deps.read_run_scalars or _default_read_run_scalars
+    persisted: dict | None = None
+
+    def fetch(run_id: str) -> list[DimensionResult]:
+        nonlocal persisted
+        if persisted is None:
+            persisted = load_run_keys_or_empty(project)
+        validate_path_segment(run_id)
+        dismiss_keys, class_keys = persisted.get(run_id) or read_run_key_sets(project_dir / run_id)
+        if dismissed.touching(dismiss_keys) or deleted & class_keys:
+            return rescoring(run_id)
+        return read_scalars(reports_root, project, run_id)
+
+    return fetch
 
 
 def _suppression_version_for(

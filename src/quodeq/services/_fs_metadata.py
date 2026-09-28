@@ -19,7 +19,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from quodeq.services._accumulated_data import has_valid_score
+from quodeq.services._accumulated_data import (
+    has_valid_score, hydrate_winning_dimensions, read_scalar_dimensions, run_source_file_count,
+)
 from quodeq.core.scoring.report_grades import summarize_dimensions
 from quodeq.services.wiring import RunInfo, load_visible_standard_ids, read_run_data
 from quodeq.services._fs_project_primitives import local_repo_root
@@ -66,15 +68,19 @@ def _select_accumulated_dims(
     latest_by_dim: dict[str, object] = {}
     run_dir_by_dim: dict[str, Path] = {}
     files_count: int | None = None
+    winners_by_run: dict[str, list[str]] = {}
     for run in view_runs:
-        dims = read_run_data(reports_root, entry_name, run.run_id)
+        dims = read_scalar_dimensions(reports_root, entry_name, run.run_id, full_reader=read_run_data)
         for d in dims:
             if _is_first_visible_score(d, visible_set, latest_by_dim):
                 latest_by_dim[d.dimension] = d
                 validate_path_segment(run.run_id)
                 run_dir_by_dim[d.dimension] = project_dir / run.run_id
-            if files_count is None and d.source_file_count:
-                files_count = d.source_file_count
+                winners_by_run.setdefault(run.run_id, []).append(d.dimension)
+        if files_count is None and dims:
+            files_count = next((d.source_file_count for d in dims if d.source_file_count), None) \
+                or run_source_file_count(project_dir / run.run_id)
+    hydrate_winning_dimensions(winners_by_run, latest_by_dim, lambda rid: read_run_data(reports_root, entry_name, rid))
     return latest_by_dim, run_dir_by_dim, files_count
 
 

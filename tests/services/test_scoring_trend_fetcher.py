@@ -31,10 +31,17 @@ def test_no_dismissals_uses_scalar_reader(tmp_path: Path) -> None:
     assert calls == ["r1"]  # scalar reader was used
 
 
+def _run_holds(monkeypatch, dismiss_keys: set, class_keys: set) -> None:
+    """Make every run's key sets (the findings a suppression can touch) these."""
+    monkeypatch.setattr("quodeq.services.run_keys.read_run_key_sets",
+                        lambda _run_dir: (set(dismiss_keys), set(class_keys)))
+
+
 def test_active_dismissal_uses_heavy_path(tmp_path: Path, monkeypatch) -> None:
     reports, project = _make_project(tmp_path)
     # Use a tmp score cache so the test stays isolated.
     monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
+    _run_holds(monkeypatch, {("R1", "a.py", 1)}, set())
 
     rescoring_calls: list[str] = []
 
@@ -69,6 +76,7 @@ def test_active_dismissal_uses_heavy_path(tmp_path: Path, monkeypatch) -> None:
 def test_active_deletion_uses_heavy_path(tmp_path: Path, monkeypatch) -> None:
     reports, project = _make_project(tmp_path)
     monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
+    _run_holds(monkeypatch, set(), {("sec", "prin", "a.py")})
 
     rescoring_calls: list[str] = []
 
@@ -94,6 +102,35 @@ def test_active_deletion_uses_heavy_path(tmp_path: Path, monkeypatch) -> None:
     result = fetcher("r2")
     assert [d.overall_score for d in result] == ["6.0/10"]
     assert rescoring_calls == ["r2"]
+
+
+def test_a_run_no_suppression_touches_reads_its_scalars(tmp_path: Path, monkeypatch) -> None:
+    """With dismissals active elsewhere, an untouched run is not read in full."""
+    reports, project = _make_project(tmp_path)
+    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
+    _run_holds(monkeypatch, {("R9", "other.py", 7)}, {("sec", "prin", "other.py")})
+
+    def fake_rescoring_fetcher(rr, p, params=None, *, base_fetcher=None, **_kw):
+        def fetch(run_id: str) -> list[DimensionResult]:
+            raise AssertionError("an untouched run was read in full and rescored")
+        return fetch
+
+    monkeypatch.setattr("quodeq.services.trend_fetcher.make_rescoring_fetcher", fake_rescoring_fetcher)
+    scalar_calls: list[str] = []
+
+    def fake_scalar(rr, p, rid):
+        scalar_calls.append(rid)
+        return [DimensionResult(dimension="security", overall_score="8.0/10", overall_grade="Good")]
+
+    deps = ScoringDeps(
+        read_run_scalars=fake_scalar,
+        dismissed_keys=lambda _pd: {("R1", "a.py", 1)},
+        deleted_keys=lambda _pd: {("sec", "prin", "a.py")},
+    )
+    result = make_scoring_trend_fetcher(reports, project, deps=deps)("r1")
+
+    assert [d.overall_score for d in result] == ["8.0/10"]
+    assert scalar_calls == ["r1"]
 
 
 def test_make_trend_fetcher_requires_max_history_on_heavy_path(tmp_path: Path) -> None:
