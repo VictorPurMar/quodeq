@@ -227,6 +227,7 @@ def main() -> None:
     print(f"Total unique CWEs in ISO 25010 files: {len(cwe_dims)}\n")
 
     results: list[dict] = []
+    failed = 0
     for i, cwe_id in enumerate(sorted(cwe_dims.keys()), 1):
         info = fetch_cwe_info(cwe_id, api_base)
         if info:
@@ -236,11 +237,19 @@ def main() -> None:
                 info["id"], info["mapping_usage"], info["abstraction"]
             )
             results.append(info)
+        else:
+            failed += 1
         if i % _PROGRESS_LOG_INTERVAL == 0:
             print(f"  Fetched {i}/{len(cwe_dims)}...", file=sys.stderr)
         time.sleep(_RATE_LIMIT_SLEEP_S)
 
     _print_results(results, problems_only=args.problems)
+    if failed or not results:
+        print(
+            f"Error: {failed} of {len(cwe_dims)} CWE fetches failed, not writing {_DEFAULT_AUDIT_OUTPUT}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     output_path = _write_results_json(results)
     print(f"\nFull results written to {output_path}")
 

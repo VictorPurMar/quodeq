@@ -28,7 +28,10 @@ def local_host_names(
 def port_is_open(host: str, port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(_PORT_CHECK_TIMEOUT_S)
-        return sock.connect_ex((host, port)) == 0
+        try:
+            return sock.connect_ex((host, port)) == 0
+        except socket.gaierror as exc:
+            raise RuntimeError(f"Cannot resolve host {host!r}") from exc
 
 
 def choose_ui_port(start: int, host: str | None = None) -> int:

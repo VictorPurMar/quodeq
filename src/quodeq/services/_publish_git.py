@@ -34,6 +34,13 @@ def _run_git(args, *, cwd=None):
     return _sp.run_git(args, cwd=cwd)
 
 
+def _warn_abort_failed(repo: Path, out: str) -> None:
+    """Warn on the facade's logger (see module docstring) that *repo* is left mid-rebase."""
+    from quodeq.services import shared_publish as _sp
+
+    _sp.logger.warning("rebase --abort failed in %s, the clone may stay wedged: %s", repo, out.strip())
+
+
 def _app_version() -> str:
     from quodeq import __version__
 
@@ -155,7 +162,9 @@ def push_with_rebase_fallback(repo: Path) -> None:
             # lingering .git/rebase-merge directory, breaking every
             # future publish. The clone is reused across calls, so
             # always leave it clean.
-            _run_git(["rebase", "--abort"], cwd=repo)
+            ok_abort, out_abort = _run_git(["rebase", "--abort"], cwd=repo)
+            if not ok_abort:
+                _warn_abort_failed(repo, out_abort)
             out = out_rebase
     if not ok:
         raise PublishError(

@@ -62,3 +62,18 @@ class TestExpandedProviders:
 
     def test_openrouter_api_key_env(self):
         assert PROVIDERS["openrouter"] == "OPENROUTER_API_KEY"
+
+
+def test_configure_provider_writes_the_whole_env_on_short_writes(tmp_path, monkeypatch):
+    """os.write may write fewer bytes than asked; the env file still holds all of them."""
+    import os
+    expected = ConfigPaths.from_root(tmp_path / "full")
+    expected.env_file.parent.mkdir()
+    configure_provider_noninteractive("claude", expected)
+
+    real_write = os.write
+    monkeypatch.setattr(os, "write", lambda fd, data: real_write(fd, bytes(data[:1])))
+    paths = ConfigPaths.from_root(tmp_path / "short")
+    paths.env_file.parent.mkdir()
+    assert configure_provider_noninteractive("claude", paths) == 0
+    assert paths.env_file.read_text() == expected.env_file.read_text()

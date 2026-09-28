@@ -32,7 +32,8 @@ def _run_taskkill(pid: int) -> subprocess.CompletedProcess[bytes]:
 def kill_tree(pid: int, sig: int = signal.SIGTERM) -> None:
     """Kill a process and all its children, cross-platform."""
     if sys.platform == PLATFORM_WIN32:
-        _run_taskkill(pid)
+        if not _taskkill_tree(pid):
+            _logger.debug("taskkill did not kill tree %s", pid)
     else:
         try:
             os.killpg(os.getpgid(pid), sig)

@@ -25,11 +25,11 @@ _ALLOWLIST: set[str] = {
     # kill_tree POSIX branch, in the else of `if sys.platform == "win32"`
     # (win32 uses taskkill /F /T). Used by services/ to terminate
     # background job process trees.
-    "shared/process_kill.py:38",
+    "shared/process_kill.py:39",
     # kill_proc_tree POSIX branch, in the else of `if sys.platform == "win32"`
     # (win32 uses taskkill /F /T). Used by terminal/ PTY sessions and the
     # assistant CLI provider adapters to terminate subprocess trees.
-    "shared/process_kill.py:74",
+    "shared/process_kill.py:75",
     # pgrep / ps are wrapped in `except (OSError, ...)` -> returns _UNKNOWN, so
     # on Windows (FileNotFoundError) resource sampling degrades gracefully.
     "shared/resource_sampler.py:61",
