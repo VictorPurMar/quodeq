@@ -539,6 +539,7 @@
   "explorer.compliantBadge": "COMPLIANT",
   "explorer.crumbGradeFormula": "grade formula",
   "explorer.detailLabelCaps": "DETAIL",
+  "explorer.detailUnavailable": "Could not load this finding's detail.",
   "explorer.dimScoreHistoryAria": "{dimension} score history",
   "explorer.dimScoreHistoryKbd": "{dimension} score history. Tab to a run, Enter to open it",
   "explorer.dimensionFallback": "dimension",

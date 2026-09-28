@@ -108,5 +108,22 @@ export function mergeFindingDetail(items, loaded) {
   });
 }
 
+/**
+ * Flag deferred items whose detail fetch failed. They leave the deferred
+ * state (so nothing reads them as still loading) and carry
+ * `detailUnavailable`, which the cards turn into a note.
+ * @param {Array} items
+ * @param {Array<Object>} failedRefs Detail refs whose fetch errored.
+ * @returns {Array}
+ */
+export function markDetailUnavailable(items, failedRefs) {
+  if (!failedRefs.length) return items;
+  return items.map((item) => (
+    item?.detailDeferred && failedRefs.includes(item.detailRef)
+      ? { ...item, detailDeferred: false, detailUnavailable: true }
+      : item
+  ));
+}
+
 /** `mergeFindingDetail` under its pre-kind name. */
 export const mergeComplianceDetail = mergeFindingDetail;

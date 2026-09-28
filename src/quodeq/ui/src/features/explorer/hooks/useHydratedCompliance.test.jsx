@@ -62,4 +62,31 @@ describe('useHydratedCompliance', () => {
     expect(result.current[0].file).toBe('a.py');
     expect(result.current[0].snippet).toBeNull();
   });
+
+  it('marks items whose detail fetch failed as unavailable instead of still deferred', async () => {
+    const get = vi.fn(async () => { throw new Error('down'); });
+    const items = [slim('a.py', 1), slim('a.py', 2)];
+    const { result } = renderHook(() => useHydratedCompliance(items), { wrapper: setup(get) });
+
+    expect(result.current[0].detailUnavailable).toBeUndefined();
+    await waitFor(() => expect(result.current[0].detailUnavailable).toBe(true));
+    expect(result.current[1].detailUnavailable).toBe(true);
+    expect(result.current.every((i) => i.detailDeferred === false)).toBe(true);
+    expect(result.current[0].snippet).toBeNull();
+  });
+
+  it('only marks the items of the failed group when another group loads', async () => {
+    const other = { ...ref, dimension: 'reliability' };
+    const ok = { ...slim('src/b.py', 4), detailRef: other };
+    const get = vi.fn(async (_project, { dimension }) => {
+      if (dimension === 'security') throw new Error('down');
+      return [{ ...ok, reason: 'why', snippet: 'code', detailDeferred: false }];
+    });
+    const items = [slim('src/a.py', 1), ok];
+    const { result } = renderHook(() => useHydratedCompliance(items), { wrapper: setup(get) });
+
+    await waitFor(() => expect(result.current[0].detailUnavailable).toBe(true));
+    await waitFor(() => expect(result.current[1].snippet).toBe('code'));
+    expect(result.current[1].detailUnavailable).toBeUndefined();
+  });
 });
