@@ -3,6 +3,7 @@ import { TermHeader } from '../../components/terminal/index.js';
 import useGradeFormula from './useGradeFormula.js';
 import { useStageExplain } from './hooks/useStageExplain.js';
 import { useTypesRows } from './hooks/useTypesRows.js';
+import { useFullRunDimensions } from './hooks/useFullRunDimensions.js';
 import { liveStages, pickPrincipleId } from './stages/liveStages.js';
 import PreviewStrip from './PreviewStrip.jsx';
 import FormulaTab from './FormulaTab.jsx';
@@ -117,8 +118,13 @@ function useWorkedExample(scope, draft) {
 // narrowed to.
 function useTypesTab(scope, draft) {
   const [dimensionFilter, setDimensionFilter] = useState(null);
+  // The root dashboard is the overview shape (no bodies) off run pages; the
+  // TYPES rows count violations, so they read the full dashboard for the run.
+  const runDimensions = useFullRunDimensions({
+    project: scope.project, runId: scope.runId, source: scope.selectedSource, dimensions: scope.runDimensions,
+  });
   const { rows, loading } = useTypesRows({
-    project: scope.project, runId: scope.runId, dimensions: scope.runDimensions,
+    project: scope.project, runId: scope.runId, dimensions: runDimensions,
     selectedSource: scope.selectedSource, draft,
   });
   return { rows, loading, dimensionFilter, setDimensionFilter, dimensions: scope.dimensions, noRun: !scope.runId };

@@ -103,6 +103,16 @@ function canonicalFindings(raw) {
  * @param {Object} raw
  * @returns {Dimension}
  */
+/**
+ * True when every dimension carries its violation bodies (the full dashboard
+ * shape). The overview shape leaves the key out, and readers that need
+ * bodies (the grade-formula TYPES tab, the map's fallback) test this
+ * instead of treating a missing list as "no findings".
+ */
+export function hasBodies(dimensions) {
+  return (dimensions || []).every((d) => Array.isArray(d?.violations));
+}
+
 export function createSlimDimension(raw) {
   if (!raw || typeof raw !== OBJECT_TYPE_NAME) return raw;
   return {

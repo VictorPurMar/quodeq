@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { treeNodeToFileObj } from '../viz/index.js';
+import { hasBodies } from '../../../models/dimension.js';
 import { useTabScopedPageState } from '../../../hooks/useTabScopedPageState.js';
 import { useDashboardFullHeight } from './useDashboardFullHeight.js';
 import { useStandardTypes } from './useStandardTypes.js';
@@ -120,7 +121,10 @@ export default function useMapPageState({ data, callbacks, nav, tabKey = 0, cach
   } = useMapNavParams(nav);
   const { cached, standardTypes } = useMapPageLifecycle({ selectedProject, tabKey, callbacks, cache });
 
-  const allDimensions = data?.accumulated?.dimensions || data?.dashboard?.dimensions || [];
+  // A slim (overview) dashboard has no bodies to place: wait for accumulated
+  // rather than drawing an empty tree from it.
+  const dashboardDims = data?.dashboard?.dimensions;
+  const allDimensions = data?.accumulated?.dimensions || (hasBodies(dashboardDims) ? dashboardDims : null) || [];
 
   const { showLabels, setShowLabels, darkMode, setDarkMode } = useMapDisplayPrefs();
 

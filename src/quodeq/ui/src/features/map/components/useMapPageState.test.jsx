@@ -56,3 +56,22 @@ describe('useMapPageState: page-state cache injection', () => {
     expect(readCachedState('map', 'proj-x', {}).selectedDimensionsArr).toEqual(['Performance']);
   });
 });
+
+describe('useMapPageState: dimension source while accumulated is loading', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    writeVisibleStandardIds(['security', 'performance']);
+    clearAllCachedState();
+  });
+
+  it('does not use a slim dashboard as the dimension source', () => {
+    const { result } = setup({ data: { projectName: 'proj-x', accumulated: null, dashboard: { dimensions: [{ dimension: 'Security', overallScore: '9' }] } } });
+    expect(result.current.allDimensions).toEqual([]);
+  });
+
+  it('still falls back to a full dashboard', () => {
+    const full = [{ dimension: 'Security', violations: [], compliance: [] }];
+    const { result } = setup({ data: { projectName: 'proj-x', accumulated: null, dashboard: { dimensions: full } } });
+    expect(result.current.allDimensions).toBe(full);
+  });
+});
