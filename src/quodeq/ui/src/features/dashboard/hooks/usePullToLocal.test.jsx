@@ -65,4 +65,16 @@ describe('usePullToLocal failure presentation', () => {
 
     expect(showToast).toHaveBeenCalledWith(catalog['projects.pullFailed']);
   });
+
+  it('a failed projects reload after a pull is logged, not reported as a failed pull', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const shared = { pull: vi.fn().mockResolvedValue({}) };
+    const onProjectsReload = vi.fn().mockRejectedValue(new Error('reload down'));
+    const { result } = renderHook(() => usePullToLocal({ shared, onProjectsReload }));
+
+    await act(async () => { await result.current.handlePull('proj-1'); });
+
+    expect(showToast).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });

@@ -153,9 +153,8 @@ class TestExportProjectZip:
         app = Flask(__name__)
         with app.app_context():
             resp = export_project_zip("../../etc", str(tmp_path))
-            if isinstance(resp, tuple):
-                _, status = resp
-                assert status in (400, 404)
+            _, status = resp
+            assert status in (400, 404)
 
     def test_project_not_found(self, tmp_path):
         from quodeq.api.zip import export_project_zip
@@ -163,9 +162,8 @@ class TestExportProjectZip:
         app = Flask(__name__)
         with app.app_context():
             resp = export_project_zip("nonexistent", str(tmp_path))
-            if isinstance(resp, tuple):
-                _, status = resp
-                assert status == 404
+            _, status = resp
+            assert status == 404
 
     def test_project_too_large(self, tmp_path):
         from quodeq.api.zip import export_project_zip, _ZipSizeLimitError
@@ -242,6 +240,5 @@ class TestExportProjectZip:
         with app.app_context():
             with patch("quodeq.api.zip.build_project_zip", side_effect=OSError("disk error")):
                 resp = export_project_zip("broken", str(tmp_path))
-                if isinstance(resp, tuple):
-                    _, status = resp
-                    assert status == 500
+                _, status = resp
+                assert status == 500

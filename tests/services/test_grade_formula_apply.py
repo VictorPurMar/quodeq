@@ -183,3 +183,39 @@ def test_preview_scores_none_when_no_runs(tmp_path, formula_path):
     (tmp_path / "empty-proj").mkdir()
     assert grade_formula.preview_scores(tmp_path, "empty-proj", DEFAULT_PARAMS) is None
     assert grade_formula.preview_scores(tmp_path, "missing", DEFAULT_PARAMS) is None
+
+
+def test_a_failing_rescore_backs_off_with_jitter_and_logs_once(
+    tmp_path, formula_path, monkeypatch, caplog,
+):
+    """Each retry doubles the base sleep and adds jitter, so parallel
+    rescores of a locked db do not retry in lockstep. Exhausting the
+    retries logs one warning for the run."""
+    run_dir = tmp_path / "proj" / "run-bad"
+    run_dir.mkdir(parents=True)
+    (run_dir / "events.jsonl").write_text("")
+
+    def locked(run_dir, params=None):
+        raise RuntimeError("database is locked")
+
+    sleeps: list[float] = []
+    jitter = 0.01
+    monkeypatch.setattr("quodeq.services.grade_formula.recompute_grades", locked)
+    monkeypatch.setattr(
+        "quodeq.services.dashboard.clear_shared_dimension_cache", lambda: None,
+    )
+    monkeypatch.setattr("time.sleep", sleeps.append)
+    monkeypatch.setattr("random.uniform", lambda low, high: jitter)
+
+    with caplog.at_level("WARNING", logger="quodeq.services.grade_formula"):
+        result = grade_formula.apply_to_all_runs(tmp_path)
+
+    base = 0.15
+    assert result.failed == ["run-bad"]
+    assert sleeps == [base + jitter, 2 * base + jitter]
+    exhausted = [
+        r for r in caplog.records
+        if r.getMessage() == f"Rescore failed for {run_dir} after 3 attempts; it will keep the old formula's grades."
+    ]
+    assert len(exhausted) == 1
+    assert exhausted[0].exc_info[0] is RuntimeError

@@ -18,6 +18,7 @@ from quodeq.core.run.dimensions import (  # noqa: F401 — re-exported API
     IllegalDimTransitionError,
     validate_dim_transition,
 )
+from quodeq.data.fs.run_artifacts import replace_json_file
 from quodeq.shared.clock import ISO_SECONDS, utc_now_iso
 
 _logger = logging.getLogger(__name__)
@@ -102,6 +103,4 @@ def write_dim_state(
         data["schema_version"] = SCHEMA_VERSION
 
         run_dir.mkdir(parents=True, exist_ok=True)
-        tmp = run_dir / (FILENAME + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp.replace(run_dir / FILENAME)
+        replace_json_file(run_dir / FILENAME, data, indent=2)

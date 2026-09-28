@@ -30,6 +30,15 @@ const PROJECTS_LIST_TIMEOUT_MS = 120000;
 // hung backend must not leave onboarding pending forever.
 const REGISTER_PROJECT_TIMEOUT_MS = 600000; // 10 min
 
+// Generous for the same reason: a large project zip can take minutes to
+// upload and unpack, but a hung backend must not leave the import pending.
+const IMPORT_PROJECT_TIMEOUT_MS = 600000; // 10 min
+
+// request() aborts on its timeout; a caller-supplied signal aborts too.
+function isTimeoutOrAbort(e) {
+  return e?.name === FETCH_ERROR_NAME.TIMEOUT || e?.name === FETCH_ERROR_NAME.ABORT;
+}
+
 /** @returns {Promise<{ projects: import('../models/project.js').Project[] }>} */
 export async function listProjects() {
   const data = await request('/projects', { timeout: PROJECTS_LIST_TIMEOUT_MS });
@@ -143,8 +152,9 @@ function restoreFallbackMessage(err, label) {
  * Import a previously-exported project zip.
  *
  * Sends multipart/form-data (request() skips the JSON Content-Type for a
- * FormData body) with no timeout — large project zips can take a while to
- * upload. err.status, err.kind, err.existingProjectId, err.projectName come
+ * FormData body) with a 10-minute abort: large project zips can take a
+ * while to upload, and a timeout rejects with a plain "timed out" Error.
+ * err.status, err.kind, err.existingProjectId, err.projectName come
  * off request()'s err.body so the caller can prompt the user to choose
  * Replace / Import as copy / Cancel on a 409 collision.
  *
@@ -158,8 +168,11 @@ export async function importProject(file, opts = {}) {
   form.append('file', file);
   if (opts.action) form.append('action', opts.action);
   try {
-    return await request('/projects/import', { method: 'POST', body: form, timeout: null });
+    return await request('/projects/import', { method: 'POST', body: form, timeout: IMPORT_PROJECT_TIMEOUT_MS });
   } catch (e) {
+    if (isTimeoutOrAbort(e)) {
+      throw new Error('Project import timed out. The server may be unresponsive or the upload is taking too long; try again.');
+    }
     if (e?.body?.kind) e.kind = e.body.kind;
     if (e?.body?.existingProjectId) e.existingProjectId = e.body.existingProjectId;
     if (e?.body?.projectName) e.projectName = e.body.projectName;
@@ -184,7 +197,7 @@ export async function registerProject(payload) {
       timeout: REGISTER_PROJECT_TIMEOUT_MS,
     });
   } catch (e) {
-    if (e?.name === FETCH_ERROR_NAME.TIMEOUT || e?.name === FETCH_ERROR_NAME.ABORT) {
+    if (isTimeoutOrAbort(e)) {
       throw new Error('Project registration timed out. The server may be unresponsive or the clone is taking too long; try again.');
     }
     if (e?.body?.existingProjectId) e.existingProjectId = e.body.existingProjectId;

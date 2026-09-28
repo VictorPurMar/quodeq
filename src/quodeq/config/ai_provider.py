@@ -185,7 +185,9 @@ def _write_env(
         # fchmod on Windows loses no hardening.
         if hasattr(os, "fchmod"):
             os.fchmod(fd, _OWNER_RW_PERMS)
-        os.write(fd, ("\n".join(lines) + "\n").encode())
+        view = memoryview(("\n".join(lines) + "\n").encode())
+        while view:
+            view = view[os.write(fd, view):]
         os.close(fd)
         closed = True
         os.replace(tmp_path, str(paths.env_file))

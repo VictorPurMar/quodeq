@@ -29,13 +29,13 @@ function MetricsSection({ metrics }) {
     <div className="principle-section metrics-section">
       <h4>{t('principle.metrics')}</h4>
       <div className="metrics-grid">
-        {metrics.instancesExamined && (
+        {metrics.instancesExamined != null && (
           <div className="metric">
             <span className="metric-value">{metrics.instancesExamined}</span>
             <span className="metric-label">{t('principle.instancesExamined')}</span>
           </div>
         )}
-        {metrics.complianceRate && (
+        {metrics.complianceRate != null && (
           <div className="metric">
             <span className="metric-value">{metrics.complianceRate}%</span>
             <span className="metric-label">{t('principle.complianceRate')}</span>

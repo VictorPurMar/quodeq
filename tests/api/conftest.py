@@ -25,6 +25,7 @@ from quodeq.data.fs.shared_repo import (
     sync_shared_index,
 )
 from quodeq.services.shared_settings import SharedSettings, write_settings
+from tests._timeouts import budget
 
 _VIOLATION = dict(
     practice_id="P1", verdict="violation", dimension="Security",
@@ -49,7 +50,7 @@ _EVAL_JSON = {
 
 def _make_origin(tmp_path: Path) -> str:
     origin = tmp_path / "origin.git"
-    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True)
+    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True, timeout=budget(30))
     return f"file://{origin}"
 
 
@@ -81,7 +82,7 @@ def shared_clone_fixture(tmp_path, monkeypatch):
     assert ensure_shared_clone(url) is not None
     subprocess.run(
         ["git", "config", "user.name", "tester"],
-        cwd=shared_repo_path(url), check=True, capture_output=True,
+        cwd=shared_repo_path(url), check=True, capture_output=True, timeout=budget(30),
     )
     local_root = tmp_path / "local-evaluations"
     project_dir = local_root / "proj-a"

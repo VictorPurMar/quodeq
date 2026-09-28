@@ -102,19 +102,19 @@ def test_sigterm_mid_status_write_does_not_deadlock(tmp_path: Path) -> None:
     import os
 
     fired = {"done": False}
-    orig_replace = Path.replace
+    orig_replace = os.replace
 
-    def replace_and_signal(self, target):
-        if not fired["done"] and self.name == "status.json.tmp":
+    def replace_and_signal(src, dst):
+        if not fired["done"] and Path(dst).name == "status.json":
             fired["done"] = True
             # Delivered to the main thread while _write_lock is held; the
             # handler runs at the next bytecode boundary, still inside it.
             os.kill(os.getpid(), signal.SIGTERM)
-        return orig_replace(self, target)
+        return orig_replace(src, dst)
 
     with pytest.raises(SystemExit):
         with _ctx(tmp_path) as ctx:
-            with patch.object(Path, "replace", replace_and_signal):
+            with patch.object(os, "replace", replace_and_signal):
                 ctx.set_phase("analyzing")
     status = read_status(tmp_path)
     assert status["state"] == "cancelled"

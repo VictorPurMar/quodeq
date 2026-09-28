@@ -12,9 +12,11 @@ from typing import Any
 
 from quodeq.core.events.models import DEFAULT_SEVERITY, Judgment
 from quodeq.core.finding_coercions import coerce_confidence
+from quodeq.core.finding_identity import coerce_line
 from quodeq.core.types.finding_type import FindingType
 from quodeq.core.types.finding import Finding
 from quodeq.core.types.req_ref import ReqRef
+from quodeq.core.utils.numbers import int_or_none
 
 _logger = logging.getLogger(__name__)
 
@@ -39,11 +41,11 @@ def finding_dict_to_row(finding: dict[str, Any]) -> dict[str, Any]:
     """Translate a FindingsRouter wire dict into a row dict ready for SQL bind."""
     practice_id = finding.get("p", "")
     file = finding.get("file", "") or ""
-    line = int(finding.get("line", 0) or 0)
+    line = coerce_line(finding.get("line"))
     verdict = finding.get("t", FindingType.VIOLATION)
     refs = finding.get("req_refs")
     return {
-        "schema_version": int(finding.get("schema_version", 1)),
+        "schema_version": int_or_none(finding.get("schema_version")) or 1,
         "practice_id": practice_id,
         "dimension": finding.get("d", "") or "",
         "requirement": finding.get("req"),
@@ -51,7 +53,7 @@ def finding_dict_to_row(finding: dict[str, Any]) -> dict[str, Any]:
         "severity": finding.get("severity", DEFAULT_SEVERITY),
         "file": file,
         "line": line,
-        "end_line": int(finding.get("end_line", 0) or 0),
+        "end_line": coerce_line(finding.get("end_line")),
         "title": finding.get("w", "") or "",
         "reason": finding.get("reason", "") or "",
         "snippet": finding.get("snippet", "") or "",

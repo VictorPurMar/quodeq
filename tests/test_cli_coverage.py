@@ -133,6 +133,7 @@ class TestResolveRepo:
              patch("quodeq._cli_resolution.create_worktree", return_value=None):
             result = resolve_repo(args)
             assert result is None
+            assert capsys.readouterr().err == ""
 
 
 # ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ export function usePullToLocal({ shared, onProjectsReload }) {
   // pull actually landed a local copy.
   async function markPulled(id) {
     setPulledIds((prev) => new Set(prev).add(id));
-    await onProjectsReload?.();
+    await Promise.resolve(onProjectsReload?.()).catch((err) => console.warn('[pull] projects reload failed:', err));
   }
 
   async function handlePull(id) {

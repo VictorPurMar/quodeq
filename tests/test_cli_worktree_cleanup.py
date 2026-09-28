@@ -139,3 +139,23 @@ class TestFetchBranchArgv:
         assert fetch_argv[fetch_argv.index("fetch"):] == [
             "fetch", "origin", "--", "--upload-pack=evil:--upload-pack=evil",
         ]
+
+    def test_retry_after_the_fetch_waits_a_short_jittered_pause(self, tmp_path: Path) -> None:
+        """The single retry after fetching the branch pauses once for a
+        jittered sub-second delay before the second ``worktree add``."""
+        from quodeq.cli_evaluation import create_worktree
+        from quodeq.shared.constants import RETRY_JITTER_S
+
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        ok = MagicMock(returncode=0)
+
+        with patch(
+            "quodeq._cli_resolution.subprocess.run",
+            side_effect=[subprocess.CalledProcessError(1, "git"), ok, ok],
+        ), patch("time.sleep") as mock_sleep:
+            result = create_worktree(repo_dir, "feature")
+
+        assert result is not None
+        mock_sleep.assert_called_once()
+        assert 0 <= mock_sleep.call_args.args[0] <= RETRY_JITTER_S

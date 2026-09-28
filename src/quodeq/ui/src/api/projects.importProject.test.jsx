@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Characterizes importProject's request/response contract before it moves
 // onto the shared request() wrapper: a multipart body with no forced
-// Content-Type, no internal timeout (large zips can take a while), and the
-// 409-collision error fields (status/code/kind/existingProjectId/projectName)
-// a caller reads to offer Replace / Import as copy / Cancel.
+// Content-Type, a 10-minute abort (large zips can take a while, a hung
+// backend must not hang the dialog), and the 409-collision error fields
+// (status/code/kind/existingProjectId/projectName) a caller reads to offer
+// Replace / Import as copy / Cancel.
 describe('importProject', () => {
   let fetchCalls;
 
@@ -13,6 +14,7 @@ describe('importProject', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -84,6 +86,21 @@ describe('importProject', () => {
     expect(caught).toBeDefined();
     expect(caught.message).toBe('importProject failed (500)');
     expect(caught.status).toBe(500);
+  });
+
+  it('aborts after 10 minutes and says the import timed out', async () => {
+    vi.useFakeTimers();
+    let signal;
+    vi.stubGlobal('fetch', vi.fn((url, opts) => new Promise((_resolve, reject) => {
+      signal = opts.signal;
+      signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+    })));
+    const { importProject } = await import('./projects.js');
+    const settled = expect(importProject(new Blob(['x']))).rejects.toThrow(/import timed out/i);
+    await vi.advanceTimersByTimeAsync(599999);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await settled;
   });
 
   it('keeps the backend error text (not the per-route fallback) when the envelope carries one', async () => {

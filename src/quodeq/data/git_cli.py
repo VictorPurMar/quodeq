@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import threading
 import unicodedata
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -20,6 +21,11 @@ from quodeq.shared.repo import normalize_remote_url
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT_S = 10
+
+# Cap on the whole stream_log_names stream. Read at call time so tests can
+# shrink it. A large repo's log takes seconds, so this sits well above the
+# per-command default; past it the stream is cut short and says so.
+_GIT_LOG_STREAM_TIMEOUT_S = 60
 
 # stream_log_names' churn-history window. Public: also the fallback default
 # for analysis/subagents/_git_scoring.py's git_lookback_months config knob,
@@ -173,13 +179,23 @@ def git_worktree_dirty(repo_path: str, *, timeout: float = _DEFAULT_TIMEOUT_S) -
     return bool(out.strip())
 
 
+def _kill_on_deadline(proc: subprocess.Popen, fired: threading.Event) -> None:
+    """Timer callback: flag the deadline first, then kill, so the stream's
+    ``finally`` (reached once the kill closes stdout) sees the flag."""
+    fired.set()
+    proc.kill()
+
+
 def stream_log_names(
     repo_dir: Path, *, months: int = DEFAULT_GIT_LOOKBACK_MONTHS, timeout: float = _DEFAULT_TIMEOUT_S,
 ) -> Iterator[str]:
     """Yield ``git log --name-only`` lines one at a time (streaming Popen).
 
     Avoids materializing the full log for large repositories. Yields
-    nothing when git is unavailable or the command cannot start.
+    nothing when git is unavailable or the command cannot start. The whole
+    stream is capped at ``_GIT_LOG_STREAM_TIMEOUT_S``: past it the process is
+    killed, its stdout hits EOF, a warning is logged, and the generator ends
+    with the lines read so far. *timeout* bounds the reap after stdout closes.
     """
     try:
         proc = subprocess.Popen(
@@ -189,10 +205,18 @@ def stream_log_names(
         )
     except OSError:
         return
+    cap = _GIT_LOG_STREAM_TIMEOUT_S
+    fired = threading.Event()
+    deadline = threading.Timer(cap, _kill_on_deadline, args=(proc, fired))
+    deadline.daemon = True
     try:
         assert proc.stdout is not None
+        deadline.start()
         yield from proc.stdout
     finally:
+        deadline.cancel()
+        if fired.is_set():
+            _logger.warning("git log in %s passed its %ss cap; history is truncated", repo_dir, cap)
         proc.stdout.close()  # type: ignore[union-attr]
         try:
             proc.wait(timeout=timeout)
