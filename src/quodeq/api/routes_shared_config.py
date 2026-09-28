@@ -13,9 +13,9 @@ from http import HTTPStatus
 from pathlib import Path
 from typing import Callable
 
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 
-from quodeq.api._constants import CODE_INVALID_INPUT
+from quodeq.api._constants import CODE_INVALID_INPUT, QUERY_FLAG_TRUE
 from quodeq.services.shared_connect_job import (
     ConnectStartResult,
     get_connect_status,
@@ -41,6 +41,7 @@ from .routes_shared_common import no_shared_repo_error
 CODE_URL_REQUIRED = "URL_REQUIRED"
 CODE_CONNECT_IN_PROGRESS = "CONNECT_IN_PROGRESS"
 CODE_CONNECT_START_FAILED = "CONNECT_START_FAILED"
+CODE_CONFIRMATION_REQUIRED = "CONFIRMATION_REQUIRED"
 MESSAGE_CONNECT_IN_PROGRESS = "a connect is already running"
 
 
@@ -111,9 +112,15 @@ def shared_config_put() -> Response | tuple[Response, int]:
 def shared_config_delete() -> Response | tuple[Response, int]:
     """Disconnect from the shared repository and drop the local clone.
 
-    Refused while a connect job runs: its settings write would reconnect
-    right after the disconnect.
+    The clone is deleted from disk, so the caller must pass ``?confirm=true``
+    (same gate as the other destructive DELETEs). Refused while a connect job
+    runs: its settings write would reconnect right after the disconnect.
     """
+    if request.args.get("confirm") != QUERY_FLAG_TRUE:
+        return json_error(
+            "Use ?confirm=true to confirm disconnecting and deleting the local clone",
+            HTTPStatus.BAD_REQUEST, CODE_CONFIRMATION_REQUIRED,
+        )
     if is_connect_running():
         return json_error(MESSAGE_CONNECT_IN_PROGRESS, HTTPStatus.CONFLICT, CODE_CONNECT_IN_PROGRESS)
     # Ordering + locking business rule lives in
