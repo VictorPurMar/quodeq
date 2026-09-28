@@ -42,6 +42,7 @@ from quodeq.shared.utils import get_evaluations_dir
 from quodeq.shared.validation import resolve_child_dir
 
 _logger = logging.getLogger(__name__)
+_PROJECT_FIELDS = ("project",)  # the one body field restore-all and delete-all read
 
 
 def _invalid_body_fields(
@@ -194,7 +195,7 @@ def _mutate_project(
     run_id = _run_id(body)
     if not project:
         return json_error("project is required", HTTPStatus.BAD_REQUEST, CODE_MISSING_PARAM)
-    type_err = _invalid_body_fields(body, ("project",))
+    type_err = _invalid_body_fields(body, _PROJECT_FIELDS)
     if type_err:
         return json_error(type_err, HTTPStatus.BAD_REQUEST, CODE_INVALID_PARAM)
     count = mutate(_project_dir(_eval_dir(app), project))
@@ -244,9 +245,7 @@ def _delete(app: Flask) -> tuple[Response, int]:
 
 def _delete_all(app: Flask) -> tuple[Response, int]:
     if request.args.get("confirm") != QUERY_FLAG_TRUE:
-        return json_error(
-            "Use ?confirm=true to confirm deletion", HTTPStatus.BAD_REQUEST, "CONFIRMATION_REQUIRED",
-        )
+        return json_error("Use ?confirm=true to confirm deletion", HTTPStatus.BAD_REQUEST, "CONFIRMATION_REQUIRED")
     return _mutate_project(app, delete_all_dismissed, delete_all_delta, "deleted")
 
 
