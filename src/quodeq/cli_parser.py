@@ -242,6 +242,12 @@ def _add_review_subcommand(subparsers) -> None:
         dest="dry_run",
         help="Build the review but do not post it",
     )
+    review_parser.add_argument(
+        "--yes",
+        action="store_true",
+        dest="yes",
+        help="Post without the interactive confirmation (a non-interactive run never asks)",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

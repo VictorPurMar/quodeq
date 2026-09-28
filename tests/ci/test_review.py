@@ -1,10 +1,13 @@
 """Tests for quodeq review (local PR review): gh lookups, run snapshots, CLI parsing."""
 from __future__ import annotations
 
+import argparse
 import ast
 import json
 import subprocess as sp
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -104,6 +107,12 @@ def test_review_subcommand_defaults():
     assert args.pr is None
     assert args.dimensions is None  # default is all dimensions (no --dimensions flag)
     assert args.dry_run is False
+    assert args.yes is False
+
+
+def test_review_subcommand_parses_yes():
+    parser = build_parser()
+    assert parser.parse_args(["review", "--yes"]).yes is True
 
 
 @pytest.mark.parametrize("call", [
@@ -173,3 +182,69 @@ def test_gh_is_spawned_from_one_place():
         and node.func.value.id == "subprocess"
     ]
     assert len(runs) == 1
+
+
+class TestConfirmPost:
+    """Publishing to a shared PR asks first, but only when someone can answer."""
+
+    @staticmethod
+    def _tty(answer: str):
+        return SimpleNamespace(isatty=lambda: True), lambda prompt: answer
+
+    def test_non_interactive_input_posts_without_asking(self):
+        from quodeq.ci.review import confirm_post
+        asked = []
+        stream = SimpleNamespace(isatty=lambda: False)
+        assert confirm_post("o", "r", 7, stdin=stream, ask=lambda p: asked.append(p) or "n") is True
+        assert asked == []
+
+    def test_pytest_stdin_is_not_a_terminal_so_the_default_posts(self):
+        from quodeq.ci.review import confirm_post
+        assert not sys.stdin.isatty()
+        assert confirm_post("o", "r", 7, ask=lambda p: "n") is True
+
+    @pytest.mark.parametrize("answer, expected", [("y", True), ("YES", True), ("", False), ("n", False)])
+    def test_terminal_answer_decides(self, answer, expected):
+        from quodeq.ci.review import confirm_post
+        stream, ask = self._tty(answer)
+        assert confirm_post("o", "r", 7, stdin=stream, ask=ask) is expected
+
+    def test_terminal_prompt_names_the_target(self):
+        from quodeq.ci.review import confirm_post
+        prompts = []
+        stream = SimpleNamespace(isatty=lambda: True)
+        confirm_post("acme", "widgets", 42, stdin=stream, ask=lambda p: prompts.append(p) or "y")
+        assert prompts == ["Post this review to acme/widgets PR #42? [y/N] "]
+
+    @pytest.mark.parametrize("exc", [EOFError, KeyboardInterrupt])
+    def test_end_of_input_declines(self, exc):
+        from quodeq.ci.review import confirm_post
+
+        def _ask(prompt):
+            raise exc
+
+        assert confirm_post("o", "r", 7, stdin=SimpleNamespace(isatty=lambda: True), ask=_ask) is False
+
+
+class TestPostGate:
+    def _args(self, **kw):
+        return argparse.Namespace(dry_run=False, **kw)
+
+    def test_declined_confirmation_posts_nothing(self, monkeypatch, capsys):
+        from quodeq.ci import review
+        monkeypatch.setattr(review, "confirm_post", lambda *a, **k: False)
+        posted = []
+        monkeypatch.setattr("quodeq.ci.reporter.post_review", lambda **k: posted.append(k))
+        code = review._post_review_or_dry_run(self._args(), {"body": "b"}, "o", "r", 7)
+        assert code == 1 and posted == []
+        assert "Review not posted" in capsys.readouterr().out
+
+    def test_yes_skips_the_confirmation(self, monkeypatch):
+        from quodeq.ci import review
+        asked = []
+        monkeypatch.setattr(review, "confirm_post", lambda *a, **k: asked.append(a) or False)
+        monkeypatch.setattr(review, "get_github_token", lambda: "tok")
+        posted = []
+        monkeypatch.setattr("quodeq.ci.reporter.post_review", lambda **k: posted.append(k))
+        code = review._post_review_or_dry_run(self._args(yes=True), {"body": "b"}, "o", "r", 7)
+        assert code == 0 and asked == [] and posted[0]["pr_number"] == 7

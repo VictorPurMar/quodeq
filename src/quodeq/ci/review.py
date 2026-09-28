@@ -211,13 +211,39 @@ def _build_diff_report_and_payload(evidence_dir: Path, duration: int) -> tuple[d
     return report, payload
 
 
+_CONFIRM_ANSWERS = frozenset({"y", "yes"})
+
+
+def confirm_post(owner: str, repo: str, pr_number: int, *, stdin=None, ask=input) -> bool:
+    """Ask before publishing to a shared PR when a person is at the terminal.
+
+    A non-interactive run (CI, a pipe) has no one to ask and keeps posting;
+    an interactive one must answer yes. End of input or Ctrl-C declines.
+    """
+    stream = sys.stdin if stdin is None else stdin
+    if stream is None or not getattr(stream, "isatty", lambda: False)():
+        return True
+    try:
+        answer = ask(f"Post this review to {owner}/{repo} PR #{pr_number}? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in _CONFIRM_ANSWERS
+
+
 def _post_review_or_dry_run(args, payload: dict, owner: str, repo: str, pr_number: int) -> int:
-    """Print the review body for --dry-run, else post it to GitHub."""
+    """Print the review body for --dry-run, else post it to GitHub.
+
+    Posting to a real PR is the irreversible step, so an interactive run is
+    asked first unless --yes was given.
+    """
     if getattr(args, "dry_run", False):
         print("\n--- Review body (dry-run, not posted) ---")
         print(payload["body"])
         print("--- end review body ---")
         return 0
+    if not getattr(args, "yes", False) and not confirm_post(owner, repo, pr_number):
+        print("Review not posted. Re-run with --yes to skip the prompt, or --dry-run to print it.")
+        return 1
 
     try:
         token = get_github_token()
