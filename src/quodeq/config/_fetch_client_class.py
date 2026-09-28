@@ -1,4 +1,9 @@
-"""Thread-safe HTTP fetcher with circuit breaker and retry."""
+"""Thread-safe HTTP fetcher with circuit breaker and retry.
+
+QUODEQ_CIRCUIT_THRESHOLD consecutive failures open the circuit; after
+QUODEQ_CIRCUIT_RESET_S seconds one probe request goes out, and its success
+closes the circuit while its failure opens it for another cooldown.
+"""
 from __future__ import annotations
 
 import logging
@@ -29,30 +34,48 @@ _DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024
 DEFAULT_FETCH_CLIENT_TIMEOUT_S = 15
 _DEFAULT_CIRCUIT_THRESHOLD = 5  # consecutive failures before the circuit breaker trips
 _DEFAULT_RETRY_BACKOFF_S = 0.5  # QUODEQ_RETRY_BACKOFF_S fallback
+_DEFAULT_CIRCUIT_RESET_S = 60.0  # QUODEQ_CIRCUIT_RESET_S fallback
 
 
 class FetchClient:
     """Thread-safe HTTP fetcher with circuit breaker (trips after repeated failures)."""
 
     def _record_success(self) -> None:
-        """Reset the failure counter on a successful fetch."""
+        """Reset the failure counter on a successful fetch; closes an open circuit."""
         with self._lock:
+            was_open = self._opened_at is not None
             self._failures = 0
+            self._opened_at = None
+        if was_open:
+            _logger.info("Circuit closed")
 
     def _record_failure(self, exc: Exception) -> None:
         """Increment failures and log; trips circuit breaker at threshold."""
         with self._lock:
             self._failures += 1
             count = self._failures
+            if count >= self._CIRCUIT_THRESHOLD:
+                self._opened_at = time.monotonic()
         if count >= self._CIRCUIT_THRESHOLD:
-            _logger.warning("Circuit breaker tripped (failure %d): %s", count, exc)
+            _logger.warning("Circuit opened after %d failures: %s", count, exc)
         else:
             _logger.debug("Fetch failure %d/%d: %s", count, self._CIRCUIT_THRESHOLD, exc)
 
     def _is_circuit_open(self) -> bool:
-        """Return True if too many recent failures have tripped the circuit breaker."""
+        """Return True while the circuit is open and its cooldown has not passed.
+
+        Once the cooldown has passed, one caller gets False (the half-open
+        probe) and the cooldown restarts, so concurrent callers stay blocked
+        until the probe's outcome closes or re-opens the circuit.
+        """
         with self._lock:
-            return self._failures >= self._CIRCUIT_THRESHOLD
+            if self._opened_at is None:
+                return False
+            now = time.monotonic()
+            if now - self._opened_at < self._CIRCUIT_RESET_S:
+                return True
+            self._opened_at = now
+            return False
 
     def __init__(
         self, timeout_s: int = DEFAULT_FETCH_CLIENT_TIMEOUT_S,
@@ -60,11 +83,13 @@ class FetchClient:
     ) -> None:
         self._lock = threading.Lock()
         self._failures = 0
+        self._opened_at: float | None = None
         self._timeout = timeout_s
         self._env = env
         _e = resolve_env(self._env)
         self._CIRCUIT_THRESHOLD = env_int("QUODEQ_CIRCUIT_THRESHOLD", _DEFAULT_CIRCUIT_THRESHOLD, minimum=1, env=_e)
         self._MAX_RETRIES = env_int("QUODEQ_MAX_RETRIES", 2, minimum=0, env=_e)
+        self._CIRCUIT_RESET_S = env_float("QUODEQ_CIRCUIT_RESET_S", _DEFAULT_CIRCUIT_RESET_S, minimum=0.0, env=_e)
         self._RETRY_BACKOFF_S = env_float("QUODEQ_RETRY_BACKOFF_S", _DEFAULT_RETRY_BACKOFF_S, minimum=0.0, env=_e)
         self._MAX_BODY_BYTES = env_int("QUODEQ_MAX_RESPONSE_BYTES", _DEFAULT_MAX_BODY_BYTES, minimum=1, env=_e)
         if allow_private is not None:
@@ -91,7 +116,7 @@ class FetchClient:
             return None
 
         last_exc: Exception | None = None
-        for retry in range(self._MAX_RETRIES):
+        for attempt in range(self._MAX_RETRIES + 1):
             try:
                 if hostname and not self._allow_private and _is_private_hostname(hostname):
                     _logger.warning("Blocked fetch after DNS re-check: %s", hostname)
@@ -115,9 +140,9 @@ class FetchClient:
                 return body.decode("utf-8", errors="replace")
             except (urllib.error.URLError, OSError, ValueError) as exc:
                 last_exc = exc
-                if retry < self._MAX_RETRIES - 1:
-                    _logger.debug("Fetch retry %d/%d after: %s", retry + 1, self._MAX_RETRIES, exc)
-                    time.sleep(self._RETRY_BACKOFF_S * (2 ** retry) + random.uniform(0, self._RETRY_BACKOFF_S))
+                if attempt < self._MAX_RETRIES:
+                    _logger.debug("Fetch retry %d/%d after: %s", attempt + 1, self._MAX_RETRIES, exc)
+                    time.sleep(self._RETRY_BACKOFF_S * (2 ** attempt) + random.uniform(0, self._RETRY_BACKOFF_S))
 
         if last_exc is not None:
             self._record_failure(last_exc)
