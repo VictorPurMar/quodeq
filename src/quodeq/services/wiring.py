@@ -33,6 +33,7 @@ from quodeq.data.fs.project_files import (  # noqa: F401
 
 # Per-project deleted.json suppression store (format + lock).
 from quodeq.data.fs.deleted_store import (  # noqa: F401
+    FILENAME as DELETED_FILENAME,
     locked_deleted_store,
     read_deleted_entries,
     write_deleted_entries,

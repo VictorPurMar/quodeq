@@ -1,7 +1,7 @@
 """Tests for quodeq.api.routes_project_data — dashboard/accumulated/eval/violation routes."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from flask import Flask
@@ -112,4 +112,47 @@ class TestRunViolationsRoute:
     def test_not_found(self, client):
         client._provider.get_violations.side_effect = FileNotFoundError
         resp = client.get("/api/projects/p/runs/r/violations")
+        assert resp.status_code == 404
+
+
+class TestLiveFindingsRoute:
+    URL = "/api/projects/p/runs/r/live-findings"
+
+    def test_success_passes_dimensions_through(self, client):
+        client._provider.get_live_findings.return_value = {
+            "project": "p", "runId": "r",
+            "dimensions": {"security": {"state": "ready", "violations": [{"file": "a.py"}]}},
+        }
+        resp = client.get(f"{self.URL}?dimensions=security,usability")
+        assert resp.status_code == 200
+        assert resp.get_json()["dimensions"]["security"]["violations"] == [{"file": "a.py"}]
+        client._provider.get_live_findings.assert_called_once_with(ANY, "p", "r", ["security", "usability"])
+
+    def test_dimensions_param_is_deduped_and_trimmed(self, client):
+        client._provider.get_live_findings.return_value = {"project": "p", "runId": "r", "dimensions": {}}
+        resp = client.get(f"{self.URL}?dimensions=a,,a, b ,")
+        assert resp.status_code == 200
+        client._provider.get_live_findings.assert_called_once_with(ANY, "p", "r", ["a", "b"])
+
+    def test_missing_dimensions_is_400(self, client):
+        resp = client.get(self.URL)
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "INVALID_INPUT"
+
+    def test_empty_dimensions_is_400(self, client):
+        resp = client.get(f"{self.URL}?dimensions=,,")
+        assert resp.status_code == 400
+
+    def test_invalid_dimension_segment_is_400(self, client):
+        resp = client.get(f"{self.URL}?dimensions=security,..evil")
+        assert resp.status_code == 400
+        assert "dimensions" in resp.get_json()["error"]
+
+    def test_invalid_run_id_is_400(self, client):
+        resp = client.get("/api/projects/p/runs/foo..bar/live-findings?dimensions=security")
+        assert resp.status_code == 400
+
+    def test_missing_run_is_404(self, client):
+        client._provider.get_live_findings.return_value = None
+        resp = client.get(f"{self.URL}?dimensions=security")
         assert resp.status_code == 404

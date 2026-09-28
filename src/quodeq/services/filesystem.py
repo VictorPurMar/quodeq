@@ -21,12 +21,14 @@ IDs resolve correctly inside ``cancel_evaluation`` without MRO coupling.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from pathlib import Path
 from typing import Any
 
 from quodeq.core.types import EvalPending, ViolationResponse, ViolationSummary
 from quodeq.core.types.job import JobSnapshot
-from quodeq.services import fs_reports, fs_projects
+from quodeq.services import fs_projects, fs_reports, live_findings
 from quodeq.services._evaluations_index import EvaluationsIndex
 from quodeq.services._post_run_hook import PostRunHook
 from quodeq.services._projects_cache import ProjectsCache
@@ -253,6 +255,16 @@ class FilesystemActionProvider(ActionProvider):
         ``_compiled_dir`` and ``_evaluators_dir``."""
         return fs_reports.get_dimension_eval(
             reports_dir, project, run_id, dimension,
+            compiled_dir=self._compiled_dir, evaluators_dir=self._evaluators_dir,
+        )
+
+    def get_live_findings(
+        self, reports_dir: str, project: str, run_id: str, dimensions: Sequence[str],
+    ) -> dict[str, Any] | None:
+        """The live feed body for *dimensions*, resolved against
+        ``_compiled_dir`` and ``_evaluators_dir``."""
+        return live_findings.get_live_findings(
+            reports_dir, project, run_id, dimensions,
             compiled_dir=self._compiled_dir, evaluators_dir=self._evaluators_dir,
         )
 
