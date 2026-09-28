@@ -7,6 +7,7 @@ from typing import Any
 
 from quodeq.config.paths import default_paths
 from quodeq.core.observability import NULL_LOG, LogSink
+from quodeq.core.types.dashboard_view import DashboardView
 from quodeq.core.types import EvalPending, ViolationResponse, ViolationSummary
 from quodeq.services.accumulated import compute_accumulated
 from quodeq.services.dashboard import build_dashboard
@@ -43,6 +44,12 @@ def _enrich_with_coverage(
 def get_dashboard(reports_dir: str, project: str, run: str, *, log: LogSink = NULL_LOG) -> dict[str, Any]:
     """Return the dashboard payload for a specific project run."""
     payload = build_dashboard(reports_dir, project, run)
+    return _enrich_with_coverage(reports_dir, project, payload, log=log)
+
+
+def get_dashboard_overview(reports_dir: str, project: str, run: str, *, log: LogSink = NULL_LOG) -> dict[str, Any]:
+    """The dashboard payload without dimension bodies (the Overview's shape)."""
+    payload = build_dashboard(reports_dir, project, run, view=DashboardView.OVERVIEW)
     return _enrich_with_coverage(reports_dir, project, payload, log=log)
 
 

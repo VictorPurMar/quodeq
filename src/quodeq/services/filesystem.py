@@ -242,6 +242,10 @@ class FilesystemActionProvider(ActionProvider):
         """Return the dashboard payload assembled from one run's on-disk artifacts."""
         return fs_reports.get_dashboard(reports_dir, project, run, log=SHARED_LOG)
 
+    def get_dashboard_overview(self, reports_dir: str, project: str, run: str) -> dict[str, Any]:
+        """The Overview's dashboard: same scalars, no violation/compliance bodies."""
+        return fs_reports.get_dashboard_overview(reports_dir, project, run, log=SHARED_LOG)
+
     def get_accumulated(
         self, reports_dir: str, project: str, as_of: str | None,
     ) -> dict[str, Any] | None:

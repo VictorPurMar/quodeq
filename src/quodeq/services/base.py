@@ -122,6 +122,10 @@ class ReportActions(Protocol):
         """Return the dashboard payload for a specific project run."""
         ...
 
+    def get_dashboard_overview(self, reports_dir: str, project: str, run: str) -> dict:
+        """Return the dashboard payload without dimension bodies."""
+        ...
+
     def get_accumulated(self, reports_dir: str, project: str, as_of: str | None) -> dict:
         """Return accumulated dimension data across all runs up to as_of."""
         ...
