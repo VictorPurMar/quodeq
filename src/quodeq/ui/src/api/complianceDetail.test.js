@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   attachComplianceDetailRefs, groupDeferredCompliance, mergeComplianceDetail,
+  attachFindingDetailRefs, mergeFindingDetail,
 } from './complianceDetail.js';
 
 const slim = (file, line, principle, extra = {}) => ({
@@ -27,8 +28,30 @@ function scoresPayload() {
 test('attach: deferred items get one shared ref per dimension', () => {
   const data = attachComplianceDetailRefs(scoresPayload(), 'proj', 'run-3', 7);
   const [a, b] = data.accumulated.dimensions[0].compliance;
-  assert.deepEqual(a.detailRef, { project: 'proj', asOf: 'run-3', dimension: 'security', generation: 7 });
+  assert.deepEqual(a.detailRef, { project: 'proj', asOf: 'run-3', dimension: 'security', generation: 7, kind: 'compliance' });
   assert.equal(a.detailRef, b.detailRef);
+});
+
+test('attach: deferred violations get a violation-kind ref of their own', () => {
+  const data = { accumulated: { dimensions: [{
+    dimension: 'security',
+    violations: [{ file: 'a.py', line: 1, principle: 'P1', title: 'v', detailDeferred: true }],
+    compliance: [slim('b.py', 2, 'P1')],
+  }] } };
+  attachFindingDetailRefs(data, 'proj', null, 3);
+  const [dim] = data.accumulated.dimensions;
+  assert.equal(dim.violations[0].detailRef.kind, 'violation');
+  assert.equal(dim.compliance[0].detailRef.kind, 'compliance');
+  assert.notEqual(dim.violations[0].detailRef, dim.compliance[0].detailRef);
+});
+
+test('merge: fills reqRefs as well as the three text fields', () => {
+  const ref = { project: 'p', asOf: null, dimension: 'security', generation: 1, kind: 'violation' };
+  const item = { file: 'a.py', line: 1, endLine: null, principle: 'P1', title: 't', reqRefs: [], detailDeferred: true, detailRef: ref };
+  const [out] = mergeFindingDetail([item], [{ ref, items: [{ file: 'a.py', line: 1, endLine: null, principle: 'P1', title: 't', reason: 'r', snippet: 's', context: 'c', reqRefs: [{ label: 'x' }] }] }]);
+  assert.deepEqual(out.reqRefs, [{ label: 'x' }]);
+  assert.equal(out.reason, 'r');
+  assert.equal(out.detailDeferred, false);
 });
 
 test('attach: items that already carry detail are left alone', () => {

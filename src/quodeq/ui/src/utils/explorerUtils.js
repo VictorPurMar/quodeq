@@ -55,6 +55,37 @@ export function matchesViolationFilters(
   return true;
 }
 
+// One worst-files row from a dimension's violation. /scores defers the text
+// fields; the File page refills them by ref (api/complianceDetail.js), so
+// the ref and the marker travel with the row.
+function violationRow(dimension, entry, severity) {
+  return {
+    dimension: dimension.dimension || '',
+    principle: entry.principle || '',
+    file: entry.file || '',
+    line: entry.line || null,
+    endLine: entry.endLine ?? null,
+    severity,
+    confidence: typeof entry.confidence === 'number' ? entry.confidence : FULL_CONFIDENCE,
+    provenanceDowngrade: entry.provenanceDowngrade ?? false,
+    scopeDowngrade: entry.scopeDowngrade ?? null,
+    ...violationRowDetail(entry),
+    ...(entry.cwe ? { cwe: entry.cwe } : {}),
+    ...(entry.detailDeferred ? { detailDeferred: true, detailRef: entry.detailRef } : {}),
+  };
+}
+
+// The text fields of a row, blank when absent (deferred or never given).
+function violationRowDetail(entry) {
+  return {
+    snippet: entry.snippet || '',
+    title: entry.title || '',
+    reason: entry.reason || '',
+    context: entry.context || '',
+    reqRefs: entry.reqRefs || [],
+  };
+}
+
 function aggregateViolationEntry(bucket, dimension, entry) {
   const file = entry.file;
   const severity = normalizeSeverity(entry.severity);
@@ -68,20 +99,7 @@ function aggregateViolationEntry(bucket, dimension, entry) {
   };
 
   current.total += 1;
-  current.violationsBySeverity[severity].push({
-    dimension: dimension.dimension || '',
-    principle: entry.principle || '',
-    file: entry.file || '',
-    line: entry.line || null,
-    snippet: entry.snippet || '',
-    title: entry.title || '',
-    reason: entry.reason || '',
-    severity,
-    confidence: typeof entry.confidence === 'number' ? entry.confidence : FULL_CONFIDENCE,
-    provenanceDowngrade: entry.provenanceDowngrade ?? false,
-    scopeDowngrade: entry.scopeDowngrade ?? null,
-    ...(entry.cwe ? { cwe: entry.cwe } : {}),
-  });
+  current.violationsBySeverity[severity].push(violationRow(dimension, entry, severity));
 
   if (dimension.dimension) current.dimensions.add(dimension.dimension);
   if (entry.principle) current.principles.add(entry.principle);

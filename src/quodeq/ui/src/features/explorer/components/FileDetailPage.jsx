@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import SeverityFilterPills from '../../../components/SeverityFilterPills.jsx';
 import { ComplianceCard } from './EvalCards.jsx';
 import ViolationCard from './ViolationCard.jsx';
@@ -77,10 +77,13 @@ export default memo(function FileDetailPage({ file, runId, dateLabel, onDismiss,
   const [lowConfExpanded, setLowConfExpanded] = useState(false);
 
   const {
-    dismissedSet, handleDismiss, liveSevCounts, liveTotal, totalCompliance, showFilters, items,
+    dismissedSet, handleDismiss, liveSevCounts, liveTotal, totalCompliance, showFilters, items, violationsBySeverity,
   } = useFileDetailFiltering({ file, onDismiss, activeFilter, lowConfExpanded });
 
-  useFileDetailWindowSpecs({ file, activeFilter });
+  // The panes print reason, snippet and references: give them the hydrated
+  // rows, not the deferred ones the route handed in.
+  const hydratedFile = useMemo(() => ({ ...file, violationsBySeverity }), [file, violationsBySeverity]);
+  useFileDetailWindowSpecs({ file: hydratedFile, activeFilter });
 
   const scrollElement = useDashboardScrollElement();
 

@@ -37,22 +37,42 @@ function renderPage(onDismiss) {
 
 describe('PrincipleDetailPage deferred compliance detail', () => {
   it('fetches and shows the detail /scores left out of a compliance card', async () => {
-    const ref = { project: 'proj', asOf: null, dimension: 'Security', generation: 1 };
+    const ref = { project: 'proj', asOf: null, dimension: 'Security', generation: 1, kind: 'compliance' };
     const slim = {
       file: 'b.py', line: 3, endLine: null, principle: 'Input Validation', title: 'Validated',
       reason: null, snippet: null, context: null, reqRefs: [], detailDeferred: true, detailRef: ref,
     };
-    const getComplianceDetail = vi.fn(async () => [{ ...slim, detailRef: undefined, detailDeferred: false, reason: 'Input is checked before use' }]);
+    const getFindingDetail = vi.fn(async () => [{ ...slim, detailRef: undefined, detailDeferred: false, reason: 'Input is checked before use' }]);
     render(
       <SidePaneProvider>
         <PrincipleDetailPage evalPrincipal={{ ...EVAL_PRINCIPAL, dimCompliance: [slim] }} severityFilter={null} onDismiss={vi.fn()} />
       </SidePaneProvider>,
-      { wrapper: withStableQueryApi({ getComplianceDetail, getStandard: vi.fn(async () => null) }) },
+      { wrapper: withStableQueryApi({ getFindingDetail, getStandard: vi.fn(async () => null) }) },
     );
 
     expect(await screen.findByText('Input is checked before use')).toBeInTheDocument();
-    await waitFor(() => expect(getComplianceDetail).toHaveBeenCalledWith(
-      'proj', { dimension: 'Security', asOf: null, principle: 'Input Validation', pathPrefix: 'b.py' },
+    await waitFor(() => expect(getFindingDetail).toHaveBeenCalledWith(
+      'proj', { kind: 'compliance', dimension: 'Security', asOf: null, principle: 'Input Validation', pathPrefix: 'b.py' },
+    ));
+  });
+
+  it('fetches and shows the detail /scores left out of a violation card', async () => {
+    const ref = { project: 'proj', asOf: null, dimension: 'Security', generation: 1, kind: 'violation' };
+    const slim = {
+      file: 'c.py', line: 7, endLine: null, principle: 'Input Validation', title: 'Unchecked input', severity: 'major',
+      reason: null, snippet: null, context: null, reqRefs: [], detailDeferred: true, detailRef: ref,
+    };
+    const getFindingDetail = vi.fn(async () => [{ ...slim, detailRef: undefined, detailDeferred: false, reason: 'Input reaches the shell unchecked', snippet: 'os.system(cmd)' }]);
+    render(
+      <SidePaneProvider>
+        <PrincipleDetailPage evalPrincipal={{ ...EVAL_PRINCIPAL, dimViolations: [slim] }} severityFilter={null} onDismiss={vi.fn()} />
+      </SidePaneProvider>,
+      { wrapper: withStableQueryApi({ getFindingDetail, getStandard: vi.fn(async () => null) }) },
+    );
+
+    expect(await screen.findByText('Input reaches the shell unchecked')).toBeInTheDocument();
+    await waitFor(() => expect(getFindingDetail).toHaveBeenCalledWith(
+      'proj', { kind: 'violation', dimension: 'Security', asOf: null, principle: 'Input Validation', pathPrefix: 'c.py' },
     ));
   });
 });

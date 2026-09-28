@@ -115,8 +115,8 @@ export function useStandardDetail(standardId, isNew) {
 
   const save = useCallback(async () => {
     const result = await mutations.save();
-    if (result?.error) setError(result.error);
-    else setError(null);
+    setError(result?.error ?? null);
+    return result;
   }, [mutations.save]);
 
   const editable = standard && !standard.managed;

@@ -1,9 +1,18 @@
 import { useMemo } from 'react';
-import { KNOWN_SEVERITIES } from '../../../utils/constants.js';
 import { usePrincipleData } from './explorerDataHooks.js';
-import { useHydratedCompliance } from '../hooks/useHydratedCompliance.js';
-import { SEVERITY, SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
-import { countKnownSeverities } from '../../../utils/severity.js';
+import { useHydratedCompliance, useHydratedFindings } from '../hooks/useHydratedCompliance.js';
+import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
+import { FINDING_TYPE } from '../../../vocab/findingType.js';
+import { countKnownSeverities, emptySeverityLists, normalizeSeverity } from '../../../utils/severity.js';
+
+/** The violations split into one list per severity; anything the vocabulary
+ * does not know, or none at all, lands in the unknown bucket (the same
+ * normalization the worst-files aggregation applies), never dropped. */
+export function bucketBySeverity(violations) {
+  const bySeverity = emptySeverityLists();
+  for (const v of violations || []) bySeverity[normalizeSeverity(v.severity)].push(v);
+  return bySeverity;
+}
 
 /** Split an evalPrincipal's violations into per-severity buckets and totals. */
 export function computeEvalPrincipleData(evalPrincipal) {
@@ -11,12 +20,7 @@ export function computeEvalPrincipleData(evalPrincipal) {
   const violations = (principleData?.violations?.length > 0) ? principleData.violations : dimViolations;
   // A deferred /scores item has no reason/snippet yet but is still a real check.
   const compliance = dimCompliance.filter((c) => c.file || c.reason || c.snippet || c.detailDeferred);
-  const violationsBySeverity = {};
-  for (const sev of KNOWN_SEVERITIES) violationsBySeverity[sev] = [];
-  for (const v of violations) {
-    const sev = (v.severity || SEVERITY.MINOR).toLowerCase();
-    if (violationsBySeverity[sev]) violationsBySeverity[sev].push(v);
-  }
+  const violationsBySeverity = bucketBySeverity(violations);
   const sevCounts = countKnownSeverities(violations, { ignoreCase: true });
   return { violations, compliance, violationsBySeverity, sevCounts };
 }
@@ -39,8 +43,13 @@ export function filterBySeveritySelection(filteredBySeverity, activeSevFilter) {
  * active severity selection.
  */
 export function usePrincipleFiltering(evalPrincipal, severityFilter, onDismiss) {
-  const { violations, compliance: slimCompliance, violationsBySeverity } = useMemo(() => computeEvalPrincipleData(evalPrincipal), [evalPrincipal]);
+  const { violations: slimViolations, compliance: slimCompliance } = useMemo(() => computeEvalPrincipleData(evalPrincipal), [evalPrincipal]);
+  // /scores defers reason, snippet, context and links on both kinds; the
+  // cards render them, so both lists are hydrated here and the severity
+  // buckets are rebuilt from the hydrated rows.
+  const violations = useHydratedFindings(slimViolations, FINDING_TYPE.VIOLATION);
   const compliance = useHydratedCompliance(slimCompliance);
+  const violationsBySeverity = useMemo(() => bucketBySeverity(violations), [violations]);
 
   const {
     liveScore, liveGrade, activeSevFilter, setActiveSevFilter,

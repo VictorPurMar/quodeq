@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useDashboardPageState } from '../hooks/useDashboardPageState.js';
+import { useDashboardPageState, hasRunsFor } from '../hooks/useDashboardPageState.js';
 import { useDashboardHandlers } from '../hooks/useDashboardHandlers.js';
 import { useFocusedDimension } from '../hooks/useFocusedDimension.js';
 import { preloadRunHistoryPanel } from './AccumulatedOverviewPanel.jsx';
@@ -71,6 +71,7 @@ export default function DashboardPage({ data = {}, callbacks = {}, runMode = fal
   // semantics depend on.
   const pageState = useDashboardPageState({
     runMode, dashboard, accumulated, loading, error, selectedProject, selectedSource, selectedRunId,
+    hasRuns: hasRunsFor(projectInfo, data.availableRuns, dashboard),
   });
 
   if (!projectsLoaded) {

@@ -27,9 +27,18 @@ jobs:
     timeout-minutes: 25
     strategy:
       fail-fast: false
+      # shard: QUODEQ_TEST_SHARD (tests/_sharding.py). Windows is already
+      # using every core of one runner, so the only way to cut its ~8-12 min
+      # further is two runners, each collecting half the test files. The
+      # other legs run the whole suite on one job (1/1 leaves collection
+      # untouched). Setup is paid twice on Windows, but in parallel.
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.13"]
+        shard: ["1/1"]
+        include:
+          - { os: windows-latest, python-version: "3.13", shard: "1/2" }
+          - { os: windows-latest, python-version: "3.13", shard: "2/2" }
 
     steps:
       - uses: actions/checkout@v7.0.1
@@ -100,6 +109,7 @@ jobs:
         # deadlock still fails inside the job's 25-minute budget.
         env:
           QUODEQ_TEST_TIMEOUT_SCALE: "4"
+          QUODEQ_TEST_SHARD: ${{ matrix.shard }}
         run: uv run pytest tests/ -v -ra --tb=short -m "not integration" -n auto --timeout=240
 
   ui:
