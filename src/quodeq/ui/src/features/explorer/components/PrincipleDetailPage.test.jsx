@@ -37,22 +37,22 @@ function renderPage(onDismiss) {
 
 describe('PrincipleDetailPage deferred compliance detail', () => {
   it('fetches and shows the detail /scores left out of a compliance card', async () => {
-    const ref = { project: 'proj', asOf: null, dimension: 'Security', generation: 1 };
+    const ref = { project: 'proj', asOf: null, dimension: 'Security', generation: 1, kind: 'compliance' };
     const slim = {
       file: 'b.py', line: 3, endLine: null, principle: 'Input Validation', title: 'Validated',
       reason: null, snippet: null, context: null, reqRefs: [], detailDeferred: true, detailRef: ref,
     };
-    const getComplianceDetail = vi.fn(async () => [{ ...slim, detailRef: undefined, detailDeferred: false, reason: 'Input is checked before use' }]);
+    const getFindingDetail = vi.fn(async () => [{ ...slim, detailRef: undefined, detailDeferred: false, reason: 'Input is checked before use' }]);
     render(
       <SidePaneProvider>
         <PrincipleDetailPage evalPrincipal={{ ...EVAL_PRINCIPAL, dimCompliance: [slim] }} severityFilter={null} onDismiss={vi.fn()} />
       </SidePaneProvider>,
-      { wrapper: withStableQueryApi({ getComplianceDetail, getStandard: vi.fn(async () => null) }) },
+      { wrapper: withStableQueryApi({ getFindingDetail, getStandard: vi.fn(async () => null) }) },
     );
 
     expect(await screen.findByText('Input is checked before use')).toBeInTheDocument();
-    await waitFor(() => expect(getComplianceDetail).toHaveBeenCalledWith(
-      'proj', { dimension: 'Security', asOf: null, principle: 'Input Validation', pathPrefix: 'b.py' },
+    await waitFor(() => expect(getFindingDetail).toHaveBeenCalledWith(
+      'proj', { kind: 'compliance', dimension: 'Security', asOf: null, principle: 'Input Validation', pathPrefix: 'b.py' },
     ));
   });
 });
