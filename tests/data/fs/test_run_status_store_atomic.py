@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 
@@ -47,12 +48,21 @@ def test_on_disk_format_is_indented_json_without_trailing_newline(tmp_path: Path
     assert text == json.dumps(json.loads(text), indent=2)
 
 
-def _alternate(job_id: str, my_turn: threading.Event, their_turn: threading.Event, run_dir: Path) -> None:
-    for _ in range(_WRITES_PER_WRITER):
-        assert my_turn.wait(timeout=10)
-        my_turn.clear()
-        write_status(run_dir, _status(job_id))
+def _alternate(
+    job_id: str, my_turn: threading.Event, their_turn: threading.Event, run_dir: Path, failures: list[str],
+) -> None:
+    try:
+        for _ in range(_WRITES_PER_WRITER):
+            if not my_turn.wait(timeout=10):
+                failures.append(f"{job_id}: turn never came")
+                return
+            my_turn.clear()
+            write_status(run_dir, _status(job_id))
+            their_turn.set()
+    except Exception as exc:  # recorded for the main thread, which asserts the list is empty
+        failures.append(f"{job_id}: {exc!r}")
         their_turn.set()
+        raise
 
 
 def _read_until(run_dir: Path, stop: threading.Event, parsed: list[str], errors: list[str]) -> None:
@@ -61,22 +71,34 @@ def _read_until(run_dir: Path, stop: threading.Event, parsed: list[str], errors:
         try:
             text = path.read_text(encoding="utf-8")
         except OSError:
-            continue  # Windows may refuse a read while the replace is in flight.
+            continue
         try:
             parsed.append(json.loads(text)["job_id"])
         except (json.JSONDecodeError, KeyError) as exc:
             errors.append(f"{exc}: {text!r}")
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="os.replace onto a path another handle holds open fails on Windows; "
+    "the atomic write is exercised by the single-writer tests there",
+)
 def test_concurrent_writers_never_expose_a_truncated_file(tmp_path: Path) -> None:
+    """A reader polling status.json never sees a partial file while two writers take turns.
+
+    The writers alternate through an Event handoff, so their writes are
+    serialised (as the in-process write lock would make them anyway). The
+    test proves reader/writer atomicity, not overlapping writes.
+    """
     write_status(tmp_path, _status("ext-seed"))
     a_turn, b_turn, stop = threading.Event(), threading.Event(), threading.Event()
     parsed: list[str] = []
     errors: list[str] = []
+    failures: list[str] = []
     reader = threading.Thread(target=_read_until, args=(tmp_path, stop, parsed, errors))
     writers = [
-        threading.Thread(target=_alternate, args=("ext-a", a_turn, b_turn, tmp_path)),
-        threading.Thread(target=_alternate, args=("ext-b", b_turn, a_turn, tmp_path)),
+        threading.Thread(target=_alternate, args=("ext-a", a_turn, b_turn, tmp_path, failures)),
+        threading.Thread(target=_alternate, args=("ext-b", b_turn, a_turn, tmp_path, failures)),
     ]
     reader.start()
     for w in writers:
@@ -86,6 +108,9 @@ def test_concurrent_writers_never_expose_a_truncated_file(tmp_path: Path) -> Non
         w.join(timeout=30)
     stop.set()
     reader.join(timeout=30)
+    assert failures == []
+    assert all(not w.is_alive() for w in writers)
+    assert not reader.is_alive()
     assert errors == []
     assert parsed
     assert read_status(tmp_path)["job_id"] == "ext-b"

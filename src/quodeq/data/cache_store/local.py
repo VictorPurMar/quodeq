@@ -146,11 +146,12 @@ class LocalFileBackend:
         target_dir = self._dir_for(key)
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / _ENTRY_FILENAME
+        payload = entry.to_json()
         tmp: str | None = None
         try:
             fd, tmp = tempfile.mkstemp(dir=str(target_dir), prefix=_TMP_PREFIX)
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write(entry.to_json())
+                fh.write(payload)
             os.replace(tmp, target)
             self._mark_mutated()
             if index and self._index is not None:
