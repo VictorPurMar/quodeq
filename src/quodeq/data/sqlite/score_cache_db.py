@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import Iterator
 
 from quodeq.data.sqlite.constants import SQLITE_BUSY_TIMEOUT_MS
-from quodeq.data.sqlite._score_cache_epoch import CACHE_WRITER_EPOCH
+from quodeq.data.sqlite._score_cache_epoch import (
+    CACHE_WRITER_EPOCH, RUN_KEYS_SHAPE_SINCE_EPOCH, RUN_KEYS_SHAPE_VERSION,
+)
 from quodeq.data.sqlite.score_cache_rows import RUN_SCALARS_COUNT_COLUMNS
 from quodeq.shared.env import get_score_cache_path
 
@@ -67,28 +69,48 @@ _SCHEMA = (
 )
 
 
-def _purge_run_keys_on_epoch_change(conn: sqlite3.Connection) -> None:
-    """One-time purge of the non-version-keyed run_keys table on epoch bump.
+_META_WRITER_EPOCH = "writer_epoch"
+_META_RUN_KEYS_SHAPE = "run_keys_shape"
+
+
+def _meta_value(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM cache_meta WHERE key=?", (key,)).fetchone()
+    return row[0] if row is not None else None
+
+
+def _stored_key_shape(conn: sqlite3.Connection) -> str | None:
+    """The ``run_keys`` shape on disk; a cache from before the shape row infers it from its epoch."""
+    shape = _meta_value(conn, _META_RUN_KEYS_SHAPE)
+    if shape is not None:
+        return shape
+    epoch = _meta_value(conn, _META_WRITER_EPOCH)
+    if epoch is not None and epoch.isdigit() and int(epoch) >= RUN_KEYS_SHAPE_SINCE_EPOCH:
+        return RUN_KEYS_SHAPE_VERSION
+    return None
+
+
+def _sync_cache_meta(conn: sqlite3.Connection) -> None:
+    """Record the writer epoch, purging ``run_keys`` once when its shape changed.
 
     ``run_scalars`` / ``accumulated_cache`` / ``project_summary_cache`` embed the
-    epoch in their version hash and self-invalidate, but ``run_keys`` rows are not
-    version-keyed, so a partial snapshot persisted by a prior writer would survive
-    a bump and stay frozen. Clearing the table once forces a fresh read.
+    epoch in their version hash and self-invalidate on a bump. ``run_keys`` rows
+    are not version-keyed, so a stale shape would stay frozen; they are purged
+    when ``RUN_KEYS_SHAPE_VERSION`` changes, and kept across a payload-only
+    epoch bump, since recomputing them hashes every finding of every run.
     """
     try:
-        row = conn.execute(
-            "SELECT value FROM cache_meta WHERE key='writer_epoch'"
-        ).fetchone()
-        if row is not None and row[0] == CACHE_WRITER_EPOCH:
+        if _meta_value(conn, _META_WRITER_EPOCH) == CACHE_WRITER_EPOCH and \
+                _meta_value(conn, _META_RUN_KEYS_SHAPE) == RUN_KEYS_SHAPE_VERSION:
             return
-        conn.execute("DELETE FROM run_keys")
-        conn.execute(
-            "INSERT OR REPLACE INTO cache_meta (key, value) VALUES ('writer_epoch', ?)",
-            (CACHE_WRITER_EPOCH,),
+        if _stored_key_shape(conn) != RUN_KEYS_SHAPE_VERSION:
+            conn.execute("DELETE FROM run_keys")
+        conn.executemany(
+            "INSERT OR REPLACE INTO cache_meta (key, value) VALUES (?, ?)",
+            ((_META_WRITER_EPOCH, CACHE_WRITER_EPOCH), (_META_RUN_KEYS_SHAPE, RUN_KEYS_SHAPE_VERSION)),
         )
         conn.commit()
     except sqlite3.Error:
-        _logger.warning("run_keys epoch purge failed", exc_info=True)
+        _logger.warning("score cache meta sync failed", exc_info=True)
 
 
 def _ensure_run_scalars_columns(conn: sqlite3.Connection) -> None:
@@ -116,7 +138,7 @@ def _init(path: Path) -> sqlite3.Connection:
         conn.executescript(_SCHEMA)
         conn.commit()
         _ensure_run_scalars_columns(conn)
-        _purge_run_keys_on_epoch_change(conn)
+        _sync_cache_meta(conn)
     except sqlite3.DatabaseError:
         # Close before re-raising so the caller's rebuild path can unlink the
         # file with no open handle (Windows raises PermissionError otherwise).
