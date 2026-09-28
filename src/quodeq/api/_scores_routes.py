@@ -19,23 +19,49 @@ from flask import Flask, Response, jsonify, request
 from quodeq.api._constants import CODE_INTERNAL_ERROR, CODE_INVALID_INPUT, CODE_NOT_FOUND
 from quodeq.api.helpers import json_error, validate_segment
 from quodeq.api.routes_common import reports_dir
-from quodeq.services.scoring import get_project_scores, get_scores_slim
-from quodeq.services.scoring.compliance_detail import compliance_detail, defer_compliance_detail
+from quodeq.core.types.finding_type import FindingType, parse_finding_type
+from quodeq.services.scoring import get_project_scores_stamped, get_scores_slim
+from quodeq.services.scoring.compliance_detail import defer_finding_detail, finding_detail
+from quodeq.shared.stamp_memo import StampCache
 
 _logger = logging.getLogger(__name__)
 
+#: Shipped (deferred) payloads per (project, asOf), reused while the stamp holds.
+WIRE_MEMO_MAX = 32
+_WIRE = StampCache(max_entries=WIRE_MEMO_MAX)
 
-def _load_scores(project: str) -> tuple[dict | None, tuple[Response, int] | None]:
+KIND_PARAM = "kind"
+
+
+def _load_scores(project: str) -> tuple[tuple[dict, tuple | None] | None, tuple[Response, int] | None]:
+    """The full payload and its stamp (None when nothing memoizes), or an error."""
     as_of = request.args.get("asOf")
     eval_dir = reports_dir()
     try:
-        result = get_project_scores(Path(eval_dir), project, as_of)
+        result, stamp = get_project_scores_stamped(Path(eval_dir), project, as_of)
     except (OSError, sqlite3.Error, ValueError):
         _logger.exception("Unexpected error fetching scores for project %s", project)
         return None, json_error("Failed to load scores", HTTPStatus.INTERNAL_SERVER_ERROR, CODE_INTERNAL_ERROR)
     if result is None:
         return None, json_error("Project not found", HTTPStatus.NOT_FOUND, CODE_NOT_FOUND)
-    return result, None
+    return (result, stamp), None
+
+
+def _wire_payload(project: str, result: dict, stamp: tuple | None) -> dict:
+    """The deferred payload, memoized on *stamp* when there is one.
+
+    The stored dict is never mutated: ``defer_finding_detail`` copies what it
+    changes and ``jsonify`` only reads.
+    """
+    if stamp is None:
+        return defer_finding_detail(result)
+    key = f"{project}|{request.args.get('asOf')}"
+    hit = _WIRE.get(key, stamp)
+    if hit is not None:
+        return hit  # type: ignore[return-value]
+    wire = defer_finding_detail(result)
+    _WIRE.put(key, stamp, wire)
+    return wire
 
 
 def register_scores_routes(app: Flask) -> None:
@@ -46,10 +72,10 @@ def register_scores_routes(app: Flask) -> None:
         err = validate_segment(project)
         if err:
             return err
-        result, err = _load_scores(project)
+        loaded, err = _load_scores(project)
         if err:
             return err
-        return jsonify(defer_compliance_detail(result))
+        return jsonify(_wire_payload(project, *loaded))
 
     @app.get("/api/projects/<project>/scores/<run_id>")
     def project_run_scores(project: str, run_id: str) -> Response | tuple[Response, int]:
@@ -80,11 +106,20 @@ def _register_compliance_detail_route(app: Flask) -> None:
         err = validate_segment(project, dimension)
         if err:
             return err
-        result, err = _load_scores(project)
+        # ``kind`` picks the accumulated list to refill; compliance is the
+        # pre-kind default so existing callers keep working.
+        raw_kind = request.args.get(KIND_PARAM)
+        kind = FindingType.COMPLIANCE if not raw_kind else parse_finding_type(raw_kind)
+        if kind is None:
+            return json_error(
+                f"{KIND_PARAM} must be one of {[k.value for k in FindingType]}, got {raw_kind!r}",
+                HTTPStatus.BAD_REQUEST, CODE_INVALID_INPUT,
+            )
+        loaded, err = _load_scores(project)
         if err:
             return err
-        items = compliance_detail(
-            result, dimension,
+        items = finding_detail(
+            loaded[0], dimension, kind,
             principle=request.args.get("principle"),
             path_prefix=request.args.get("pathPrefix"),
         )
