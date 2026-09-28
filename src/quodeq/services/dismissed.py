@@ -23,7 +23,9 @@ from quodeq.core.dismissals import (
 from quodeq.core.types.severity import Severity
 from quodeq.data.ports.actions_log import ActionLog
 from quodeq.services._dismiss_fingerprints import backfill_if_needed, resolve_fingerprint
+from quodeq.shared.stamp_memo import StampCache, file_stamp, memoized_by_stamp
 from quodeq.services.wiring import (
+    ACTIONS_LOG_FILENAME,
     ActionLogWriter,
     load_suppression_rules,
     migrate_if_needed,
@@ -38,6 +40,11 @@ from quodeq.core.events.models import (
 )
 from quodeq.core.evidence.model import violations_per_100_files
 from quodeq.core.types.finding import Finding, SeverityTally, Totals
+
+
+# One fold per actions.jsonl change: a scores or dashboard request asks for
+# the dismissed state 7-8 times. DismissedKeys is frozen, so sharing is safe.
+_FOLDS = StampCache(max_entries=256)  # a few entries per project
 
 
 def _target_of(finding: dict) -> DismissedEntry:
@@ -148,7 +155,13 @@ def dismissed_keys(project_dir: Path) -> DismissedKeys:
     # entries to fingerprints, once, so they survive the next refactor.
     migrate_if_needed(project_dir)
     backfill_if_needed(project_dir)
-    return fold_dismissals(read_action_events(project_dir))
+    stamp = file_stamp(project_dir / ACTIONS_LOG_FILENAME)
+    if stamp is None:
+        return fold_dismissals(read_action_events(project_dir))
+    return memoized_by_stamp(
+        str(project_dir), stamp, lambda: fold_dismissals(read_action_events(project_dir)),
+        cache=_FOLDS,
+    )
 
 
 def load_dismissed(
