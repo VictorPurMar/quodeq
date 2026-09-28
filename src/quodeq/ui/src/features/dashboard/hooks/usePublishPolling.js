@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { sharedKeys } from '../../../api/queryKeys.js';
 import { apiErrorMessage } from '../../../strings/apiErrors.js';
 import { PUBLISH_STATE } from '../dashboardVocab.js';
@@ -68,11 +68,9 @@ async function applyPublishSuccess(finishedProject, setters, { applyOptimisticPu
   await refreshListAfterCompletion();
 }
 
-function useCheckStatus({
-  getSharedStatus, mountedRef, stopPolling, applyOptimisticPublish,
-  refreshListAfterCompletion, publishingProjectRef, setPublishState,
-  setPublishError, setPublishErrorProject, setPublishingProjectBoth,
-}) {
+// `controls` is the job-state bundle from usePublishJobState; `completion`
+// holds the two callbacks the done branch runs.
+function useCheckStatus({ getSharedStatus, mountedRef, stopPolling, controls, completion }) {
   return useCallback(async () => {
     let data;
     try {
@@ -85,22 +83,22 @@ function useCheckStatus({
     const publish = data?.publish || {};
     if (publish.state === PUBLISH_STATE.RUNNING) return; // keep polling
     stopPolling();
-    const finishedProject = publish.project ?? publishingProjectRef.current;
-    const setters = { setPublishState, setPublishError, setPublishErrorProject };
+    const finishedProject = publish.project ?? controls.publishingProjectRef.current;
     if (publish.state === PUBLISH_STATE.ERROR) {
-      applyPublishFailure(publish, finishedProject, setters);
+      applyPublishFailure(publish, finishedProject, controls);
     } else {
-      await applyPublishSuccess(finishedProject, setters, { applyOptimisticPublish, refreshListAfterCompletion });
+      await applyPublishSuccess(finishedProject, controls, completion);
     }
-    setPublishingProjectBoth(null);
-  }, [getSharedStatus, stopPolling, applyOptimisticPublish, refreshListAfterCompletion, setPublishingProjectBoth]);
+    controls.setPublishingProjectBoth(null);
+  }, [getSharedStatus, mountedRef, stopPolling, controls, completion]);
 }
 
 // idle | running | done | error -- mirrors the backend's global publish job.
 // publishingProjectRef mirrors `publishingProject` state synchronously, so
 // the poll callback (memoized once, reused across ticks) always reads the
 // latest value instead of whatever was captured in its closure at creation
-// time.
+// time. The setters and the ref come back as one stable `controls` bundle,
+// which is what the poll callback and usePublish's trigger both work with.
 function usePublishJobState() {
   const [publishState, setPublishState] = useState(PUBLISH_STATE.IDLE);
   const [publishingProject, setPublishingProject] = useState(null);
@@ -113,11 +111,12 @@ function usePublishJobState() {
     setPublishingProject(id);
   }, []);
 
-  return {
-    publishState, publishingProject, publishError, publishErrorProject,
-    setPublishState, setPublishError, setPublishErrorProject,
-    publishingProjectRef, setPublishingProjectBoth,
-  };
+  const controls = useMemo(
+    () => ({ setPublishState, setPublishError, setPublishErrorProject, publishingProjectRef, setPublishingProjectBoth }),
+    [setPublishingProjectBoth],
+  );
+
+  return { publishState, publishingProject, publishError, publishErrorProject, controls };
 }
 
 /**
@@ -128,11 +127,7 @@ function usePublishJobState() {
  * after unmount are dropped (`mountedRef`).
  */
 export function usePublishPolling({ queryClient, sharedListProjects, getSharedStatus, applyOptimisticPublish, mountedRef }) {
-  const {
-    publishState, publishingProject, publishError, publishErrorProject,
-    setPublishState, setPublishError, setPublishErrorProject,
-    publishingProjectRef, setPublishingProjectBoth,
-  } = usePublishJobState();
+  const { publishState, publishingProject, publishError, publishErrorProject, controls } = usePublishJobState();
 
   const pollTimerRef = useRef(null);
   const stopPolling = useCallback(() => {
@@ -143,10 +138,11 @@ export function usePublishPolling({ queryClient, sharedListProjects, getSharedSt
   }, []);
 
   const refreshListAfterCompletion = useRefreshListAfterCompletion(queryClient, sharedListProjects);
-  const checkStatus = useCheckStatus({
-    getSharedStatus, mountedRef, stopPolling, applyOptimisticPublish, refreshListAfterCompletion,
-    publishingProjectRef, setPublishState, setPublishError, setPublishErrorProject, setPublishingProjectBoth,
-  });
+  const completion = useMemo(
+    () => ({ applyOptimisticPublish, refreshListAfterCompletion }),
+    [applyOptimisticPublish, refreshListAfterCompletion],
+  );
+  const checkStatus = useCheckStatus({ getSharedStatus, mountedRef, stopPolling, controls, completion });
 
   const startPolling = useCallback(() => {
     stopPolling();
@@ -158,11 +154,7 @@ export function usePublishPolling({ queryClient, sharedListProjects, getSharedSt
     publishingProject,
     publishError,
     publishErrorProject,
-    setPublishState,
-    setPublishError,
-    setPublishErrorProject,
-    publishingProjectRef,
-    setPublishingProjectBoth,
+    ...controls,
     stopPolling,
     startPolling,
     checkStatus,
