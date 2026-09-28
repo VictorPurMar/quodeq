@@ -15,16 +15,17 @@ from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Callable
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, abort, jsonify, make_response, request
 
 from quodeq.api._constants import (
     CODE_INVALID_PARAM,
     CODE_MISSING_PARAM,
     CODE_NOT_FOUND,
     MAX_FINDINGS_LIST_LIMIT,
+    MESSAGE_INVALID_PROJECT_NAME,
     QUERY_FLAG_TRUE,
 )
-from quodeq.api.helpers import json_error, optional_json_object_or_response, page_params
+from quodeq.api.helpers import json_error, optional_json_object_or_response, page_params, validate_segment
 from quodeq.services.deleted import delete_all_dismissed, delete_finding
 from quodeq.services.dismissed_listing import load_dismissed
 from quodeq.services.dismissed import dismiss_finding, restore_finding, restore_all_findings
@@ -38,7 +39,7 @@ from quodeq.services.mutation_rescore import (
 )
 from quodeq.services.verified import unverify_finding, verified_entries
 from quodeq.shared.utils import get_evaluations_dir
-from quodeq.shared.validation import resolve_child_dir, validate_path_segment
+from quodeq.shared.validation import resolve_child_dir
 
 _logger = logging.getLogger(__name__)
 
@@ -76,10 +77,12 @@ def _project_dir_or_none(evaluations_dir: str, project: str) -> Path | None:
     concatenated onto it, so a traversal or absolute-path value matches nothing
     instead of having to be contained after the fact.
 
-    None means absent, not invalid: validate_path_segment has already rejected
-    syntactically bad names above.
+    None means absent, not invalid: a syntactically bad name aborts the
+    request here with a coded 400, before any route acts on it.
     """
-    validate_path_segment(project)
+    bad_name = validate_segment(project, message=MESSAGE_INVALID_PROJECT_NAME)
+    if bad_name is not None:
+        abort(make_response(bad_name))
     resolved = resolve_child_dir(evaluations_dir, project)
     return Path(resolved) if resolved is not None else None
 
