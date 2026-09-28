@@ -14,8 +14,14 @@ from dataclasses import dataclass
 
 from quodeq.core.types import DimensionResult
 from quodeq.data.sqlite.score_cache_db import open_score_cache
+from quodeq.data.sqlite.score_cache_rows import (
+    RUN_SCALARS_COUNT_COLUMNS, dimension_from_row, row_counts,
+)
 
 _logger = logging.getLogger(__name__)
+
+_SCALAR_COLUMNS = "dimension, overall_score, overall_grade, " + ", ".join(RUN_SCALARS_COUNT_COLUMNS)
+_SCALAR_PLACEHOLDERS = ", ".join("?" * (3 + len(RUN_SCALARS_COUNT_COLUMNS)))
 
 
 def read_cached_rows(
@@ -24,15 +30,15 @@ def read_cached_rows(
     """Return cached scalar dims for (project, run_id, version), or None on miss/error."""
     try:
         rows = conn.execute(
-            "SELECT dimension, overall_score, overall_grade FROM run_scalars "
-            "WHERE project=? AND run_id=? AND version=? ORDER BY dimension",
+            f"SELECT {_SCALAR_COLUMNS} FROM run_scalars"
+            " WHERE project=? AND run_id=? AND version=? ORDER BY dimension",
             (project, run_id, version),
         ).fetchall()
     except sqlite3.Error:
         return None
     if not rows:
         return None
-    return [DimensionResult(dimension=r[0], overall_score=r[1], overall_grade=r[2]) for r in rows]
+    return [dimension_from_row(r) for r in rows]
 
 
 def write_cached_rows(
@@ -47,10 +53,9 @@ def write_cached_rows(
     try:
         conn.execute("DELETE FROM run_scalars WHERE project=? AND run_id=?", (project, run_id))
         conn.executemany(
-            "INSERT OR REPLACE INTO run_scalars "
-            "(project, run_id, version, dimension, overall_score, overall_grade) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            [(project, run_id, version, d.dimension, d.overall_score, d.overall_grade)
+            f"INSERT OR REPLACE INTO run_scalars (project, run_id, version, {_SCALAR_COLUMNS})"
+            f" VALUES (?, ?, ?, {_SCALAR_PLACEHOLDERS})",
+            [(project, run_id, version, d.dimension, d.overall_score, d.overall_grade, *row_counts(d))
              for d in dims if d.dimension],
         )
         conn.commit()
@@ -205,14 +210,10 @@ def load_run_keys(
 def load_run_keys_or_empty(
     project: str,
 ) -> dict[str, tuple[set[tuple], set[tuple]]]:
-    """Leak-free wrapper: open the cache, load a project's run keys, close.
+    """Open the cache, load a project's run keys, close.
 
-    Returns {} on any sqlite3 error, including one from ``open_score_cache``
-    itself (an unopenable/twice-corrupt db raises past its one rebuild
-    attempt), not just from the query — matching every other read in this
-    module's empty-on-error contract. Named for the call site in
-    ``services.score_cache.per_run_versions``, whose callers
-    (``scoring.get_project_scores``, ``services._fs_metadata`` summaries)
+    {} on any sqlite3 error, including one from ``open_score_cache`` itself
+    (an unopenable db raises past its one rebuild attempt): the callers
     expect this disposable cache to degrade to recompute, never raise.
     """
     try:
@@ -226,13 +227,10 @@ def store_run_keys_best_effort(
     project: str, run_id: str,
     dismiss_keys: set[tuple], class_keys: set[tuple],
 ) -> None:
-    """Leak-free wrapper: open the cache, store a run's key sets, close.
+    """Open the cache, store a run's key sets, close.
 
-    Best-effort: swallows any sqlite3 error, including one from
-    ``open_score_cache`` itself, not just from the write (``store_run_keys``
-    already logs+returns on a query/serialization error; this also covers
-    an open/rebuild failure the same way). Named for the call site in
-    ``services.score_cache.per_run_versions`` (see :func:`load_run_keys_or_empty`).
+    Best-effort: an open/rebuild failure is logged the way ``store_run_keys``
+    logs a write failure (see :func:`load_run_keys_or_empty`).
     """
     try:
         with open_score_cache() as conn:
@@ -253,23 +251,21 @@ def read_all_cached_rows(
     by_run_version: dict[tuple[str, str], list[DimensionResult]] = {}
     try:
         rows = conn.execute(
-            "SELECT run_id, version, dimension, overall_score, overall_grade "
-            "FROM run_scalars WHERE project=? ORDER BY run_id, dimension",
+            f"SELECT run_id, version, {_SCALAR_COLUMNS} FROM run_scalars"
+            " WHERE project=? ORDER BY run_id, dimension",
             (project,),
         )
-        for rid, ver, dim, score, grade in rows:
-            by_run_version.setdefault((rid, ver), []).append(
-                DimensionResult(dimension=dim, overall_score=score, overall_grade=grade))
+        for rid, ver, *row in rows:
+            by_run_version.setdefault((rid, ver), []).append(dimension_from_row(tuple(row)))
     except sqlite3.Error:
         return {}
     return by_run_version
 
 
 def read_project_summary_cached(project: str, version: str) -> dict | None:
-    """Leak-free wrapper: open the cache, read one project-summary row, close.
+    """Open the cache, read one project-summary row, close.
 
-    Returns None on any sqlite3 error (corrupt/locked db) as well as a clean
-    miss, matching every other read in this module's None-on-miss contract.
+    None on a clean miss and on any sqlite3 error (corrupt/locked db).
     """
     try:
         with open_score_cache() as conn:

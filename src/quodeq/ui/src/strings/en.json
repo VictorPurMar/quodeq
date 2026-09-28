@@ -159,6 +159,8 @@
   "common.resizeDrawer": "Resize drawer",
   "common.restoreDrawer": "Restore drawer",
   "common.retryConnection": "Retry connection",
+  "common.checkingConnection": "Checking connection…",
+  "common.stillUnreachable": "Still unreachable. The page keeps checking every few seconds; you can also retry now.",
   "common.serverDisconnected": "Server disconnected",
   "common.serverDisconnectedBody": "The Quodeq server is not running. Start it from the menu bar icon or run:",
   "common.serverOffline": "Server offline",

@@ -56,3 +56,14 @@ class DimensionResult:
     from_date_iso: str | None = None
     from_date_label: str | None = None
     run_id: str | None = None
+
+
+def open_types_of(dim: DimensionResult) -> int:
+    """Distinct requirement codes among *dim*'s active violations.
+
+    The ``open_types`` scalar when the read carried it; otherwise counted
+    from the findings, which every path that drops them must do first.
+    """
+    if dim.open_types is not None:
+        return dim.open_types
+    return len({f.req for f in (dim.violations or []) if f.req})

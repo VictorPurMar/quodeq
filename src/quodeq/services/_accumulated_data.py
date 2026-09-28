@@ -10,6 +10,7 @@ from typing import Callable
 from quodeq.services.wiring import RunInfo, read_run_data, run_fingerprint
 from quodeq.core.observability import NULL_LOG, LogSink
 from quodeq.core.types import DimensionResult
+from quodeq.core.types.dimension import open_types_of
 
 
 @dataclass
@@ -59,13 +60,6 @@ def _classify_dimension(
         buckets.prev_run_latest_map[dim_name] = dim
 
 
-def _open_types(dim: DimensionResult) -> int:
-    """Distinct requirement codes among the dimension's active violations."""
-    if dim.open_types is not None:
-        return dim.open_types
-    return len({f.req for f in (dim.violations or []) if f.req})
-
-
 def slim_dimensions(dimensions: list[DimensionResult]) -> list[DimensionResult]:
     """Drop the violation/compliance bodies, keeping every scalar field.
 
@@ -75,7 +69,7 @@ def slim_dimensions(dimensions: list[DimensionResult]) -> list[DimensionResult]:
     types is taken before the findings go, because the Overview hero reads it
     and a slim dimension has no findings left to count.
     """
-    return [replace(d, violations=[], compliance=[], open_types=_open_types(d)) for d in dimensions]
+    return [replace(d, violations=[], compliance=[], open_types=open_types_of(d)) for d in dimensions]
 
 
 def make_slim_run_fetcher(

@@ -13,8 +13,14 @@ import { projectPath } from './paths.js';
 /**
  * Liveness probe for the backend; drives the server-status dot.
  */
-export function getHealth() {
-  return request('/health');
+/**
+ * The liveness probe. `timeout` (ms) overrides the default request timeout:
+ * the disconnected overlay probes with a short one so a wedged server does
+ * not hold the retry button for the full default.
+ * @param {{timeout?: number}} [options]
+ */
+export function getHealth(options = {}) {
+  return request('/health', options);
 }
 
 // ── Projects ────────────────────────────────────────────────────────────
