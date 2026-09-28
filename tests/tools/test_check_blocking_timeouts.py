@@ -224,3 +224,19 @@ def test_openai_construction_via_kwargs_spread_is_allowlisted():
     # blanket **kwargs rule.
     src = "\n" * 87 + "openai.OpenAI(**client_kwargs)\n"  # line 88
     assert _kinds(src, rel="src/quodeq/llm_bridge/embeddings.py") == []
+
+
+def test_rules_module_scans_without_the_allowlist():
+    import _blocking_timeouts_rules as rules
+
+    src = "import subprocess\nsubprocess.run(['ls'])\n"
+    assert rules.scan_tree(ast.parse(src), "x.py") == [("x.py", 2, rules.KIND_SUBPROCESS_RUN)]
+
+
+def test_cli_module_stays_under_the_file_cap():
+    from pathlib import Path
+
+    import check_sizes
+
+    cli = Path(cbt.__file__)
+    assert len(cli.read_text().splitlines()) <= check_sizes.MAX_FILE_LINES

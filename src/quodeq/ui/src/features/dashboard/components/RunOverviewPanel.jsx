@@ -4,13 +4,12 @@ import TopOffendingFilesTable from './TopOffendingFilesTable.jsx';
 import DimensionGaugeCard from './DimensionGaugeCard.jsx';
 import { SectionLabel } from '../../../components/terminal/index.js';
 
-import { buildTopOffendingFiles, buildProjectRootFile } from '../../../utils/explorerUtils.js';
+import { buildProjectRootFile } from '../../../utils/explorerUtils.js';
 import { formatRunId } from '../../../utils/formatters.js';
-import { withDimensionsStr } from '../../../utils/dimensionUtils.js';
-import buildRunSummary from '../buildRunSummary.js';
 import { t } from '../../../strings/index.js';
 import { RunHeroSection } from './RunHeroSection.jsx';
-import { buildHeadline, chipDeltas, sumSinceBaseline } from '../headlineStats.js';
+import { chipDeltas } from '../headlineStats.js';
+import { buildRunViewData } from '../runViewData.js';
 import { useRunReportSpecs } from './runReportSpecs.jsx';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
@@ -87,15 +86,16 @@ function useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, 
   }, [onNavigate, dashboard, projectName, runDateLabel, selectedRunId]);
 }
 
+function useRunViewData(dashboard) {
+  return useMemo(() => buildRunViewData(dashboard), [dashboard]);
+}
+
 // The run's derived view data: summary, worst files, hero-card navigation and
 // the per-dimension deltas; also registers this run's report specs.
 function useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate }) {
-  const runSummary = useMemo(() => buildRunSummary(dashboard?.dimensions), [dashboard]);
-  const since = sumSinceBaseline(dashboard?.sinceBaseline);
-  const runTopFiles = useMemo(() => withDimensionsStr(buildTopOffendingFiles(dashboard?.dimensions || [])), [dashboard]);
+  const { runSummary, since, runTopFiles, headline } = useRunViewData(dashboard);
   const runDateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
   const onCardNavigate = useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, onNavigate });
-  const headline = useMemo(() => buildHeadline(dashboard?.dimensions), [dashboard]);
   useRunReportSpecs({ dashboard, runSummary, selectedRunId, projectName, headline, since });
   const trendDeltas = useTrendDeltas(dashboard);
   return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline };
