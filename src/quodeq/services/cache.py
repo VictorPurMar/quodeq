@@ -126,7 +126,9 @@ def _cache_store(
 def _wait_for_inflight(
     key: tuple, event: threading.Event, ctx: DimensionCacheContext,
 ) -> list[DimensionResult] | None:
-    """Wait for another thread's in-flight fetch; None if it did not finish in time."""
+    """Wait for another thread's in-flight fetch; None if it did not finish in time
+    or left nothing in the cache (it failed, or found no data), so the caller
+    reads for itself."""
     if not event.wait(timeout=_CACHE_WAIT_TIMEOUT_S):
         _logger.debug(
             "in-flight dimension fetch for %s did not finish within %ss; fetching directly",
@@ -134,7 +136,8 @@ def _wait_for_inflight(
         )
         return None
     with ctx.lock:
-        return list(ctx.cache.get(key, []))
+        data = ctx.cache.get(key)
+    return None if data is None else list(data)
 
 
 def _fetch_and_store(
