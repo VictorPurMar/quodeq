@@ -106,4 +106,5 @@ class TestAtomicWrite:
         from quodeq.data.fs.standards_store import write_standard_payload
 
         write_standard_payload(tmp_path / "s.json", {"a": 1})
-        assert (tmp_path / "s.json").read_bytes() == b'{\n  "a": 1\n}'
+        # Text-mode read: the writer uses the platform newline, as write_text did.
+        assert (tmp_path / "s.json").read_text(encoding="utf-8") == '{\n  "a": 1\n}'
