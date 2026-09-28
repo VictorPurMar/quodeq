@@ -35,12 +35,12 @@ from quodeq.services._publish_staging import (
     stage_project,
 )
 from quodeq.services.wiring import (
-    MARKER_FILENAME,
     RepoFormat,
     bootstrap_repo_layout,
     clone_lock,
     ensure_shared_clone,
-    run_git,
+    run_git,  # noqa: F401 -- _publish_git reads run_git from this namespace
+    stage_publish_paths,
 )
 from quodeq.shared.fault_isolation import run_isolated
 from quodeq.shared.validation import validate_path_segment
@@ -97,10 +97,7 @@ def _prepare_workspace(
 
 
 def _commit_and_push(repo: Path, project_id: str, count: int) -> None:
-    add_paths = [MARKER_FILENAME, ".gitignore", f"evaluations/{project_id}"]
-    if (repo / "evaluations" / ".gitkeep").exists():
-        add_paths.append("evaluations/.gitkeep")
-    ok, out = run_git(["add", "--", *add_paths], cwd=repo)
+    ok, out = stage_publish_paths(repo, project_id)
     if not ok:
         raise PublishError(f"git add failed, {out.strip()[:GIT_ERROR_SNIPPET_MAX_CHARS]}")
 
