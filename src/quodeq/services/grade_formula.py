@@ -7,6 +7,7 @@ not to data.
 from __future__ import annotations
 
 import logging
+import random
 import sqlite3
 import time
 from collections.abc import Callable, Iterator
@@ -16,6 +17,7 @@ from pathlib import Path
 from quodeq.core.scoring.params import ScoringParams
 from quodeq.core.scoring.projector_scoring import compute_run_score
 from quodeq.services.ports import GradeTablesReader
+from quodeq.shared.constants import RETRY_JITTER_S
 from quodeq.shared.fault_isolation import run_isolated
 from quodeq.services.wiring import (  # noqa: F401 — grade_formula_store names are re-exported API
     SQLiteStateStore,
@@ -121,15 +123,14 @@ def _recompute_with_retries(run_dir: Path, params: ScoringParams) -> bool:
             recompute_grades(run_dir, params=params)
             return True
         except (sqlite3.Error, OSError, ValueError, RuntimeError):
-            if attempt < _APPLY_RETRIES:
-                time.sleep(_APPLY_RETRY_SLEEP_S)
-                continue
-            _logger.warning(
-                "Rescore failed for %s after %d attempts; it will "
-                "keep the old formula's grades.",
-                run_dir, _APPLY_RETRIES + 1, exc_info=True,
-            )
-            return False
+            if attempt == _APPLY_RETRIES:
+                break
+            time.sleep(_APPLY_RETRY_SLEEP_S * 2 ** attempt + random.uniform(0, RETRY_JITTER_S))
+    _logger.warning(
+        "Rescore failed for %s after %d attempts; it will "
+        "keep the old formula's grades.",
+        run_dir, _APPLY_RETRIES + 1, exc_info=True,
+    )
     return False
 
 

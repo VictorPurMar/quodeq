@@ -98,7 +98,7 @@ describe('shared repo API client', () => {
       vi.useFakeTimers();
       const seen = stubConnectJob([{ state: 'running' }, { state: 'done', url: 'u' }]);
       const result = shared.connectShared('u');
-      await vi.advanceTimersByTimeAsync(2 * shared.CONNECT_POLL_INTERVAL_MS);
+      await vi.advanceTimersByTimeAsync(3 * shared.CONNECT_POLL_INTERVAL_MS);
       await expect(result).resolves.toEqual({ configured: true, url: 'u' });
       expect(seen.map((c) => c.method ?? 'GET')).toEqual(['PUT', 'GET', 'GET']);
     });
@@ -116,7 +116,7 @@ describe('shared repo API client', () => {
       vi.useFakeTimers();
       stubConnectJob(new Array(1000).fill({ state: 'running' }));
       const result = shared.connectShared('u').catch((e) => e);
-      await vi.advanceTimersByTimeAsync(shared.CONNECT_DEADLINE_MS + shared.CONNECT_POLL_INTERVAL_MS);
+      await vi.advanceTimersByTimeAsync(shared.CONNECT_DEADLINE_MS + shared.SHARED_STATUS_POLL_CAP_MS);
       expect((await result).code).toBe('CONNECT_TIMEOUT');
     });
 

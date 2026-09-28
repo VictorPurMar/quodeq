@@ -18,13 +18,15 @@ import-time constant back off it — see
 from __future__ import annotations
 
 import logging
+import random
 import shutil
 import subprocess
 import sys
 import tempfile as _tempfile
+import time
 from pathlib import Path
 
-from quodeq.shared.constants import GIT_BIN, GIT_FLAG_C
+from quodeq.shared.constants import GIT_BIN, GIT_FLAG_C, RETRY_JITTER_S
 
 _logger = logging.getLogger(__name__)
 
@@ -76,6 +78,7 @@ def create_worktree(repo_dir: Path, branch: str) -> Path | None:
             return worktree_dir
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as exc:
             if not retried and _fetch_branch(repo_dir, branch):
+                time.sleep(random.uniform(0, RETRY_JITTER_S))
                 continue
             print(f"Failed to create worktree for branch '{branch}': {exc}", file=sys.stderr)
             _facade.cleanup_worktree(repo_dir, worktree_dir)

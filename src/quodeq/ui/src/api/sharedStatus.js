@@ -14,6 +14,7 @@
 
 import { request } from './request.js';
 import { MS_PER_SECOND } from '../utils/time.js';
+import { backoffDelay } from '../utils/backoff.js';
 
 /**
  * Convert a UNIX epoch-seconds timestamp (as sent by the backend) to
@@ -55,6 +56,8 @@ const CONNECT_STATE = Object.freeze({
 });
 
 export const CONNECT_POLL_INTERVAL_MS = 1500;
+// Polls back off from CONNECT_POLL_INTERVAL_MS up to this cap during a long clone.
+export const SHARED_STATUS_POLL_CAP_MS = 5000;
 // Matches the backend's git clone timeout, so the UI never gives up on a
 // clone the server is still running.
 export const CONNECT_DEADLINE_MS = 300000;
@@ -91,8 +94,9 @@ function connectTimeoutError() {
 
 async function waitForConnect(url) {
   const deadline = Date.now() + CONNECT_DEADLINE_MS;
+  let attempt = 0;
   while (Date.now() < deadline) {
-    await wait(CONNECT_POLL_INTERVAL_MS);
+    await wait(backoffDelay(attempt++, CONNECT_POLL_INTERVAL_MS, SHARED_STATUS_POLL_CAP_MS));
     const { connect } = await getSharedStatus();
     if (connect?.state === CONNECT_STATE.RUNNING) continue;
     if (connect?.state !== CONNECT_STATE.DONE) throw connectError(connect ?? {});
