@@ -51,6 +51,8 @@ function TreeNodeRow({ node, actions, titles, expand }) {
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
+        // Keys from the nested add/remove buttons belong to those buttons.
+        if (e.target !== e.currentTarget) return;
         if (e.key === KEY.ENTER || e.key === ' ') {
           e.preventDefault();
           onClick();
