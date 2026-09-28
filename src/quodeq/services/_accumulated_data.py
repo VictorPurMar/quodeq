@@ -7,10 +7,15 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
 
-from quodeq.services.wiring import RunInfo, read_run_data, run_fingerprint
+from quodeq.services.wiring import RunInfo, read_run_data, read_run_manifest, read_run_scalars, run_fingerprint
 from quodeq.core.observability import NULL_LOG, LogSink
 from quodeq.core.types import DimensionResult
 from quodeq.core.types.dimension import open_types_of
+from quodeq.shared.constants import JSON_SUFFIX
+
+# A run's per-dimension evaluation reports; without them the full read yields no
+# dimensions, so the scalar read (which would still find grade rows) must not be used.
+_EVALUATION_DIR = "evaluation"
 
 
 @dataclass
@@ -87,7 +92,7 @@ def make_slim_run_fetcher(
     *max_size* <= 0 disables caching entirely (every call reads through).
     """
     def read_slim(run_id: str) -> list[DimensionResult]:
-        return slim_dimensions(_read_run_data_safely(reports_root, project, run_id, log=log))
+        return slim_dimensions(read_scalar_dimensions(reports_root, project, run_id, log=log))
 
     def get_slim(run_id: str) -> list[DimensionResult]:
         if max_size <= 0:
@@ -108,6 +113,71 @@ def make_slim_run_fetcher(
         return slim
 
     return get_slim
+
+
+def _report_dimensions(run_dir: Path) -> set[str]:
+    """Dimensions with an evaluation report (``evaluation/<dimension>.json``) in *run_dir*."""
+    eval_dir = run_dir / _EVALUATION_DIR
+    if not eval_dir.is_dir():
+        return set()
+    return {p.stem for p in eval_dir.iterdir() if p.suffix == JSON_SUFFIX}
+
+
+def _scalars_match_reports(dims: list[DimensionResult], reports: set[str]) -> bool:
+    """True when the scalar read answers what a full read would for winner selection.
+
+    The dimension set must equal the reports on disk, and no dimension may carry
+    ``files_read == 0``: the grade table stores an unrecorded count as 0, which a
+    full read reports as unknown (trusted) and the scalar row as a coverage-0 stub.
+    """
+    return {d.dimension for d in dims} == reports and all(d.files_read != 0 for d in dims)
+
+
+def read_scalar_dimensions(
+    reports_root: Path, project: str, run_id: str,
+    *, log: LogSink = NULL_LOG,
+    full_reader: Callable[[Path, str, str], list[DimensionResult]] | None = None,
+) -> list[DimensionResult]:
+    """One run's per-dimension scores, grades, counts and files read, without its findings.
+
+    Served from the run database's grade tables (``read_run_scalars``), a few
+    aggregate rows instead of every finding, whenever that answers exactly what
+    the full read would (``_scalars_match_reports``); otherwise *full_reader*
+    (default: the tolerant full read). Winning dimensions that need their
+    findings are re-read in full by the caller.
+    """
+    def _full(root: Path, proj: str, rid: str) -> list[DimensionResult]:
+        if full_reader is not None:
+            return full_reader(root, proj, rid)
+        return _read_run_data_safely(root, proj, rid, log=log)
+
+    reports = _report_dimensions(reports_root / project / run_id)
+    if not reports:
+        return _full(reports_root, project, run_id)
+    try:
+        dims = read_run_scalars(reports_root, project, run_id, fallback_reader=_full)
+    except (OSError, ValueError, KeyError) as exc:
+        log.warning(f"read_run_scalars failed for {run_id}: {exc}")
+        return []
+    return dims if _scalars_match_reports(dims, reports) else _full(reports_root, project, run_id)
+
+
+def run_source_file_count(run_dir: Path) -> int | None:
+    """The run's source file count from its evidence manifest, the value a full read carries."""
+    count = (read_run_manifest(run_dir) or {}).get("source_files_count")
+    return count if isinstance(count, int) and count > 0 else None
+
+
+def hydrate_winning_dimensions(
+    winners_by_run: dict[str, list[str]], latest_by_dim: dict,
+    fetch_full: Callable[[str], list[DimensionResult]],
+) -> None:
+    """Swap each winning scalar dimension for its full read, one read per winning run."""
+    for run_id, names in winners_by_run.items():
+        full_by_name = {d.dimension: d for d in fetch_full(run_id)}
+        for name in names:
+            if name in full_by_name:
+                latest_by_dim[name] = full_by_name[name]
 
 
 def _read_run_data_safely(

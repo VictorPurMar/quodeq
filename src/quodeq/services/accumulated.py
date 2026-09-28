@@ -33,6 +33,7 @@ from quodeq.services.wiring import (
 from quodeq.services._accumulated_data import read_all_run_data
 from quodeq.services._accumulated_data import make_slim_run_fetcher
 from quodeq.services._accumulated_data import slim_dimensions  # noqa: F401 — re-export
+from quodeq.services._accumulated_data import read_scalar_dimensions  # noqa: F401 — re-export
 
 from quodeq.services._accumulated_cache import (  # noqa: F401 — re-export
     AccumulatedCacheConfig,
