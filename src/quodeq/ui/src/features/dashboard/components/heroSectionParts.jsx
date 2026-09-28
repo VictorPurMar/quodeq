@@ -100,16 +100,24 @@ export function heroCardHandlers(onCardNavigate, { violations, compliance }) {
 }
 
 /**
- * The SCORE stat both heroes open with: the number, the grade chip and any
- * extra trailing accessory (the accumulated hero's trend badge).
+ * The SCORE stat both heroes open with: the number, then a row under it with
+ * the grade chip and the trend badge (the accumulated hero's), laid out like
+ * the severity chips under VIOLATIONS. `hint` adds a note after them.
  */
 export function ScoreStat({ scoreDisplay, grade, extraTrailing = null, hint = null }) {
   return (
     <Stat
       label={t('overview.statScore')}
       value={scoreDisplay}
-      trailing={<>{<GradeChip grade={grade} score={scoreDisplay} />}{extraTrailing}</>}
-      hint={hint}
+      hint={(
+        <>
+          <span className="acc-eval-sev-row">
+            <GradeChip grade={grade} score={scoreDisplay} />
+            {extraTrailing}
+          </span>
+          {hint}
+        </>
+      )}
     />
   );
 }

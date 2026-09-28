@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { RatioDensityStat, ratioDisplay } from './heroSectionParts.jsx';
+import { RatioDensityStat, ScoreStat, ratioDisplay } from './heroSectionParts.jsx';
 
 describe('RatioDensityStat', () => {
   it('ratio is the number; density is the tile\'s second hint line, one decimal, no "?"', () => {
@@ -25,5 +25,13 @@ describe('RatioDensityStat', () => {
   it('ratioDisplay reads 0:N without violations, never a dash', () => {
     expect(ratioDisplay(0, 1922)).toBe('0:1922');
     expect(ratioDisplay(2177, 1922)).toBe('1:1');
+  });
+
+  it('ScoreStat puts the grade chip and the trend under the number, like the violation chips', () => {
+    const { container } = render(<ScoreStat scoreDisplay="9.0" grade="Exemplary" extraTrailing={<span className="trend-badge">-0.1</span>} />);
+    const hint = container.querySelector('.term-stat__hint');
+    expect(hint.querySelector('.chip')).toHaveTextContent('EXEMPLARY');
+    expect(hint.querySelector('.trend-badge')).toHaveTextContent('-0.1');
+    expect(container.querySelector('.term-stat__trailing')).toBeNull();
   });
 });

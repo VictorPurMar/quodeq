@@ -5,7 +5,7 @@ import DimensionScoreHistoryPanel from './DimensionScoreHistoryPanel.jsx';
 import { t } from '../../../strings/index.js';
 import { SEVERITY_ORDER } from '../../../vocab/severity.js';
 import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
-import { GradeChip, RatioDensityStat, ratioDisplay } from '../../dashboard/components/heroSectionParts.jsx';
+import { RatioDensityStat, ScoreStat, ratioDisplay } from '../../dashboard/components/heroSectionParts.jsx';
 
 /** The score/violations/compliance/ratio stat grid and the run-history bar
  * chart: the left column of the dimension page's top grid. */
@@ -16,11 +16,7 @@ export default function ExplorerStatsPanel({
   return (
     <div className="qd-top-left">
       <StatGrid2x2>
-        <Stat
-          label={t('overview.statScore')}
-          value={formatScoreDisplay(overallScoreNum)}
-          trailing={<GradeChip grade={overallGrade?.grade} score={overallScoreNum} />}
-        />
+        <ScoreStat scoreDisplay={formatScoreDisplay(overallScoreNum)} grade={overallGrade?.grade} />
         <Stat
           label={t('overview.statViolations')}
           value={allViolations.length}
