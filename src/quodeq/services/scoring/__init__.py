@@ -53,7 +53,7 @@ from quodeq.services.scoring._rescoring import (  # noqa: F401
     rescore_accumulated_with_coverage,
     rescore_runs_by_dimension,
 )
-from quodeq.services.scoring._project_scores import get_project_scores
+from quodeq.services.scoring._project_scores import get_project_scores, get_project_scores_stamped
 from quodeq.services.scoring._scores_raw import get_scores_raw, get_scores_slim
 from quodeq.services.wiring import load_suppression_rules
 
@@ -146,5 +146,6 @@ __all__ = [
     "get_scores_raw",
     "get_scores_slim",
     "get_project_scores",
+    "get_project_scores_stamped",
     "scored_run_dimensions",
 ]
