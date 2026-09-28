@@ -129,8 +129,12 @@ class FilesystemActionProvider(ActionProvider):
         return self._evaluations.list(limit=limit, reports_dir=reports_dir, states=states)
 
     def delete_evaluation(self, job_id: str, reports_dir: Path | None = None) -> bool:
-        """Drop the run directory and its index row. Running jobs are refused."""
-        return self._evaluations.delete(job_id, reports_dir=reports_dir)
+        """Drop the run directory and its index row; the projects-list cache
+        (run counts, last run) is invalidated so the cards do not lag."""
+        deleted = self._evaluations.delete(job_id, reports_dir=reports_dir)
+        if deleted:
+            self._projects.invalidate()
+        return deleted
 
     def get_evaluation_status(
         self, job_id: str, reports_dir: Path | None = None,

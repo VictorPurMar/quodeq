@@ -96,7 +96,7 @@ function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fe
 
 function buildDashboardResult({
   dashboardWithTrend, scores, latestScores, dashboardQuery, scoresLoading, scoresPending, scoresError,
-  availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, sharedProjectInfoQuery,
+  availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, dropRunFromCache, sharedProjectInfoQuery,
 }) {
   return {
     dashboard: dashboardWithTrend,
@@ -123,6 +123,7 @@ function buildDashboardResult({
     refreshDashboard,
     refreshDashboardActive,
     scheduleDashboardReconcile,
+    dropRunFromCache,
     sharedProjectInfo: sharedProjectInfoQuery.data || null,
   };
 }
@@ -193,10 +194,10 @@ export function useDashboard({ selectedProject, selectedRun, selectedSource = PR
     [dashboardQuery.data, fallbackTrend],
   );
 
-  const { refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile } = useDashboardInvalidation({ queryClient, selectedProject, selectedSource });
+  const { refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, dropRunFromCache } = useDashboardInvalidation({ queryClient, selectedProject, selectedSource });
 
   return buildDashboardResult({
     dashboardWithTrend, scores, latestScores, dashboardQuery, scoresLoading, scoresPending, scoresError,
-    availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, sharedProjectInfoQuery,
+    availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, dropRunFromCache, sharedProjectInfoQuery,
   });
 }
