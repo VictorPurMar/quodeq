@@ -17,7 +17,7 @@ import { useEvaluationLifecycle } from './useEvaluationLifecycle.js';
 import { useProjectActions } from './useProjectActions.js';
 import { useVisibleRuns } from './useVisibleRuns.js';
 import { LATEST_RUN_ID } from '../constants.js';
-import { nextSelectedRunAfterDelete } from './runDeletion.js';
+import { useHandleRunDeleted } from './runDeletion.js';
 import { NAV_TAB } from '../vocab/navTab.js';
 import { projectIdOrSelf } from '../utils/projectIdentity.js';
 
@@ -245,8 +245,7 @@ export function useAppState() {
   const {
     serverConnected, setServerConnected, serverVersion, navStack, activePage,
     navPending, navPop, navGoTo, navSwapAt, navReset, navTab, projectBundle,
-    handleNavigate, handleNavigateReplace, handleRunChange, historySelectedRun,
-    setHistorySelectedRun,
+    handleNavigate, handleNavigateReplace, handleRunChange, historySelectedRun, setHistorySelectedRun,
   } = nav;
   const {
     projects, projectsLoaded, projectsLoadFailed, retryLoadProjects, setProjects, selectedProject, selectedSource,
@@ -271,17 +270,7 @@ export function useAppState() {
     selectedSource,
     keepPlaceholder: !isHistoryRun && !isHistoryTab,
   });
-  // A run deleted from History: drop it from every cached run list now (the
-  // rollup refetch below is debounced and pulls the whole dashboard), move
-  // a selection that pointed at it, then the same reconcile dismiss/restore
-  // use, plus a projects reload for the cards' run counts.
-  const handleRunDeleted = useCallback((runId) => {
-    dropRunFromCache(runId);
-    setSelectedRun((current) => nextSelectedRunAfterDelete(current, runId));
-    if (historySelectedRun === runId) setHistorySelectedRun(LATEST_RUN_ID);
-    scheduleDashboardReconcile();
-    loadProjects();
-  }, [dropRunFromCache, setSelectedRun, historySelectedRun, setHistorySelectedRun, scheduleDashboardReconcile, loadProjects]);
+  const handleRunDeleted = useHandleRunDeleted({ dropRunFromCache, setSelectedRun, historySelectedRun, setHistorySelectedRun, scheduleDashboardReconcile, loadProjects });
   const { dailyRuns: rawDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useMemo(() => ({
     dailyRuns: buildPeriodRuns(availableRuns, dashboard?.trend || [], granularity),
     ...computeDerivedState(accumulated, dashboard, selectedProject, projects),
