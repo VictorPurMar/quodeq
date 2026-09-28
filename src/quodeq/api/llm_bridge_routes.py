@@ -6,6 +6,7 @@ from http import HTTPStatus
 from flask import Flask, Response, jsonify, request
 
 from quodeq.config.ai_provider import store_api_key, get_api_key_secure
+from quodeq.config.ai_provider_errors import PLAINTEXT_KEY_REFUSED_MESSAGE, PlaintextKeyRefusedError
 from quodeq.llm_bridge import (
     get_ollama_status,
     list_ollama_models,
@@ -25,7 +26,7 @@ from quodeq.llm_bridge import (
 )
 from quodeq.shared.url_validation import url_safety_error
 
-from quodeq.api._constants import CODE_INVALID_PARAM, CODE_MISSING_PARAM
+from quodeq.api._constants import CODE_INVALID_PARAM, CODE_KEYRING_UNAVAILABLE, CODE_MISSING_PARAM
 from quodeq.api._llm_bridge_validation import (
     invalid_base_url,
     model_request,
@@ -205,7 +206,8 @@ def provider_store_key() -> Response:
     was unavailable and the key fell back to ``.quodeq.env`` on disk, which
     the UI surfaces as a warning. That fallback is opt-in
     (``QUODEQ_ALLOW_PLAINTEXT_KEY=1``): without it and without a keychain,
-    ``stored`` is False and nothing is written.
+    nothing is written and the answer is a 409 ``KEYRING_UNAVAILABLE``
+    whose ``envVar`` names the variable to export instead.
     """
     data, err = object_body_or_error()
     if err is not None:
@@ -218,6 +220,12 @@ def provider_store_key() -> Response:
         return json_error("apiKey is required", HTTPStatus.BAD_REQUEST, CODE_MISSING_PARAM)
     try:
         stored, secure = store_api_key(provider, api_key)
+    except PlaintextKeyRefusedError as exc:
+        return jsonify({
+            "error": PLAINTEXT_KEY_REFUSED_MESSAGE.format(env_var=exc.env_var),
+            "code": CODE_KEYRING_UNAVAILABLE,
+            "envVar": exc.env_var,
+        }), HTTPStatus.CONFLICT
     except ValueError:
         # Provider names are interpolated into `.quodeq.env` lines, so a
         # name with control characters is rejected outright rather than

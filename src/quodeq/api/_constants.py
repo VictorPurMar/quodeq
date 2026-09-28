@@ -44,6 +44,9 @@ CODE_GONE = "GONE"  # the run a job pointed at has no directory any more
 CODE_FORBIDDEN = "FORBIDDEN"
 CODE_UNKNOWN_SESSION = "UNKNOWN_SESSION"
 CODE_NO_ACTIVE_WORKTREE = "NO_ACTIVE_WORKTREE"
+# POST /api/provider/key: no OS keyring and the cleartext fallback is not
+# opted in (QUODEQ_ALLOW_PLAINTEXT_KEY), so the key was not saved.
+CODE_KEYRING_UNAVAILABLE = "KEYRING_UNAVAILABLE"
 MESSAGE_UNKNOWN_SESSION = "unknown session"
 MESSAGE_INVALID_PROJECT_NAME = "Invalid project name"  # 400 for a malformed <project> segment
 # No shared results repository is configured (shared routes, assistant shared sessions).

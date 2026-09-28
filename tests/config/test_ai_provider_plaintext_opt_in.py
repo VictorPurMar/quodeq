@@ -1,8 +1,9 @@
 """The cleartext `.quodeq.env` key fallback is opt-in (QUODEQ_ALLOW_PLAINTEXT_KEY).
 
 Without an OS keyring and without the opt-in, no path writes the key to
-disk: store_api_key reports (False, False) with an error that names the
-provider's env var and the opt-in, and a direct _write_env refuses too.
+disk: store_api_key raises PlaintextKeyRefusedError naming the provider's
+env var and the opt-in, store_api_key_secure logs it and returns False, and
+a direct _write_env refuses too.
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ import keyring.errors
 import pytest
 
 from quodeq.config import ai_provider
+from quodeq.config.ai_provider_errors import PlaintextKeyRefusedError
 from quodeq.config.credentials_env import plaintext_key_fallback_allowed
 from quodeq.config.paths import ConfigPaths
 
@@ -27,16 +29,22 @@ def paths(tmp_path, monkeypatch):
     return cfg_paths
 
 
-def test_no_keyring_and_no_opt_in_stores_nothing(paths, monkeypatch):
-    errors: list[str] = []
-    monkeypatch.setattr(ai_provider, "log_error", errors.append)
-
-    assert ai_provider.store_api_key("gemini", "sk-gated") == (False, False)
+def test_no_keyring_and_no_opt_in_stores_nothing(paths):
+    with pytest.raises(PlaintextKeyRefusedError) as caught:
+        ai_provider.store_api_key("gemini", "sk-gated")
 
     assert not paths.env_file.exists()
-    assert errors and "GEMINI_API_KEY" in errors[0]
-    assert "QUODEQ_ALLOW_PLAINTEXT_KEY=1" in errors[0]
-    assert "sk-gated" not in errors[0]
+    assert caught.value.env_var == "GEMINI_API_KEY"
+    message = str(caught.value)
+    assert "GEMINI_API_KEY" in message and "QUODEQ_ALLOW_PLAINTEXT_KEY=1" in message
+    assert "sk-gated" not in message
+
+
+def test_secure_wrapper_logs_the_refusal_and_returns_false(paths, monkeypatch):
+    errors: list[str] = []
+    monkeypatch.setattr(ai_provider, "log_error", errors.append)
+    assert ai_provider.store_api_key_secure("claude", "sk-gated") is False
+    assert errors and "ANTHROPIC_API_KEY" in errors[0]
 
 
 def test_gated_save_leaves_an_existing_env_file_untouched(paths):
@@ -46,7 +54,7 @@ def test_gated_save_leaves_an_existing_env_file_untouched(paths):
 
 
 def test_direct_env_write_of_a_key_is_refused(paths):
-    with pytest.raises(ValueError, match="QUODEQ_ALLOW_PLAINTEXT_KEY"):
+    with pytest.raises(PlaintextKeyRefusedError, match="QUODEQ_ALLOW_PLAINTEXT_KEY"):
         ai_provider._write_env(paths, None, "ANTHROPIC_API_KEY", "sk-gated")
     assert not paths.env_file.exists()
 

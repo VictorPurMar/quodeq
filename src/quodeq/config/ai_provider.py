@@ -9,6 +9,7 @@ from pathlib import Path
 
 import keyring
 
+from quodeq.config.ai_provider_errors import PlaintextKeyRefusedError
 from quodeq.config.credentials_env import ALLOW_PLAINTEXT_KEY_ENV, plaintext_key_fallback_allowed
 from quodeq.config.paths import ConfigPaths, default_paths
 from quodeq.config.provider import PROVIDERS
@@ -32,12 +33,6 @@ _API_KEY_FORBIDDEN_CHARS = ("\n", "\r", "\0")
 # trailing newline, so `match()` accepts "gemini\n", which is the exact
 # character this pattern exists to reject.
 _VALID_PROVIDER_RE = re.compile(r"[A-Za-z0-9_-]+")
-# A key only reaches the env file after the keyring failed (store_api_key).
-_PLAINTEXT_REFUSED = (
-    "no OS keyring is available, so the key was not saved. Export {var} in "
-    f"your shell instead, or set {ALLOW_PLAINTEXT_KEY_ENV}=1 to store it in "
-    ".quodeq.env (mode 0600)"
-)
 
 
 def _read_export_value(env_file: Path, prefix: str) -> str | None:
@@ -111,7 +106,7 @@ def _validate_env_write(provider: str | None, api_key_var: str, api_key_value: s
             # which would otherwise produce a malformed `export =<key>` line.
             raise ValueError("Provider has no API key environment variable")
         if not plaintext_key_fallback_allowed():
-            raise ValueError(_PLAINTEXT_REFUSED.format(var=api_key_var))
+            raise PlaintextKeyRefusedError(api_key_var)
     if provider is not None:
         validate_provider_name(provider)
 
@@ -243,9 +238,10 @@ def store_api_key(provider: str, api_key: str,
 
     Raises ValueError for a provider name that is not identifier-shaped.
     Checked here, before either backend, so the keyring and the cleartext
-    paths are both covered by one guard. The cleartext fallback is opt-in
-    (``QUODEQ_ALLOW_PLAINTEXT_KEY``), else a keyring failure is (False, False).
-    *paths* overrides where it writes; it defaults to ``default_paths()``.
+    paths are both covered by one guard. The cleartext fallback is opt-in:
+    without ``QUODEQ_ALLOW_PLAINTEXT_KEY`` a keyring failure raises
+    PlaintextKeyRefusedError. *paths* overrides where that fallback writes;
+    it defaults to ``default_paths()``.
     """
     validate_provider_name(provider)
     try:
@@ -274,7 +270,11 @@ def store_api_key_secure(provider: str, api_key: str,
                          paths: ConfigPaths | None = None) -> bool:
     """Persist *provider*'s API key; :func:`store_api_key` without the
     secure flag. True when it was stored anywhere."""
-    stored, _secure = store_api_key(provider, api_key, paths)
+    try:
+        stored, _secure = store_api_key(provider, api_key, paths)
+    except PlaintextKeyRefusedError as exc:
+        log_error(str(exc))
+        return False
     return stored
 
 

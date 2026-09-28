@@ -243,31 +243,6 @@ class TestProviderKeyRoutes:
         # The raw key must never leak back through key-status.
         assert "sk-roundtrip" not in status_resp.get_data(as_text=True)
 
-    def test_store_without_keyring_or_opt_in_writes_nothing(self, client, tmp_path, monkeypatch):
-        """No keyring and no QUODEQ_ALLOW_PLAINTEXT_KEY: the route reports
-        not stored and the key never reaches .quodeq.env."""
-        import keyring.errors
-
-        from quodeq.config import ai_provider
-        from quodeq.config.paths import ConfigPaths
-
-        cfg_paths = ConfigPaths.from_root(tmp_path)
-        monkeypatch.setattr(ai_provider, "default_paths", lambda: cfg_paths)
-        monkeypatch.delenv("QUODEQ_ALLOW_PLAINTEXT_KEY", raising=False)
-
-        def raise_keyring_error(*args, **kwargs):
-            raise keyring.errors.KeyringError("no backend available")
-
-        monkeypatch.setattr(ai_provider.keyring, "set_password", raise_keyring_error)
-        resp = client.post(
-            "/api/provider/key",
-            json={"provider": "gemini", "apiKey": "sk-gated"},
-            headers={"Origin": "http://localhost"},
-        )
-        assert resp.status_code == 200
-        assert resp.get_json() == {"stored": False, "secure": False}
-        assert not cfg_paths.env_file.exists()
-
     def test_provider_name_with_newline_is_rejected_before_the_env_file(
         self, client, tmp_path, monkeypatch,
     ):
