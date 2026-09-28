@@ -23,6 +23,9 @@ CANCEL_GRACE_S_DEFAULT = 30.0
 MAX_CONCURRENT_JOBS_DEFAULT = 8
 JOB_TIMEOUT_CAP_S_DEFAULT = 0.0
 MAX_VIOLATION_FILES_DEFAULT = 20
+# Past the SIGTERM grace window: the SIGKILL settle wait (1s) plus headroom
+# for a loaded machine. Bounds how long a cancelled run's process can live on.
+CANCEL_ESCALATION_SLACK_S = 10.0
 
 
 def run_dim_cache_max(env: Mapping[str, str] | None = None) -> int:
@@ -38,6 +41,11 @@ def max_history_runs(env: Mapping[str, str] | None = None) -> int:
 def cancel_grace_s(env: Mapping[str, str] | None = None) -> float:
     """QUODEQ_CANCEL_GRACE_S, default 30.0 seconds; negative or invalid -> default."""
     return env_float("QUODEQ_CANCEL_GRACE_S", CANCEL_GRACE_S_DEFAULT, minimum=0.0, env=env)
+
+
+def cancel_escalation_window_s(env: Mapping[str, str] | None = None) -> float:
+    """Longest a cancelled run's process can outlive its SIGTERM: grace plus SIGKILL slack."""
+    return cancel_grace_s(env) + CANCEL_ESCALATION_SLACK_S
 
 
 def max_concurrent_jobs(env: Mapping[str, str] | None = None) -> int:
