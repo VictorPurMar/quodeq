@@ -194,6 +194,9 @@ def _mutate_project(
     run_id = _run_id(body)
     if not project:
         return json_error("project is required", HTTPStatus.BAD_REQUEST, CODE_MISSING_PARAM)
+    type_err = _invalid_body_fields(body, ("project",))
+    if type_err:
+        return json_error(type_err, HTTPStatus.BAD_REQUEST, CODE_INVALID_PARAM)
     count = mutate(_project_dir(_eval_dir(app), project))
     scores = _scores_with_fallback(app, project, run_id)
     delta = delta_for(_eval_dir(app), project, run_id)
