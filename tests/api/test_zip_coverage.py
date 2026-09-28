@@ -51,12 +51,12 @@ class TestMaxZipSizeBytes:
 
 class TestZipSizeLimitError:
     def test_public_message_matches_str(self):
-        # _ZipSizeLimitError.__init__ passes the same text to super().__init__
+        # ExportSizeLimitError.__init__ passes the same text to super().__init__
         # and to public_message, so the two stay in lockstep; the route must
         # still read public_message (never str(exc)) per
         # tests/api/test_no_exception_echo.py's zero baseline.
-        from quodeq.api.zip import _ZipSizeLimitError
-        exc = _ZipSizeLimitError("boom, see remediation")
+        from quodeq.services.project_archive_export import ExportSizeLimitError
+        exc = ExportSizeLimitError("boom, see remediation")
         assert exc.public_message == str(exc) == "boom, see remediation"
 
 
@@ -69,7 +69,7 @@ class TestBuildProjectZip:
         (project / "sub").mkdir()
         (project / "sub" / "nested.txt").write_text("world")
 
-        with patch("quodeq.api.zip.max_zip_size_bytes", return_value=10 * 1024 * 1024):
+        with patch("quodeq.services.project_archive_export.max_zip_size_bytes", return_value=10 * 1024 * 1024):
             result = build_project_zip(project)
             assert result.exists()
             assert result.suffix == ".zip"
@@ -86,7 +86,7 @@ class TestBuildProjectZip:
         (project / "real.txt").write_text("content")
         (project / "link.txt").symlink_to(project / "real.txt")
 
-        with patch("quodeq.api.zip.max_zip_size_bytes", return_value=10 * 1024 * 1024):
+        with patch("quodeq.services.project_archive_export.max_zip_size_bytes", return_value=10 * 1024 * 1024):
             result = build_project_zip(project)
             with zipfile.ZipFile(result) as zf:
                 names = zf.namelist()
@@ -99,7 +99,7 @@ class TestBuildProjectZip:
         project.mkdir()
         (project / "big.txt").write_text("x" * 1000)
 
-        with patch("quodeq.api.zip.max_zip_size_bytes", return_value=10):
+        with patch("quodeq.services.project_archive_export.max_zip_size_bytes", return_value=10):
             with pytest.raises(ValueError, match="exceeds maximum"):
                 build_project_zip(project)
 
@@ -113,7 +113,7 @@ class TestBuildProjectZip:
         project.mkdir()
         (project / "big.txt").write_text("x" * (500 * 1024))
 
-        with patch("quodeq.api.zip.max_zip_size_bytes", return_value=64 * 1024):
+        with patch("quodeq.services.project_archive_export.max_zip_size_bytes", return_value=64 * 1024):
             result = build_project_zip(project)
             assert result.exists()
             assert result.stat().st_size <= 64 * 1024
@@ -125,7 +125,7 @@ class TestBuildProjectZip:
         project.mkdir()
         (project / "blob.bin").write_bytes(os.urandom(256 * 1024))
 
-        with patch("quodeq.api.zip.max_zip_size_bytes", return_value=64 * 1024):
+        with patch("quodeq.services.project_archive_export.max_zip_size_bytes", return_value=64 * 1024):
             with pytest.raises(ValueError, match="exceeds maximum"):
                 build_project_zip(project)
 
@@ -141,7 +141,7 @@ class TestBuildProjectZip:
         project.mkdir()
         (project / "big.txt").write_text("x" * (800 * 1024))
 
-        with patch("quodeq.api.zip.max_zip_size_bytes", return_value=64 * 1024):
+        with patch("quodeq.services.project_archive_export.max_zip_size_bytes", return_value=64 * 1024):
             with pytest.raises(ValueError, match="uncompressed"):
                 build_project_zip(project)
 
@@ -166,7 +166,8 @@ class TestExportProjectZip:
             assert status == 404
 
     def test_project_too_large(self, tmp_path):
-        from quodeq.api.zip import export_project_zip, _ZipSizeLimitError
+        from quodeq.api.zip import export_project_zip
+        from quodeq.services.project_archive_export import ExportSizeLimitError
         from flask import Flask
         project = tmp_path / "big"
         project.mkdir()
@@ -176,7 +177,7 @@ class TestExportProjectZip:
         with app.app_context():
             with patch(
                 "quodeq.api.zip.build_project_zip",
-                side_effect=_ZipSizeLimitError("too big, see remediation"),
+                side_effect=ExportSizeLimitError("too big, see remediation"),
             ):
                 resp = export_project_zip("big", str(tmp_path))
                 assert isinstance(resp, tuple)
@@ -195,7 +196,7 @@ class TestExportProjectZip:
 
         app = Flask(__name__)
         with app.app_context():
-            with patch("quodeq.api.zip.max_zip_size_bytes", return_value=10):
+            with patch("quodeq.services.project_archive_export.max_zip_size_bytes", return_value=10):
                 resp = export_project_zip("big", str(tmp_path))
                 assert isinstance(resp, tuple)
                 response, status = resp
