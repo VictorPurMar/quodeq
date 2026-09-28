@@ -129,8 +129,7 @@ class FilesystemActionProvider(ActionProvider):
         return self._evaluations.list(limit=limit, reports_dir=reports_dir, states=states)
 
     def delete_evaluation(self, job_id: str, reports_dir: Path | None = None) -> bool:
-        """Drop the run directory and its index row; the projects-list cache
-        (run counts, last run) is invalidated so the cards do not lag."""
+        """Drop the run directory and its index row, and the projects-list cache with them."""
         deleted = self._evaluations.delete(job_id, reports_dir=reports_dir)
         if deleted:
             self._projects.invalidate()
@@ -259,8 +258,7 @@ class FilesystemActionProvider(ActionProvider):
     def get_dimension_eval(
         self, reports_dir: str, project: str, run_id: str, dimension: str,
     ) -> ViolationResponse | dict[str, Any] | EvalPending | None:
-        """Return one dimension's parsed evaluation, resolved against
-        ``_compiled_dir`` and ``_evaluators_dir``."""
+        """One dimension's parsed evaluation, resolved against the compiled and evaluators dirs."""
         return fs_reports.get_dimension_eval(
             reports_dir, project, run_id, dimension,
             compiled_dir=self._compiled_dir, evaluators_dir=self._evaluators_dir,
@@ -269,8 +267,7 @@ class FilesystemActionProvider(ActionProvider):
     def get_live_findings(
         self, reports_dir: str, project: str, run_id: str, dimensions: Sequence[str],
     ) -> dict[str, Any] | None:
-        """The live feed body for *dimensions*, resolved against
-        ``_compiled_dir`` and ``_evaluators_dir``."""
+        """The live feed body for *dimensions*, resolved against the compiled and evaluators dirs."""
         return live_findings.get_live_findings(
             reports_dir, project, run_id, dimensions,
             compiled_dir=self._compiled_dir, evaluators_dir=self._evaluators_dir,
