@@ -18,6 +18,8 @@ from quodeq.data.fs.shared_repo import (
     shared_cache_dir,
     shared_repo_path,
 )
+from quodeq.services import shared_connect_job
+from quodeq.services.shared_connect_job import ConnectJobStatus
 from tests._timeouts import budget
 from tests.api._routes_shared_fixtures import (  # noqa: F401 -- client/_clean_publish_status are pytest fixtures
     _ORIGIN,
@@ -50,6 +52,20 @@ def test_delete_config_removes_cache_dir(client, monkeypatch, tmp_path):
     resp = client.delete("/api/shared/config", headers=_ORIGIN)
     assert resp.status_code == 200
     assert not cache_dir.exists()
+
+
+def test_delete_config_refused_while_connecting(client, monkeypatch, tmp_path):
+    """A running connect job would write its settings after the disconnect
+    and silently reconnect, so DELETE answers 409 and changes nothing."""
+    monkeypatch.setenv("QUODEQ_DIR", str(tmp_path))
+    status = ConnectJobStatus()
+    status.claim("git@github.com:t/r.git")
+    monkeypatch.setattr(shared_connect_job, "_default_status", status)
+    (tmp_path / "shared.json").write_text(json.dumps({"url": "git@github.com:t/r.git"}))
+    resp = client.delete("/api/shared/config", headers=_ORIGIN)
+    assert resp.status_code == 409
+    assert resp.get_json()["code"] == "CONNECT_IN_PROGRESS"
+    assert client.get("/api/shared/status").get_json()["configured"] is True
 
 
 def test_delete_config_when_unconfigured_does_not_crash(client, monkeypatch, tmp_path):

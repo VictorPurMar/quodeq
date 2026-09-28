@@ -1,7 +1,7 @@
 """Accumulated-trend builder for the dashboard module."""
 from __future__ import annotations
 
-from typing import Callable, TypedDict
+from typing import Callable
 
 from quodeq.core.run.state import RunState
 from quodeq.core.scoring.internals import score_to_grade_label
@@ -9,19 +9,9 @@ from quodeq.core.scoring.params import ScoringParams
 from quodeq.core.scoring.report_grades import most_frequent_grade, parse_numeric_score
 from quodeq.core.types import DimensionResult
 from quodeq.core.types.severity import Severity
+from quodeq.core.types.trend import DimensionDetail, RunInfoPayload, TrendEntry
 from quodeq.data.fs.report_parser.runs import RunInfo
 from quodeq.services.accumulated import numeric_average
-
-
-class RunInfoPayload(TypedDict):
-    """A run's identity on the wire: id plus its ISO and display dates.
-
-    Every response that names a run (``availableRuns``, ``selectedRun``,
-    ``trend``) carries these three keys, in this order.
-    """
-    runId: str
-    dateISO: str | None
-    dateLabel: str
 
 
 def run_info_payload(info: RunInfo) -> RunInfoPayload:
@@ -31,47 +21,6 @@ def run_info_payload(info: RunInfo) -> RunInfoPayload:
         "dateISO": info.date_iso,
         "dateLabel": info.date_label,
     }
-
-
-class DimensionDetail(TypedDict):
-    """One dimension's score/grade/delta within a single run's trend entry.
-
-    Shape only -- this IS the frozen HTTP body (``trend[].dimensionDetails``);
-    the TypedDict documents it without changing what gets built or returned.
-    """
-    dimension: str
-    score: float | None
-    grade: str | None
-    delta: float | None
-    violations: int
-    majors: int
-    openTypes: int
-    critical: int
-
-
-class TrendEntry(TypedDict):
-    """One run's accumulated-trend row, in the shape the dashboard HTTP
-    response and the UI's history chart consume.
-
-    Shape only -- this IS the frozen HTTP body (``trend``); the TypedDict
-    documents it without changing what gets built or returned.
-    """
-    runId: str
-    dateISO: str | None
-    dateLabel: str
-    status: str
-    dimensionsCount: int
-    dimensions: list[str]
-    dimensionDetails: list[DimensionDetail]
-    accumulatedDimensionsCount: int
-    runNumericAverage: float | None
-    runOverallGrade: str | None
-    numericAverage: float | None
-    overallGrade: str | None
-    violations: int
-    majors: int
-    openTypes: int
-    critical: int
 
 
 def _build_dimension_details(

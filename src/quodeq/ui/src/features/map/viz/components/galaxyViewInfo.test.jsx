@@ -1,14 +1,14 @@
 /**
- * Smoke coverage for galaxyViewInfo.jsx, written BEFORE computeLevelInfo is
- * split into computeSystemLevelInfo/computeDimensionLevelInfo/
- * computePrincipleLevelInfo + a shared buildSevLines helper. Exercises all
- * three navigation depths plus buildBreadcrumb and the LevelInfoPanel
- * presentational component.
+ * Coverage for galaxyViewInfo.jsx: all three navigation depths through
+ * computeLevelInfo, the pure per-level compute functions, buildBreadcrumb
+ * and the LevelInfoPanel presentational component.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { LevelInfoPanel, computeLevelInfo, buildBreadcrumb } from './galaxyViewInfo.jsx';
+import {
+  LevelInfoPanel, computeLevelInfo, buildBreadcrumb, computeDimensionLevelInfo, computePrincipleLevelInfo,
+} from './galaxyViewInfo.jsx';
 
 function makeScene() {
   const star = {
@@ -140,6 +140,46 @@ describe('computeLevelInfo', () => {
       info = computeLevelInfo(smallScene, nav, 'Demo', vi.fn(), navRef);
     }).not.toThrow();
     expect(info).toBeNull();
+  });
+});
+
+/** True when any value reachable from `value` is a function. */
+function containsFunction(value) {
+  if (typeof value === 'function') return true;
+  if (value && typeof value === 'object') return Object.values(value).some(containsFunction);
+  return false;
+}
+
+describe('pure level compute functions', () => {
+  it('computeDimensionLevelInfo returns a plain Explorer detailTarget', () => {
+    const scene = makeScene();
+    scene.stars[0]._raw.fromDateLabel = 'Sep 1';
+    scene.stars[0]._raw.fromProject = 'demo';
+    const info = computeDimensionLevelInfo(scene, { depth: 1, dim: 0, prin: null });
+    expect(info.detailAction).toBeUndefined();
+    expect(info.detailTarget).toEqual({
+      tab: 'explorer',
+      payload: { dimension: 'security', runId: 'r1', dateLabel: 'Sep 1', fromProject: 'demo', sourceTab: 'map' },
+    });
+    expect(containsFunction(info)).toBe(false);
+  });
+
+  it('computeDimensionLevelInfo has a null detailTarget when the star has no raw data', () => {
+    const scene = makeScene();
+    delete scene.stars[0]._raw;
+    expect(computeDimensionLevelInfo(scene, { depth: 1, dim: 0, prin: null }).detailTarget).toBeNull();
+  });
+
+  it('computePrincipleLevelInfo returns a plain evalPrincipal detailTarget', () => {
+    const scene = makeScene();
+    const info = computePrincipleLevelInfo(scene, { depth: 2, dim: 0, prin: 0 });
+    expect(info.detailAction).toBeUndefined();
+    expect(info.detailTarget.tab).toBe('evalprinciple');
+    expect(info.detailTarget.payload).toEqual(expect.objectContaining({
+      sourceTab: 'map',
+      evalPrincipal: expect.objectContaining({ principle: 'P1', score: '5.5', dimension: 'Dim1', runId: 'r1' }),
+    }));
+    expect(containsFunction(info)).toBe(false);
   });
 });
 

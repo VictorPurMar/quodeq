@@ -34,8 +34,7 @@ from quodeq.services._trend_scalar_fetcher import make_scalar_trend_fetcher
 from quodeq.services.scoring_deps import ScoringDeps, NO_DEPS
 from quodeq.services.deleted import deleted_keys as _default_deleted_keys
 from quodeq.services.dismissed import dismissed_keys as _default_dismissed_keys
-from quodeq.data.fs.report_parser.runs import read_run_scalars as _default_read_run_scalars
-from quodeq.services.wiring import load_suppression_rules
+from quodeq.services.wiring import load_suppression_rules, read_run_scalars as _default_read_run_scalars
 from quodeq.services.rescore import rescore_dimension
 from quodeq.services.score_cache import VersionInputs, make_cache_backed_fetcher
 from quodeq.services.suppression_keys import SuppressionKeys

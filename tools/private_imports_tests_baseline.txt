@@ -584,6 +584,7 @@ tests/config/test_discipline_detection_skip_dirs.py:27:private-module:quodeq.con
 tests/config/test_discipline_detection_subproject_bfs.py:12:private-module:quodeq.config._discipline_detection.DisciplineRegistry
 tests/config/test_discipline_detection_subproject_bfs.py:13:private-module:quodeq.config._discipline_rule.DisciplineRule
 tests/config/test_fetch_client_coverage.py:8:private-module:quodeq.config._fetch_client_class.FetchClient
+tests/config/test_fetch_client_half_open.py:7:private-module:quodeq.config._fetch_client_class.FetchClient
 tests/config/test_standards_fetcher_extended.py:8:private-name:quodeq.config.standards_fetcher._ASVS_ALLOWED_HOSTS
 tests/config/test_standards_fetcher_extended.py:8:private-name:quodeq.config.standards_fetcher._DEFAULT_ASVS_VERSION
 tests/config/test_standards_fetcher_extended.py:8:private-name:quodeq.config.standards_fetcher._asvs_version

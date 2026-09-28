@@ -152,7 +152,7 @@ def test_replace_keeps_old_project_when_extract_fails(app_client, monkeypatch):
     def _fail_extract(*_args, **_kwargs):
         raise OSError("disk full")
 
-    monkeypatch.setattr("quodeq.api.import_project.safe_extract", _fail_extract)
+    monkeypatch.setattr("quodeq.services.project_import.safe_extract", _fail_extract)
     with _patch_home(home):
         resp = _post_zip(c, _make_zip(project_uuid=project_uuid), action="replace")
     assert resp.status_code == 500

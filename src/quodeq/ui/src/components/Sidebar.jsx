@@ -69,6 +69,7 @@ function NavButton({ id, label, icon, activeTab, onNavTab, count, countTitle }) 
     <button
       type="button"
       className={`sidebar-nav-item${activeTab === id ? ' active' : ''}`}
+      aria-current={activeTab === id ? 'page' : undefined}
       onClick={() => onNavTab(id)}
       title={label}
     >

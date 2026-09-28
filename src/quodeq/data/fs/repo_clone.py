@@ -13,7 +13,7 @@ import logging
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -48,16 +48,23 @@ class GitCloneClient:
     def __init__(self, env: Mapping[str, str] | None = None) -> None:
         self._env = env
 
-    def clone_progress(self, url: str, dest: Path, extra_args: list[str], *, timeout_s: int) -> None:
+    def clone_progress(
+        self, url: str, dest: Path, extra_args: list[str], *, timeout_s: int,
+        git_config: Sequence[str] = (),
+    ) -> None:
         """Run ``git clone`` for *url* into *dest*.
+
+        *git_config* entries (``key=value``) apply to this git process only,
+        via the global ``-c`` flag; they are not written into the clone.
 
         Raises the raw ``subprocess`` / ``OSError`` failures unchanged — the
         services layer owns retry orchestration and mapping them to
         user-facing clone errors.
         """
         env = {**resolve_env(self._env), "GIT_LFS_SKIP_SMUDGE": "1", "LC_ALL": "C", "LANG": "C"}
+        config_flags = [flag for entry in git_config for flag in ("-c", entry)]
         subprocess.run(
-            ["git", "clone", "--progress", *extra_args, "--", url, str(dest)],
+            ["git", *config_flags, "clone", "--progress", *extra_args, "--", url, str(dest)],
             check=True,
             env=env,
             timeout=timeout_s,
@@ -87,11 +94,13 @@ class OnlineCacheOps:
     ensure_clone: Callable[[str], Path | None] | None = None
 
 
-def clone_repo(url: str, dest: Path, extra_args: list[str], *, timeout_s: int) -> None:
+def clone_repo(
+    url: str, dest: Path, extra_args: list[str], *, timeout_s: int, git_config: Sequence[str] = (),
+) -> None:
     """Compat wrapper around :meth:`GitCloneClient.clone_progress` on the
     module default instance. See that method for the argv-shape rationale.
     """
-    _default_git_client.clone_progress(url, dest, extra_args, timeout_s=timeout_s)
+    _default_git_client.clone_progress(url, dest, extra_args, timeout_s=timeout_s, git_config=git_config)
 
 
 def _legacy_tempdir_clone(repo_input: str, *, client: GitCloneClient | None = None) -> str:

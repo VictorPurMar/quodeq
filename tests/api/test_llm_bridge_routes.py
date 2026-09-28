@@ -229,10 +229,29 @@ class TestProviderTestFieldTypes:
             resp = client.post("/api/provider/test", json={
                 "provider": "openrouter",
                 "model": "test",
-                "api_base": "https://example.com/v1",
+                "api_base": "https://openrouter.ai/api/v1",
                 "api_key": None,
             }, headers={"Origin": "http://localhost"})
 
         assert resp.status_code == 200
         mock_check.assert_called_once()
         assert mock_check.call_args.kwargs["api_key"] == _TEST_API_KEY
+
+    def test_env_key_is_not_sent_to_a_base_the_request_chose(self, client, monkeypatch):
+        """The server's key belongs to the provider's configured endpoint. A
+        body naming another host gets no credential attached."""
+        monkeypatch.setenv("OPENROUTER_API_KEY", _TEST_API_KEY)
+        with patch("quodeq.api.llm_bridge_routes.check_cloud_connection") as mock_check:
+            mock_check.return_value = {"success": False, "error": "401"}
+            resp = client.post("/api/provider/test", json={
+                "provider": "openrouter",
+                "model": "test",
+                "api_base": "https://attacker.example/v1",
+                "api_key": "",
+            }, headers={"Origin": "http://localhost"})
+
+        assert resp.status_code == 200
+        assert resp.get_json().get("code") != "MISSING_API_KEY"
+        mock_check.assert_called_once()
+        assert mock_check.call_args.kwargs["api_key"] == ""
+        assert _TEST_API_KEY not in str(mock_check.call_args)

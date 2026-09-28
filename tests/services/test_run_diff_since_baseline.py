@@ -93,3 +93,31 @@ def test_since_baseline_without_sha_uses_all_files(tmp_path: Path, scoped) -> No
 
     assert since["scope"] == "all" and since["changedFiles"] is None
     assert since["counts"] == {"new": 2, "resolved": 1}
+
+
+def test_against_run_resolves_scope_once_for_all_dimensions(tmp_path: Path, monkeypatch) -> None:
+    """With ``against`` every dimension shares one baseline, so the commit
+    diff is computed once, not once per dimension."""
+    calls: list[tuple[str, str]] = []
+
+    def _changed(root, a, b):
+        calls.append((a, b))
+        return {"a.py"}
+
+    monkeypatch.setattr(run_diff_module, "local_repo_root", lambda reports_root, project: Path("/repo"))
+    monkeypatch.setattr(run_diff_module, "changed_files", _changed)
+    for dim in (_DIM, "security"):
+        for run_id, started, sha in ((_PREV, "2026-09-20T00:00:00Z", _SHA_A), (_CURR, "2026-09-26T00:00:00Z", _SHA_B)):
+            run_dir = tmp_path / _PROJECT / run_id
+            (run_dir / "evaluation").mkdir(parents=True, exist_ok=True)
+            (run_dir / "evaluation" / f"{dim}.json").write_text(json.dumps(
+                {"dimension": dim, "principles": [], "violations": [_v("X-1", "a.py")], "compliance": []}),
+                encoding="utf-8")
+            (run_dir / "status.json").write_text(json.dumps(
+                {"state": "done", "started_at": started, "commit_sha": sha}), encoding="utf-8")
+
+    out = diff_runs(tmp_path, _PROJECT, _CURR, _PREV)
+
+    assert set(out["dimensions"]) == {_DIM, "security"}
+    assert all(d["sinceBaseline"]["changedFiles"] == 1 for d in out["dimensions"].values())
+    assert calls == [(_SHA_A, _SHA_B)]

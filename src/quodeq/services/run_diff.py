@@ -133,6 +133,18 @@ def _since_baseline(
     }
 
 
+def _baseline_scope(
+    project_dir: Path, repo_root: Path | None, base: str | None, head: tuple[str | None, bool | None],
+) -> tuple[tuple[str | None, bool | None], set[str] | None]:
+    """``(base_commit_state, changed_files)`` for one baseline run; the file
+    set is None when the two commits do not bound the change set."""
+    if not base:
+        return (None, None), None
+    base_state = _commit_state(_run_dir(project_dir, base))
+    files = changed_files(repo_root, base_state[0], head[0]) if _comparable(base_state, head) else None
+    return base_state, files
+
+
 def diff_runs(reports_root: Path, project: str, run_id: str, against: str | None) -> dict[str, Any]:
     """Per-dimension diff of *run_id*. With *against* every dimension uses that
     run; without it each dimension picks its own baseline (see ``_baseline_for``)
@@ -147,10 +159,15 @@ def diff_runs(reports_root: Path, project: str, run_id: str, against: str | None
     dkeys, delkeys = dismissed_keys(project_dir), deleted_keys(project_dir)
     repo_root = local_repo_root(reports_root, project)
     head = _commit_state(current_dir)
+    # Several dimensions share one baseline run (always, with *against*);
+    # its commit state and the git diff against head are resolved once.
+    scopes: dict[str | None, tuple[tuple[str | None, bool | None], set[str] | None]] = {}
     dimensions: dict[str, Any] = {}
     for dim, report in _reports(current_dir).items():
         base = against or _baseline_for(project_dir, older, dim)
-        base_state = _commit_state(_run_dir(project_dir, base)) if base else (None, None)
+        if base not in scopes:
+            scopes[base] = _baseline_scope(project_dir, repo_root, base, head)
+        base_state, files = scopes[base]
         previous = (read_eval_report(_run_dir(project_dir, base) / _EVAL_DIR, dim) or {}) if base else {}
         prev_active = unsuppressed(previous.get(_KEY_VIOLATIONS) or [], dkeys, delkeys, dim, None)
         curr_active = unsuppressed(report.get(_KEY_VIOLATIONS) or [], dkeys, delkeys, dim, None)
@@ -158,8 +175,6 @@ def diff_runs(reports_root: Path, project: str, run_id: str, against: str | None
         entry = _payload(diff_findings(prev_active, curr_active, current_files=seen))
         entry["againstRunId"] = base
         entry["againstCommitSha"], entry["againstCommitDirty"] = base_state
-        files = (changed_files(repo_root, base_state[0], head[0])
-                 if base and _comparable(base_state, head) else None)
         entry["sinceBaseline"] = _since_baseline(prev_active, curr_active, files, seen)
         dimensions[dim] = entry
     return {

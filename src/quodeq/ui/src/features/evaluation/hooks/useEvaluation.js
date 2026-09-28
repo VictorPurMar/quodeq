@@ -9,7 +9,7 @@
  *     and updated by useRunEventStream when VITE_USE_SSE_EVENTS=true.
  *   - findingsQuery: ['evaluation', jobId, 'findings'] — under SSE, populated
  *     entirely by useRunEventStream's setQueryData writes (queryFn is a no-op).
- *     Under polling, fetched via per-dimension getDimensionEval calls.
+ *     Under polling, fetched via one getLiveFindings call per tick.
  *   (both live in ./useEvaluationQueries.js)
  *
  * Mutations (./useEvaluationMutations.js):

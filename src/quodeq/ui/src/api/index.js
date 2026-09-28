@@ -42,7 +42,7 @@ export {
 
 export {
   getProjectScores, getRunScores, getCompareSummary, getDashboard,
-  getAccumulated, getDimensionEval, getComplianceDetail,
+  getAccumulated, getDimensionEval, getLiveFindings, getComplianceDetail,
 } from './scores.js';
 
 export {

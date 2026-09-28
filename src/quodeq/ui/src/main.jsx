@@ -9,6 +9,8 @@ import { queryClient } from './api/queryClient.js';
 import { SidePaneProvider } from './features/side-pane/index.js';
 import { AssistantDrawerProvider } from './features/assistant/AssistantDrawerProvider.jsx';
 import { PYWEBVIEW_READY_EVENT } from './constants.js';
+import { saveProviderKey } from './api/providers.js';
+import { migrateLegacyProviderKeys } from './features/settings/legacyProviderKeyMigration.js';
 
 function isMacPlatform() {
   const ua = navigator.userAgent || '';
@@ -46,6 +48,14 @@ document.addEventListener('keydown', (e) => {
   if (mod && e.key === '[') { e.preventDefault(); history.back(); }
   if (mod && e.key === ']') { e.preventDefault(); history.forward(); }
 });
+
+// Moves any raw provider API key still in browser storage into the server's
+// secure store. Runs in the background and never delays the first render.
+try {
+  migrateLegacyProviderKeys(localStorage, saveProviderKey);
+} catch (err) {
+  console.warn('[main] browser storage unavailable, provider key migration skipped:', err);
+}
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found in DOM');

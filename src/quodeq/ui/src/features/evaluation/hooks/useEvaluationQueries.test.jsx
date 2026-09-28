@@ -21,16 +21,20 @@ const REPORT_ROW = {
   confidence: 25,
 };
 
-function makeApi(violations) {
+function makeApi(violations, extraDimensions = {}) {
   return {
     getEvaluation: vi.fn().mockResolvedValue({
       jobId: "job-1",
       status: "running",
       outputProject: "proj",
       outputRunId: "run-1",
-      dimensions: ["security"],
+      dimensions: ["security", ...Object.keys(extraDimensions)],
     }),
-    getDimensionEval: vi.fn().mockResolvedValue({ violations }),
+    getLiveFindings: vi.fn().mockResolvedValue({
+      project: "proj",
+      runId: "run-1",
+      dimensions: { security: { state: "ready", violations }, ...extraDimensions },
+    }),
   };
 }
 
@@ -73,5 +77,47 @@ describe("useEvaluationQueries findings mapping", () => {
     const { result } = renderQueries(makeApi(undefined));
     await waitFor(() => expect(result.current.job).not.toBeNull());
     expect(result.current.liveViolations).toEqual({});
+  });
+
+  it("asks for every job dimension in one request", async () => {
+    const api = makeApi([REPORT_ROW], { usability: { state: "waiting", violations: [] } });
+    const { result } = renderQueries(api);
+    await waitFor(() => expect(result.current.liveViolations.security).toHaveLength(1));
+    expect(api.getLiveFindings).toHaveBeenCalledWith("proj", "run-1", ["security", "usability"]);
+    expect(api.getLiveFindings.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("groups two dimensions from one body and tags each row", async () => {
+    const other = { ...REPORT_ROW, practiceId: "Clarity", file: "src/b.py" };
+    const api = makeApi([REPORT_ROW], { usability: { state: "ready", violations: [other] } });
+    const { result } = renderQueries(api);
+    await waitFor(() => expect(result.current.liveViolations.usability).toHaveLength(1));
+    expect(result.current.liveViolations.security[0].dimension).toBe("security");
+    expect(result.current.liveViolations.usability[0].dimension).toBe("usability");
+  });
+
+  it("tolerates a body without dimensions", async () => {
+    const api = makeApi([REPORT_ROW]);
+    api.getLiveFindings.mockResolvedValue({});
+    const { result } = renderQueries(api);
+    await waitFor(() => expect(result.current.job).not.toBeNull());
+    expect(result.current.liveViolations).toEqual({});
+  });
+
+  it("keeps the job's dimension order, not the body's key order", async () => {
+    const other = { ...REPORT_ROW, practiceId: "Clarity", file: "src/b.py" };
+    const api = makeApi([REPORT_ROW]);
+    api.getEvaluation.mockResolvedValue({
+      jobId: "job-1", status: "running", outputProject: "proj", outputRunId: "run-1",
+      dimensions: ["usability", "security"],
+    });
+    // Flask's jsonify sorts keys, so the wire order is alphabetical.
+    api.getLiveFindings.mockResolvedValue({ dimensions: {
+      security: { state: "ready", violations: [REPORT_ROW] },
+      usability: { state: "ready", violations: [other] },
+    } });
+    const { result } = renderQueries(api);
+    await waitFor(() => expect(result.current.liveViolations.usability).toHaveLength(1));
+    expect(Object.keys(result.current.liveViolations)).toEqual(["usability", "security"]);
   });
 });

@@ -86,7 +86,11 @@ export function ProjectCard({ project, isSelected, cardProps = {}, children: car
         role="button"
         tabIndex={0}
         onClick={() => onSelect?.(id)}
-        onKeyDown={(e) => { if (e.key === KEY.ENTER || e.key === ' ') { e.preventDefault(); onSelect?.(id); } }}
+        onKeyDown={(e) => {
+          // Keys from a nested control (the resume-setup button) belong to it.
+          if (e.target !== e.currentTarget) return;
+          if (e.key === KEY.ENTER || e.key === ' ') { e.preventDefault(); onSelect?.(id); }
+        }}
       >
         <div className="project-card-top">
           <ProjectCardTopLeft project={project} id={id} name={name} grade={grade} score={score} onResumeSetup={onResumeSetup} />

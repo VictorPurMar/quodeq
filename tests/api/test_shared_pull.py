@@ -7,7 +7,7 @@ hardened validation/collision logic used by the manual
 ``POST /api/projects/import`` route (see tests/api/test_project_import.py).
 
 Note on project naming: real local project directories under reports_dir are
-named by UUID (``import_project.py``'s ``validate_archive`` requires the
+named by UUID (``services/project_import.py``'s ``validate_archive`` requires the
 zip's single top-level directory to be a valid UUID), and ``publish_project``
 mirrors the source directory name as-is into the shared repo -- so a
 realistic pull target is UUID-named too. This intentionally differs from
@@ -249,7 +249,7 @@ def test_pull_read_failure_reports_a_read_error(
     def _raise(*_args, **_kwargs):
         raise OSError("disk read error")
 
-    monkeypatch.setattr("quodeq.api.import_project.validate_archive", _raise)
+    monkeypatch.setattr("quodeq.services.project_import.validate_archive", _raise)
     resp = _pull(client, project_uuid)
 
     assert resp.status_code == 500

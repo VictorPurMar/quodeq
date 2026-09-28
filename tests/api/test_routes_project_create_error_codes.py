@@ -1,7 +1,7 @@
 """Machine-readable error-code coverage for POST /api/projects's duplicate
 branch: tools/check_error_codes.py's zero-tolerance gate found one bare
 jsonify() under routes_project_create.py. PROJECT_EXISTS is the spelling
-import_project.py already uses for the same "project already exists"
+services/project_import.py already uses for the same "project already exists"
 condition.
 
 The ``client`` fixture is reused, not copied, from test_routes_project_create.py.

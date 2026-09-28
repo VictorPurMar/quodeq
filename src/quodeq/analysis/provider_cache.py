@@ -11,7 +11,9 @@ from quodeq.config.provider import ProviderType
 from quodeq.shared.provider_env import providers_path
 
 # Fallback provider configs used when the primary JSON file
-# (data/config/ai_providers.json) cannot be loaded.
+# (data/config/ai_providers.json) cannot be loaded. The codex entry keeps
+# the agent's read-only sandbox: relaxing it is a deliberate choice that
+# belongs in the JSON file, not in the default that a broken install gets.
 _PROVIDER_CONFIGS_FALLBACK: dict[str, dict] = {
     "claude": {
         "type": ProviderType.CLI,
@@ -33,7 +35,7 @@ _PROVIDER_CONFIGS_FALLBACK: dict[str, dict] = {
         "type": ProviderType.CLI,
         "cmd": "codex",
         "cmd_subcommand": "exec",
-        "base_args": "--json --dangerously-bypass-approvals-and-sandbox",
+        "base_args": "--json --sandbox read-only",
         "prompt_style": PROMPT_STYLE_POSITIONAL,
         "mcp_style": MCP_STYLE_CONFIG_ARG,
         "supports_tools": False,

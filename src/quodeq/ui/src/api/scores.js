@@ -80,3 +80,14 @@ export async function getDimensionEval(projectId, runId, dimension) {
   );
   return createDimensionEval(data);
 }
+
+/**
+ * The slim live-feed rows for every dimension of a run in one request.
+ * The body is passed through: `{ project, runId, dimensions: { [dim]: { state, violations } } }`.
+ */
+export function getLiveFindings(projectId, runId, dimensions) {
+  const query = encodeURIComponent(dimensions.join(','));
+  return request(
+    `${projectPath(projectId)}/runs/${encodeURIComponent(runId)}/live-findings?dimensions=${query}`
+  );
+}

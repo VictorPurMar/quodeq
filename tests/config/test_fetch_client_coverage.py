@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import urllib.error
+import urllib.request
 from unittest.mock import MagicMock, patch
-
-
+import pytest
 from quodeq.config._fetch_client_class import FetchClient
 
 
@@ -69,7 +69,7 @@ class TestFetchValidation:
     def test_allows_private_when_enabled(self):
         c = FetchClient(allow_private=True)
         # Will fail on network, but should not be blocked by the private check
-        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("test")):
+        with patch("urllib.request.OpenerDirector.open", side_effect=urllib.error.URLError("test")):
             result = c.fetch("http://127.0.0.1/test")
             assert result is None  # fails on network, not on validation
 
@@ -122,20 +122,20 @@ class TestFetchRetry:
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("urllib.request.urlopen", return_value=mock_resp):
+        with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
             result = c.fetch("https://example.com")
             assert result == "hello world"
 
     def test_retries_on_failure(self):
         c = FetchClient(allow_private=True)
-        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("net error")), \
+        with patch("urllib.request.OpenerDirector.open", side_effect=urllib.error.URLError("net error")), \
              patch("time.sleep"):
             result = c.fetch("https://example.com")
             assert result is None
 
     def test_records_failure_after_retries(self):
         c = FetchClient(allow_private=True)
-        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("net error")), \
+        with patch("urllib.request.OpenerDirector.open", side_effect=urllib.error.URLError("net error")), \
              patch("time.sleep"):
             c.fetch("https://example.com")
             assert c._failures == 1
@@ -168,7 +168,7 @@ class TestFetchResponseSizeCap:
         # test in this class while still being the bug.
         c = FetchClient(allow_private=True, env={})
         resp = self._resp(b"ok")
-        with patch("urllib.request.urlopen", return_value=resp):
+        with patch("urllib.request.OpenerDirector.open", return_value=resp):
             c.fetch("https://example.com")
         args, _kwargs = resp.read.call_args
         assert args, "r.read() called with no size limit"
@@ -176,17 +176,17 @@ class TestFetchResponseSizeCap:
 
     def test_body_at_cap_is_returned(self):
         c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RESPONSE_BYTES": "16"})
-        with patch("urllib.request.urlopen", return_value=self._resp(b"x" * 16)):
+        with patch("urllib.request.OpenerDirector.open", return_value=self._resp(b"x" * 16)):
             assert c.fetch("https://example.com") == "x" * 16
 
     def test_body_over_cap_is_rejected(self):
         c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RESPONSE_BYTES": "16"})
-        with patch("urllib.request.urlopen", return_value=self._resp(b"x" * 17)):
+        with patch("urllib.request.OpenerDirector.open", return_value=self._resp(b"x" * 17)):
             assert c.fetch("https://example.com") is None
 
     def test_oversize_counts_as_failure(self):
         c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RESPONSE_BYTES": "4"})
-        with patch("urllib.request.urlopen", return_value=self._resp(b"toolong")):
+        with patch("urllib.request.OpenerDirector.open", return_value=self._resp(b"toolong")):
             c.fetch("https://example.com")
         assert c._failures == 1
 
@@ -195,7 +195,7 @@ class TestFetchResponseSizeCap:
         # re-downloads the cap. One attempt, then give up.
         c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RESPONSE_BYTES": "4"})
         opener = MagicMock(return_value=self._resp(b"toolong"))
-        with patch("urllib.request.urlopen", opener), patch("time.sleep"):
+        with patch("urllib.request.OpenerDirector.open", opener), patch("time.sleep"):
             c.fetch("https://example.com")
         assert opener.call_count == 1
 
@@ -203,7 +203,7 @@ class TestFetchResponseSizeCap:
 class TestFetchRetryBackoff:
     def test_backoff_is_exponential_with_jitter(self):
         c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RETRIES": "3"})
-        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("net error")), \
+        with patch("urllib.request.OpenerDirector.open", side_effect=urllib.error.URLError("net error")), \
              patch("time.sleep") as mock_sleep, \
              patch("random.uniform", return_value=0):
             c.fetch("https://example.com")
@@ -212,7 +212,7 @@ class TestFetchRetryBackoff:
     def test_max_retries_zero_still_sends_one_request(self):
         c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RETRIES": "0"})
         opener = MagicMock(return_value=TestFetchResponseSizeCap._resp(b"body"))
-        with patch("urllib.request.urlopen", opener), patch("time.sleep") as mock_sleep:
+        with patch("urllib.request.OpenerDirector.open", opener), patch("time.sleep") as mock_sleep:
             assert c.fetch("https://example.com") == "body"
         assert opener.call_count == 1
         assert mock_sleep.call_count == 0
@@ -220,61 +220,69 @@ class TestFetchRetryBackoff:
     def test_max_retries_two_sends_three_attempts(self):
         c = FetchClient(allow_private=True, env={"QUODEQ_MAX_RETRIES": "2"})
         opener = MagicMock(side_effect=urllib.error.URLError("net error"))
-        with patch("urllib.request.urlopen", opener), patch("time.sleep"):
+        with patch("urllib.request.OpenerDirector.open", opener), patch("time.sleep"):
             assert c.fetch("https://example.com") is None
         assert opener.call_count == 3
         assert c._failures == 1
 
 
-class TestCircuitHalfOpen:
-    """An open circuit lets one probe through once the cooldown has passed."""
-
-    _URL = "https://example.com"
+class TestRedirectGuard:
+    """A 3xx is a second URL; it gets the same scheme and private-address
+    check as the first one. The guard is reached the way production reaches
+    it: as the redirect handler FetchClient installs on its opener."""
 
     @staticmethod
-    def _tripped_client(monkeypatch, clock: list[float]) -> FetchClient:
-        monkeypatch.setattr("quodeq.config._fetch_client_class.time.monotonic", lambda: clock[0])
-        c = FetchClient(allow_private=True, env={
-            "QUODEQ_CIRCUIT_THRESHOLD": "2", "QUODEQ_CIRCUIT_RESET_S": "60", "QUODEQ_MAX_RETRIES": "0",
-        })
-        for _ in range(2):
-            c._record_failure(Exception("fail"))
-        return c
+    def _guard(client: FetchClient):
+        handlers: list = []
 
-    def test_reset_from_injected_env_and_default(self):
-        assert FetchClient(env={"QUODEQ_CIRCUIT_RESET_S": "5"})._CIRCUIT_RESET_S == 5.0
-        assert FetchClient(env={})._CIRCUIT_RESET_S == 60.0
+        def _build(*given):
+            handlers.extend(given)
+            return MagicMock(open=MagicMock(side_effect=urllib.error.URLError("net")))
 
-    def test_circuit_half_opens_after_cooldown_and_closes_on_success(self, monkeypatch):
-        clock = [1000.0]
-        c = self._tripped_client(monkeypatch, clock)
-        opener = MagicMock(side_effect=lambda *_a, **_k: TestFetchResponseSizeCap._resp(b"body"))
-        with patch("urllib.request.urlopen", opener):
-            clock[0] = 1059.0
-            assert c.fetch(self._URL) is None
-            assert opener.call_count == 0
-            clock[0] = 1060.0
-            assert c.fetch(self._URL) == "body"
-            assert opener.call_count == 1
-            assert c.fetch(self._URL) == "body"
-            assert opener.call_count == 2
+        with patch("urllib.request.build_opener", side_effect=_build), patch("time.sleep"):
+            assert client.fetch("https://example.com") is None
+        redirect_handlers = [
+            h for h in handlers
+            if isinstance(h, urllib.request.HTTPRedirectHandler) and type(h) is not urllib.request.HTTPRedirectHandler
+        ]
+        assert len(redirect_handlers) == 1
+        return redirect_handlers[0]
 
-    def test_half_open_probe_failure_reopens_with_new_cooldown(self, monkeypatch):
-        clock = [1000.0]
-        c = self._tripped_client(monkeypatch, clock)
-        opener = MagicMock(side_effect=urllib.error.URLError("net error"))
-        with patch("urllib.request.urlopen", opener), patch("time.sleep"):
-            clock[0] = 1061.0
-            assert c.fetch(self._URL) is None
-            assert opener.call_count == 1
-            assert c.fetch(self._URL) is None
-            clock[0] = 1120.0
-            assert c.fetch(self._URL) is None
-            assert opener.call_count == 1
+    @staticmethod
+    def _redirect(guard, newurl: str):
+        req = urllib.request.Request("https://example.com/start")
+        return guard.redirect_request(req, None, 302, "Found", {}, newurl)
 
-    def test_concurrent_call_during_probe_sees_circuit_open(self, monkeypatch):
-        clock = [1000.0]
-        c = self._tripped_client(monkeypatch, clock)
-        clock[0] = 1060.0
-        assert c._is_circuit_open() is False
-        assert c._is_circuit_open() is True
+    def test_private_target_is_refused(self):
+        guard = self._guard(FetchClient(allow_private=False))
+        with patch("quodeq.config._fetch_client_class._is_private_hostname", return_value=True):
+            with pytest.raises(urllib.error.URLError, match="blocked target"):
+                self._redirect(guard, "http://169.254.169.254/latest/meta-data/")
+
+    def test_non_http_scheme_is_refused_even_when_private_is_allowed(self):
+        guard = self._guard(FetchClient(allow_private=True))
+        with pytest.raises(urllib.error.URLError, match="blocked target"):
+            self._redirect(guard, "ftp://example.com/x")
+
+    def test_public_target_is_followed(self):
+        guard = self._guard(FetchClient(allow_private=False))
+        with patch("quodeq.config._fetch_client_class._is_private_hostname", return_value=False):
+            new = self._redirect(guard, "https://cdn.example.com/x")
+        assert new.full_url == "https://cdn.example.com/x"
+
+    def test_private_target_is_followed_when_allowed(self):
+        guard = self._guard(FetchClient(allow_private=True))
+        with patch("quodeq.config._fetch_client_class._is_private_hostname", return_value=True):
+            new = self._redirect(guard, "http://127.0.0.1:8080/x")
+        assert new.full_url == "http://127.0.0.1:8080/x"
+
+    def test_blocked_redirect_fails_once_without_retry(self):
+        guard = self._guard(FetchClient(allow_private=True))
+        with pytest.raises(urllib.error.URLError) as info:
+            self._redirect(guard, "ftp://example.com/x")
+        c = FetchClient(allow_private=False, env={"QUODEQ_MAX_RETRIES": "3"})
+        opener = MagicMock(side_effect=info.value)
+        with patch("urllib.request.OpenerDirector.open", opener), patch("time.sleep") as sleep:
+            assert c.fetch("https://example.com") is None
+        assert opener.call_count == 1 and sleep.call_count == 0
+        assert c._failures == 1

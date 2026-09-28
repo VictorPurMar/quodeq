@@ -35,6 +35,7 @@ from pathlib import Path
 # straight from quodeq.data.fs.repo_validation for the same reason.
 from quodeq.data.fs.repo_validation import validate_remote_url  # noqa: F401
 from quodeq.data.fs.shared_repo_git import (  # noqa: F401 -- re-exported for existing callers
+    EVALUATIONS_DIRNAME,
     run_git,
     shared_cache_dir,
     shared_evaluations_root,
@@ -211,3 +212,19 @@ def last_synced_at(url: str, env: Mapping[str, str] | None = None) -> float | No
         except OSError:
             continue
     return None
+
+
+_GITIGNORE_FILENAME = ".gitignore"
+_GITKEEP_FILENAME = ".gitkeep"
+
+
+def stage_publish_paths(repo: Path, project_id: str) -> tuple[bool, str]:
+    """``git add`` everything a publish of *project_id* may have written:
+    the format marker, the ignore file, the project's evaluations tree and
+    the evaluations/.gitkeep placeholder when the layout has one. Returns
+    ``run_git``'s ``(ok, output)``.
+    """
+    add_paths = [MARKER_FILENAME, _GITIGNORE_FILENAME, f"{EVALUATIONS_DIRNAME}/{project_id}"]
+    if (repo / EVALUATIONS_DIRNAME / _GITKEEP_FILENAME).exists():
+        add_paths.append(f"{EVALUATIONS_DIRNAME}/{_GITKEEP_FILENAME}")
+    return run_git(["add", "--", *add_paths], cwd=repo)

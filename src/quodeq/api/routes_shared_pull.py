@@ -18,8 +18,9 @@ from flask import Flask, Response, jsonify, request
 
 from quodeq.api._constants import CODE_INVALID_ACTION, CODE_NOT_FOUND
 from quodeq.api.helpers import json_error, optional_json_object_or_response, validate_segment
-from quodeq.api.import_project import import_zip_stream
+from quodeq.api.import_project import IMPORT_LOG
 from quodeq.api.zip import build_project_zip
+from quodeq.services.project_import import import_zip_stream
 
 from .routes_common import reports_dir
 from .routes_shared_common import logger, shared_project_dir, with_shared_root
@@ -46,7 +47,7 @@ def _import_pulled_zip(project: str, zip_path: Path, action: str | None) -> tupl
     try:
         with zip_path.open("rb") as stream:
             outcome = import_zip_stream(
-                stream, reports_dir(), action, remote_addr=request.remote_addr,
+                stream, reports_dir(), action, remote_addr=request.remote_addr, log=IMPORT_LOG,
             )
         return jsonify(outcome.body), outcome.status
     except OSError:

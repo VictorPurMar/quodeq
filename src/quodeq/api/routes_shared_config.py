@@ -1,11 +1,11 @@
 """Config/status/lifecycle routes for the shared results repository.
 
 Status, config PUT/DELETE, refresh, and the local project-publish route.
-``refresh_shared_clone`` and ``start_publish`` are imported directly from
-their real owner, never through the ``routes_shared`` facade, so this
-module never imports back a sibling that imports it. Tests patch
-"quodeq.api.routes_shared_config.refresh_shared_clone" /
-"...start_publish".
+``refresh_shared_clone``, ``start_publish`` and ``start_connect`` are
+imported directly from their real owner, never through the ``routes_shared``
+facade, so this module never imports back a sibling that imports it. Tests
+patch "quodeq.api.routes_shared_config.refresh_shared_clone" /
+"...start_publish" / "...start_connect".
 """
 from __future__ import annotations
 
@@ -16,10 +16,15 @@ from typing import Callable
 from flask import Flask, Response, jsonify
 
 from quodeq.api._constants import CODE_INVALID_INPUT
-from quodeq.services.shared_connect import ConnectStatus, connect_shared_repo
+from quodeq.services.shared_connect_job import (
+    ConnectStartResult,
+    get_connect_status,
+    is_connect_running,
+    start_connect,
+    url_failure,
+)
 from quodeq.services.shared_publish import PublishStartResult, get_publish_status, start_publish
 from quodeq.services.shared_repo import (
-    RepoFormat,
     disconnect_shared_repo,
     last_synced_at,
     read_state,
@@ -33,19 +38,26 @@ from .helpers import json_error, optional_json_object_or_response
 from .routes_common import reports_dir
 from .routes_shared_common import no_shared_repo_error
 
+CODE_URL_REQUIRED = "URL_REQUIRED"
+CODE_CONNECT_IN_PROGRESS = "CONNECT_IN_PROGRESS"
+CODE_CONNECT_START_FAILED = "CONNECT_START_FAILED"
+MESSAGE_CONNECT_IN_PROGRESS = "a connect is already running"
+
 
 def shared_status() -> Response:
-    """Report the shared repo connection, last sync, clone health and publish progress.
+    """Report the shared repo connection, last sync, clone health and job progress.
 
     One call backs the whole Shared tab header, so the UI does not have to
     infer "healthy but never published into" from configured + lastSynced.
     """
     settings = read_settings()
     synced = last_synced_at(settings.url) if settings.url else None
-    # The wire shape is camelCase throughout; the publish status dict is
-    # a service-internal snake_case structure, so rename at the boundary.
+    # The wire shape is camelCase throughout; the publish and connect status
+    # dicts are service-internal snake_case structures, so rename at the boundary.
     publish = get_publish_status()
     publish["finishedAt"] = publish.pop("finished_at", None)
+    connect = get_connect_status()
+    connect["finishedAt"] = connect.pop("finished_at", None)
     return jsonify(
         {
             "configured": settings.url is not None,
@@ -58,6 +70,7 @@ def shared_status() -> Response:
             # error-code gate exempts an "error" value of None).
             "error": None,
             "publish": publish,
+            "connect": connect,
             # ok | empty | foreign | unsupported_version | missing | None
             # (unconfigured) -- lets the UI distinguish "healthy but
             # never published into" from the failure states instead of
@@ -68,43 +81,41 @@ def shared_status() -> Response:
 
 
 def shared_config_put() -> Response | tuple[Response, int]:
-    """Connect to the shared results repository at the posted ``url``.
+    """Start connecting to the shared results repository at the posted ``url``.
 
-    Clones it and verifies it is a quodeq results repo before accepting, so a
-    typo or a foreign repository fails here rather than on the first publish.
+    A malformed URL fails here with 400. Otherwise the clone and the format
+    check run as a background job and this answers 202; the outcome is
+    reported under ``connect`` in GET /api/shared/status.
     """
     body = optional_json_object_or_response(CODE_INVALID_INPUT)
     if not isinstance(body, dict):
         return body
     url = str(body.get("url") or "").strip()
     if not url:
-        return json_error("url is required", HTTPStatus.BAD_REQUEST, "URL_REQUIRED")
-    outcome = connect_shared_repo(url, log=SHARED_LOG)
-    if outcome.status == ConnectStatus.INVALID_URL:
-        return json_error(outcome.detail, HTTPStatus.BAD_REQUEST, "INVALID_URL")
-    if outcome.status == ConnectStatus.CLONE_FAILED:
+        return json_error("url is required", HTTPStatus.BAD_REQUEST, CODE_URL_REQUIRED)
+    failure = url_failure(url)
+    if failure is not None:
+        return json_error(failure.message, failure.http_status, failure.code)
+    outcome = start_connect(url, log=SHARED_LOG)
+    if outcome == ConnectStartResult.ALREADY_RUNNING:
+        return json_error(MESSAGE_CONNECT_IN_PROGRESS, HTTPStatus.CONFLICT, CODE_CONNECT_IN_PROGRESS)
+    if outcome != ConnectStartResult.STARTED:
         return json_error(
-            f"could not clone the repository, check that git can access {outcome.url}",
-            HTTPStatus.BAD_GATEWAY,
-            "CLONE_FAILED",
+            "could not start the connect job, see server logs",
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            CODE_CONNECT_START_FAILED,
         )
-    if outcome.status == RepoFormat.FOREIGN:
-        return json_error(
-            "the repository exists but does not look like a quodeq results repository",
-            HTTPStatus.BAD_REQUEST,
-            "FOREIGN_REPO",
-        )
-    if outcome.status == RepoFormat.UNSUPPORTED_VERSION:
-        return json_error(
-            "this shared repository requires a newer version of quodeq",
-            HTTPStatus.BAD_REQUEST,
-            "UNSUPPORTED_VERSION",
-        )
-    return jsonify({"configured": True, "url": outcome.url})
+    return jsonify({"started": True, "url": url}), HTTPStatus.ACCEPTED
 
 
-def shared_config_delete() -> Response:
-    """Disconnect from the shared repository and drop the local clone."""
+def shared_config_delete() -> Response | tuple[Response, int]:
+    """Disconnect from the shared repository and drop the local clone.
+
+    Refused while a connect job runs: its settings write would reconnect
+    right after the disconnect.
+    """
+    if is_connect_running():
+        return json_error(MESSAGE_CONNECT_IN_PROGRESS, HTTPStatus.CONFLICT, CODE_CONNECT_IN_PROGRESS)
     # Ordering + locking business rule lives in
     # services/shared_repo.disconnect_shared_repo.
     disconnect_shared_repo(log=SHARED_LOG)

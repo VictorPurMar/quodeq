@@ -4,13 +4,10 @@ This module is the ingestion point for untrusted user-supplied archives, so
 the checks here are intentionally paranoid: every member is checked for path
 traversal, absolute paths, symlinks, special files, oversize entries, and
 zip-bomb compression ratios before a single byte is extracted.
-
-Split out of import_project.py.
 """
 from __future__ import annotations
 
 import json
-import logging
 import stat
 import uuid as _uuid
 import zipfile
@@ -18,19 +15,18 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any
 
-from quodeq.api.helpers import ClientMessageError
-from quodeq.api.zip import MANIFEST_KIND, MANIFEST_SCHEMA
-
-logger = logging.getLogger(__name__)
+from quodeq.core.observability import NULL_LOG, LogSink
+from quodeq.services.project_archive_format import MANIFEST_KIND, MANIFEST_SCHEMA
+from quodeq.shared.errors import ClientMessageError
 
 
 @dataclass(frozen=True)
 class ImportOutcome:
     """Plain result of ``import_zip_stream``: HTTP status + JSON-safe body.
 
-    Framework-free by design — the Flask wrappers (``import_project`` in
-    import_project.py, ``shared_pull`` in routes_shared) convert it via
-    ``jsonify`` exactly once.
+    Framework-free by design: the Flask wrappers (``import_project`` in
+    api/import_project.py, ``shared_pull`` in api/routes_shared_pull.py)
+    convert it via ``jsonify`` exactly once.
     """
 
     status: int
@@ -229,7 +225,7 @@ def validate_manifest(manifest: dict[str, Any], top_dir: str) -> None:
         )
 
 
-def validate_repository_info(info: dict[str, Any], expected_uuid: str) -> None:
+def validate_repository_info(info: dict[str, Any], expected_uuid: str, *, log: LogSink = NULL_LOG) -> None:
     if not isinstance(info.get("name"), str) or not info["name"].strip():
         raise bad_request("repository_info.json missing valid 'name'.", "BAD_REPO_INFO")
     if not isinstance(info.get("path"), str):
@@ -237,7 +233,4 @@ def validate_repository_info(info: dict[str, Any], expected_uuid: str) -> None:
     info_uuid = info.get("uuid")
     # The uuid field is informational; mismatches are tolerated but logged.
     if info_uuid and info_uuid != expected_uuid:
-        logger.info(
-            "import: repository_info.json uuid %r differs from top dir %r",
-            info_uuid, expected_uuid,
-        )
+        log.info(f"import: repository_info.json uuid {info_uuid!r} differs from top dir {expected_uuid!r}")
