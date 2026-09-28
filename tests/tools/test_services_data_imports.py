@@ -33,7 +33,6 @@ _BASELINE = frozenset({
     "score_run.py:quodeq.data.fs.standards_loader",
     "standards_prefs.py:quodeq.data.fs.compiled_standards",
     "standards_prefs.py:quodeq.data.fs.standards_prefs",
-    "trend_fetcher.py:quodeq.data.fs.report_parser.runs",
 })
 
 
