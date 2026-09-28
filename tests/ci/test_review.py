@@ -248,3 +248,15 @@ class TestPostGate:
         monkeypatch.setattr("quodeq.ci.reporter.post_review", lambda **k: posted.append(k))
         code = review._post_review_or_dry_run(self._args(yes=True), {"body": "b"}, "o", "r", 7)
         assert code == 0 and asked == [] and posted[0]["pr_number"] == 7
+
+    def test_a_github_api_failure_prints_a_worded_error(self, monkeypatch, capsys):
+        from quodeq.ci import review
+        monkeypatch.setattr(review, "get_github_token", lambda: "tok")
+
+        def _fail(**_):
+            raise RuntimeError("GitHub API returned HTTP 422 (Unprocessable)")
+
+        monkeypatch.setattr("quodeq.ci.reporter.post_review", _fail)
+        code = review._post_review_or_dry_run(self._args(yes=True), {"body": "b"}, "o", "r", 7)
+        err = capsys.readouterr().err
+        assert code == 1 and "could not post the review" in err and "HTTP 422" in err
