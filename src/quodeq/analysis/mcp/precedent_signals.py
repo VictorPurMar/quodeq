@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import tempfile
 from pathlib import Path
 
@@ -18,8 +17,6 @@ from quodeq.services.precedent_dismiss import precedent_match_hook
 from quodeq.shared.constants import EVIDENCE_DIRNAME
 from quodeq.shared.json_state import dump_json_and_replace
 from quodeq.shared.lru import LRUDict
-
-_logger = logging.getLogger(__name__)
 
 # Every agent of a run is its own findings-server process, so the in-process
 # per-run memo starts empty each time and each spawn opened every past run's
@@ -48,15 +45,15 @@ def _read_snapshot(path: Path, stamps: dict[str, list[int]]) -> set[str] | None:
     return set(fps) if isinstance(fps, list) else None
 
 
-def _write_snapshot(path: Path, stamps: dict[str, list[int]], fps: set[str]) -> None:
+def _write_snapshot(path: Path, stamps: dict[str, list[int]], fps: set[str], log: LogSink) -> None:
     try:
         fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
         dump_json_and_replace(fd, tmp, path, {"stamps": stamps, "fingerprints": sorted(fps)})
     except OSError as exc:
-        _logger.debug("precedent snapshot not written to %s: %s", path, exc)
+        log.debug(f"precedent snapshot not written to {path}: {exc}")
 
 
-def _precedent_fingerprints(project_dir: Path, run_dir: Path | None) -> set[str]:
+def _precedent_fingerprints(project_dir: Path, run_dir: Path | None, log: LogSink) -> set[str]:
     """The project's precedent fingerprints, through the run's on-disk snapshot."""
     read: PrecedentMemo = LRUDict(_READ_MEMO_MAX_RUNS)
 
@@ -78,7 +75,7 @@ def _precedent_fingerprints(project_dir: Path, run_dir: Path | None) -> set[str]
     # A run whose read failed (a locked DB) is skipped, not memoized; leaving
     # it out of a snapshot that records its stamp would hide its precedents.
     if all(Path(project_dir / name) in read for name in stamps):
-        _write_snapshot(path, stamps, fps)
+        _write_snapshot(path, stamps, fps, log)
     return fps
 
 
@@ -97,7 +94,7 @@ def precedent_signals(
         return {"precedent_fingerprints": set(), "precedent_corpus": None,
                 "on_precedent_match": precedent_match_hook(None, log=log)}
     return {
-        "precedent_fingerprints": _precedent_fingerprints(project_dir, run_dir),
+        "precedent_fingerprints": _precedent_fingerprints(project_dir, run_dir, log),
         "precedent_corpus": (
             load_precedent_corpus(project_dir, run_dir, settings=precedent_settings()) if run_dir else None),
         "on_precedent_match": precedent_match_hook(project_dir, log=log),
