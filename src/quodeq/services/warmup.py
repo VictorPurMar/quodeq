@@ -122,6 +122,19 @@ class WarmupEngine:
             self._pending.append(project_id)
             self._cond.notify()
 
+    def prioritise(self, project_id: str) -> None:
+        """Move a queued project to the head of the queue.
+
+        The scores route calls this for the project on screen, so background
+        warm-up of the other projects never runs ahead of it. A no-op before
+        ``start``, for the project being warmed now, and for an id not queued.
+        """
+        with self._cond:
+            if project_id == self._current or project_id not in self._pending:
+                return
+            self._pending.remove(project_id)
+            self._pending.appendleft(project_id)
+
     def enqueue_pending(self, entries: list) -> None:
         """Re-enqueue every entry still marked ``summary_pending``.
 
