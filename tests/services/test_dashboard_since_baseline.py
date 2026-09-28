@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from unittest.mock import patch
 
@@ -93,3 +94,18 @@ def test_dashboard_without_reports_has_empty_since_baseline(tmp_path: Path) -> N
     ):
         result = build_dashboard(str(tmp_path), _PROJECT, "r1")
     assert result["sinceBaseline"] == {}
+
+
+def test_an_unreadable_report_is_logged_once_per_interval(tmp_path: Path, monkeypatch, caplog) -> None:
+    from quodeq.services import dashboard_since_baseline as module
+    from quodeq.shared.log_throttle import LogThrottle
+
+    _seed(tmp_path, _CURR, "2026-09-26T00:00:00Z", [_v("M-ANA-9", "a.py")])
+    module.since_baseline_summary.cache_clear()
+    monkeypatch.setattr(module, "_unreadable_log_throttle", LogThrottle(60.0), raising=False)
+    with patch.object(module, "diff_runs", side_effect=KeyError("dimensions")), \
+            caplog.at_level(logging.WARNING):
+        assert module.since_baseline_summary(tmp_path, _PROJECT, _CURR) == {}
+        assert module.since_baseline_summary(tmp_path, _PROJECT, _CURR) == {}
+    assert caplog.text.count("since-baseline") == 1
+    assert "KeyError" in caplog.text

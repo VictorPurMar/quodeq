@@ -66,8 +66,18 @@ class ColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         raw_color, prefix = _STYLES.get(record.levelno, ("", f"[{record.levelname}]"))
         if use_color():
-            return f"{raw_color}{prefix}{_NC} {record.getMessage()}"
-        return f"{prefix} {record.getMessage()}"
+            line = f"{raw_color}{prefix}{_NC} {record.getMessage()}"
+        else:
+            line = f"{prefix} {record.getMessage()}"
+        # Same traceback and stack handling as logging.Formatter.format,
+        # exc_text cache included, appended uncoloured.
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self.formatException(record.exc_info)
+        if record.exc_text:
+            line += "\n" + record.exc_text
+        if record.stack_info:
+            line += "\n" + self.formatStack(record.stack_info)
+        return line
 
 
 class StderrHandler(logging.StreamHandler):

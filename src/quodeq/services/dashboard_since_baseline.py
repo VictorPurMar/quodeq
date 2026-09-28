@@ -11,6 +11,8 @@ the dashboard is polled far more often than either changes.
 """
 from __future__ import annotations
 
+import logging
+import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,9 @@ from typing import Any
 from quodeq.core.run.state import TERMINAL_STATES, parse_run_state
 from quodeq.services.run_diff import diff_runs
 from quodeq.services.wiring import read_status
+from quodeq.shared.log_throttle import LogThrottle
+
+_logger = logging.getLogger(__name__)
 
 _SCOPED_KEYS = ("scope", "changedFiles", "majorsDelta", "criticalDelta", "counts", "types")
 _ACTIONS_LOG = "actions.jsonl"
@@ -29,6 +34,10 @@ _MEMO_SIZE = 32
 # whose shape is not the one the CLI writes: the dashboard renders without
 # the summary rather than failing the request.
 _UNREADABLE = (FileNotFoundError, OSError, ValueError, AttributeError, TypeError, KeyError)
+# The same tuple also catches a programming error in diff_runs, so every
+# catch is logged with its traceback, at most once a minute (polled route).
+_UNREADABLE_LOG_INTERVAL_S = 60.0
+_unreadable_log_throttle = LogThrottle(_UNREADABLE_LOG_INTERVAL_S)
 
 
 def _reduce(entry: dict[str, Any]) -> dict[str, Any]:
@@ -82,6 +91,8 @@ def since_baseline_summary(reports_root: Path, project: str, run_id: str) -> dic
             return {}
         return _cached_summary(str(reports_root), project, run_id, _version(project_dir, run_dir))
     except _UNREADABLE:
+        if _unreadable_log_throttle.should_emit(time.monotonic()):
+            _logger.warning("since-baseline summary unavailable for %s/%s", project, run_id, exc_info=True)
         return {}
 
 

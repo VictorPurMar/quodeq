@@ -13,6 +13,27 @@ _logger = logging.getLogger(__name__)
 
 LANG_ALIASES = {"typescript": "javascript", "jsx": "javascript", "tsx": "javascript", "kotlin": "java"}
 
+# The keys priority_scoring indexes without a fallback of its own, with the
+# values config/file_priority.json ships. A missing or partial file scores
+# with these rather than raising KeyError on every file.
+_DEFAULT_PRIORITY_CONFIG: dict = {
+    "path_boost": {
+        "src/": 5, "lib/": 5, "app/": 5, "core/": 5,
+        "pkg/": 4, "internal/": 4,
+        "test/": 1, "tests/": 1, "spec/": 1,
+        "docs/": 0, "scripts/": 0, "tools/": 0,
+    },
+    "default_path_score": 2,
+    "entry_points": ["main.*", "app.*", "index.*", "routes.*", "server.*"],
+    "entry_point_boost": 3,
+    "category_keywords": {
+        "backend": ["controller", "service", "handler", "middleware", "router", "repository"],
+        "mobile": ["activity", "fragment", "viewmodel", "screen", "widget", "composable"],
+        "frontend": ["component", "page", "hook", "store", "reducer", "context"],
+    },
+    "category_keyword_boost": 2,
+}
+
 
 @dataclass(frozen=True)
 class ScoringInputs:
@@ -31,10 +52,14 @@ def load_priority_config() -> dict:
     """Load file priority config. Cached after first call."""
     config_path = default_paths().root / "config" / "file_priority.json"
     try:
-        return json.loads(config_path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, PermissionError, json.JSONDecodeError) as exc:
+        loaded = json.loads(config_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, PermissionError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         _logger.warning("Failed to load file_priority.json, using defaults: %s", exc)
-        return {}
+        return dict(_DEFAULT_PRIORITY_CONFIG)
+    if not isinstance(loaded, dict):
+        _logger.warning("file_priority.json is not a JSON object, using defaults")
+        return dict(_DEFAULT_PRIORITY_CONFIG)
+    return {**_DEFAULT_PRIORITY_CONFIG, **loaded}
 
 
 def reset_priority_config_cache() -> None:
