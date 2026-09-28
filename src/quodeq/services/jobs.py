@@ -172,28 +172,28 @@ class JobManager(JobMonitorMixin, JobCapacityMixin):
 
     def cancel_job(
         self, job_id: str, reports_root: Path | None = None, run_dir: Path | None = None,
-        *, wait_for_exit: bool = False,
+        *, wait_for_exit: bool = False, on_exit: Callable[[], None] | None = None,
     ) -> bool:
         """Terminate a running job. Return True if cancelled successfully.
 
         For external jobs (``ext-`` prefix), sends SIGTERM to the process that
         owns the run (SIGKILL escalation runs off-thread unless *wait_for_exit*).
-        For internal jobs, kills the tracked subprocess. *run_dir* lets
-        ``_cancel_external`` skip its project-directory scan.
+        For internal jobs, kills the tracked subprocess. *on_exit* runs once the
+        process is gone. *run_dir* lets ``_cancel_external`` skip its scan.
         """
         if is_external_job_id(job_id) and reports_root is not None:
-            return self._cancel_external(job_id, reports_root, run_dir=run_dir, wait=wait_for_exit)
-        return self._cancel_internal(job_id)
+            return self._cancel_external(job_id, reports_root, run_dir, wait=wait_for_exit, on_exit=on_exit)
+        return self._cancel_internal(job_id, on_exit)
 
-    def _cancel_internal(self, job_id: str) -> bool:
+    def _cancel_internal(self, job_id: str, on_exit: Callable[[], None] | None = None) -> bool:
         """Kill an internal tracked subprocess, escalating SIGTERM -> SIGKILL.
 
         Bare SIGTERM doesn't reliably interrupt a child blocked in a long
         httpx socket read (e.g. waiting on an Ollama inference that takes
         minutes) -- the signal queues behind the syscall and the process
         keeps holding the upstream connection. ``terminate_process`` runs
-        SIGTERM with a grace window then escalates to SIGKILL, matching the
-        external-cancel path in ``_external_jobs.cancel_external_run``.
+        SIGTERM with a grace window then escalates to SIGKILL, like
+        ``_external_jobs.cancel_external_run``; *on_exit* runs after it.
         """
         with self._lock:
             job = self._store.get(job_id)
@@ -205,27 +205,27 @@ class JobManager(JobMonitorMixin, JobCapacityMixin):
             self._store.put(job)
         if process:
             self._terminate(process)
+        if on_exit is not None:  # the process is gone: terminate_process waits for it
+            on_exit()
         return True
 
     def _terminate(self, process: subprocess.Popen) -> None:
-        """Escalating SIGTERM -> SIGKILL kill, shared by cancel and the
-        watchdog (``JobMonitorMixin._monitor_process``). A plain method on
-        the module that owns ``terminate_process`` -- not a facade lookup --
-        so ``JobMonitorMixin`` (mixed into this class) can call ``self.
-        _terminate`` without importing this module back.
+        """Escalating SIGTERM -> SIGKILL kill, shared by cancel and the watchdog
+        (``JobMonitorMixin._monitor_process``), which calls ``self._terminate``
+        so it never imports this module back.
         """
         terminate_process(process)
 
-    def _cancel_external(self, job_id: str, reports_root: Path, run_dir: Path | None = None, *, wait: bool = False) -> bool:
+    def _cancel_external(self, job_id: str, reports_root: Path, run_dir: Path | None, *, wait: bool, on_exit: Callable[[], None] | None) -> bool:
         """Send SIGTERM to an external run's process; *run_dir* skips the scan when valid."""
-        from quodeq.services._external_jobs import cancel_external_run, is_safe_run_segment, resolve_external_run_project
+        from quodeq.services._external_jobs import ExitHandling, cancel_external_run, is_safe_run_segment, resolve_external_run_project
         run_id = strip_external_prefix(job_id)
         if not is_safe_run_segment(run_id):
             return False
         project_uuid = resolve_external_run_project(reports_root, run_id, run_dir_hint=run_dir)
         if project_uuid is None:
             return False
-        return cancel_external_run(project_uuid, run_id, reports_root, control=self._process_control, wait=wait)
+        return cancel_external_run(project_uuid, run_id, reports_root, control=self._process_control, after=ExitHandling(wait, on_exit))
 
     def shutdown(self) -> None:
         """Kill all running job subprocesses. Called on server shutdown."""
