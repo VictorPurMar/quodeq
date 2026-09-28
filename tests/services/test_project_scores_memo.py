@@ -9,12 +9,12 @@ from unittest.mock import patch
 import pytest
 
 from quodeq.services.dismissed import dismiss_finding
-from quodeq.services.scoring import _project_scores
-from quodeq.services.scoring._project_scores import get_project_scores, get_project_scores_stamped
+from quodeq.services.scoring import get_project_scores, get_project_scores_stamped
 from quodeq.services.scoring_deps import ScoringDeps
 from quodeq.shared.stamp_memo import StampCache
 
 RUN = "20260101T000000"
+_MODULE = "quodeq.services.scoring._project_scores"
 
 
 def _write_run(reports: Path, project: str = "proj", run_id: str = RUN, state: str = "done") -> Path:
@@ -38,7 +38,7 @@ def _write_run(reports: Path, project: str = "proj", run_id: str = RUN, state: s
 
 @pytest.fixture(autouse=True)
 def _fresh_memo():
-    with patch.object(_project_scores, "_PAYLOADS", StampCache()):
+    with patch(f"{_MODULE}._PAYLOADS", StampCache()):
         yield
 
 
@@ -89,8 +89,8 @@ def test_run_status_change_alone_changes_the_stamp(tmp_path: Path) -> None:
 def test_incomplete_rescore_is_not_memoized(tmp_path: Path) -> None:
     _write_run(tmp_path)
     deps, calls = _counting_deps()
-    with patch.object(_project_scores, "rescore_accumulated_with_coverage",
-                      side_effect=lambda acc, *a, **k: (acc, False)):
+    with patch(f"{_MODULE}.rescore_accumulated_with_coverage",
+               side_effect=lambda acc, *a, **k: (acc, False)):
         get_project_scores_stamped(tmp_path, "proj", None, deps)
         get_project_scores_stamped(tmp_path, "proj", None, deps)
     assert len(calls) == 2
