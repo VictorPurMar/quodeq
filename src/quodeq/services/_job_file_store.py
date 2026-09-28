@@ -213,7 +213,8 @@ class FileJobStore(InMemoryJobStore):
 
     def _cleanup_stale(self) -> None:
         """Remove completed/failed/cancelled jobs older than 24 hours, and
-        orphan ``*.tmp`` files older than ``_ORPHAN_TMP_AGE_S``."""
+        orphan ``*.tmp`` files older than ``_ORPHAN_TMP_AGE_S``. A job file
+        that cannot be unlinked is logged and left for the next start."""
         now = time.time()
         self._remove_orphan_temps(now)
         stale_ids: list[str] = []
@@ -234,7 +235,10 @@ class FileJobStore(InMemoryJobStore):
         for jid in stale_ids:
             logger.info("Cleaning up stale job %s", jid)
             self._jobs.pop(jid, None)
-            self._job_path(jid).unlink(missing_ok=True)
+            try:
+                self._job_path(jid).unlink(missing_ok=True)
+            except OSError:
+                logger.warning("stale job file for %s not removed", jid, exc_info=True)
 
     def _remove_orphan_temps(self, now: float) -> None:
         """Unlink ``*.tmp`` files a crashed write left behind. A recent one may

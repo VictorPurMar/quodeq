@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -34,3 +34,12 @@ def test_delete_tolerates_unlink_failure(tmp_path: Path, monkeypatch, caplog):
     store.delete("j1")  # must not raise
     assert store.get("j1") is None
     assert "job file" in caplog.text
+
+
+def test_startup_tolerates_a_stale_job_file_that_cannot_be_removed(tmp_path: Path, monkeypatch, caplog):
+    ended = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    FileJobStore(persist_dir=tmp_path).put(Job("old", "done", ["echo"], ended, ended, 0))
+    monkeypatch.setattr(Path, "unlink", Mock(side_effect=PermissionError("busy")))
+    store = FileJobStore(persist_dir=tmp_path)  # must not raise
+    assert store.get("old") is None
+    assert "stale job file" in caplog.text
