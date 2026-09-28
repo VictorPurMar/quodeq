@@ -7,19 +7,23 @@ import { EXTERNAL_JOB_PREFIX, isExternalJobId } from '../../../vocab/jobStatus.j
 import { DIALOG_VARIANT } from '../../../vocab/dialogVariant.js';
 
 /**
- * HistoryPage.jsx's run-delete handler. `deletingRunId` is the run whose
- * DELETE is in flight, so the row can show it; a second click on that row
- * is ignored, deletes of other rows are not. A failed delete surfaces
- * through the side pane's toast, like every other mutation failure.
+ * HistoryPage.jsx's run-delete handler. `deletingRunIds` holds every run
+ * whose DELETE is in flight, so each such row can show it; a second click
+ * on one of those rows is ignored, deletes of other rows are not. A failed
+ * delete surfaces through the side pane's toast, like every other mutation
+ * failure.
  *
- * @returns {{handleDeleteRun: (runId: string, dateLabel?: string) => Promise<void>, deletingRunId: string | null}}
+ * @returns {{handleDeleteRun: (runId: string, dateLabel?: string) => Promise<void>, deletingRunIds: Set<string>}}
  */
 export function useHistoryDeleteRun({ selectedSource, deleteEvaluation, onRunDeleted }) {
   const { showToast } = useSidePane();
-  const [deletingRunId, setDeletingRunId] = useState(null);
-  // The ids in flight. The state above is the one the table highlights
-  // (the latest); the ref is what blocks a duplicate request.
+  const [deletingRunIds, setDeletingRunIds] = useState(() => new Set());
+  // The same ids, readable synchronously: what blocks a duplicate request.
   const inFlight = useRef(new Set());
+  function setPending(runId, pending) {
+    if (pending) inFlight.current.add(runId); else inFlight.current.delete(runId);
+    setDeletingRunIds(new Set(inFlight.current));
+  }
 
   const handleDeleteRun = useCallback(async (runId, dateLabel) => {
     // Defense in depth: shared-repo runs have no delete route on the backend
@@ -37,21 +41,20 @@ export function useHistoryDeleteRun({ selectedSource, deleteEvaluation, onRunDel
       cancelLabel: t('history.keep'),
       variant: DIALOG_VARIANT.DANGER,
     });
-    if (!ok) return;
+    // Re-checked after the dialog: two clicks could both have been waiting on it.
+    if (!ok || inFlight.current.has(runId)) return;
     const jobId = isExternalJobId(runId) ? runId : `${EXTERNAL_JOB_PREFIX}${runId}`;
-    inFlight.current.add(runId);
-    setDeletingRunId(runId);
+    setPending(runId, true);
     try {
       await deleteEvaluation(jobId);
     } catch (err) {
       showToast(t('history.deleteRunFailed', { message: err.message || t('history.unknownError') }));
       return;
     } finally {
-      inFlight.current.delete(runId);
-      setDeletingRunId((current) => (current === runId ? null : current));
+      setPending(runId, false);
     }
     onRunDeleted?.(runId);
   }, [selectedSource, deleteEvaluation, onRunDeleted, showToast]);
 
-  return { handleDeleteRun, deletingRunId };
+  return { handleDeleteRun, deletingRunIds };
 }

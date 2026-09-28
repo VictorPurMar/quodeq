@@ -38,13 +38,21 @@ function withoutRun(data, runId) {
 
 /**
  * Drop *runId* from every run list cached under the project subtree.
- * Queries whose data is not a payload object are returned as they are.
+ *
+ * Fetches in flight under the project are cancelled first, so a reply that
+ * left the server before the delete cannot land afterwards and put the run
+ * back (the reconcile that follows refetches anyway). Only queries whose
+ * data actually changes are written: a blanket setQueriesData would mark
+ * every query in the subtree fresh, which would silently undo an
+ * invalidation made just before and pin the staleTime:Infinity ones.
  */
 export function dropRunFromProjectQueries(queryClient, projectId, source, runId) {
-  queryClient.setQueriesData(
-    { queryKey: projectKeys.project(projectId, source) },
-    (data) => withoutRun(data, runId),
-  );
+  const queryKey = projectKeys.project(projectId, source);
+  queryClient.cancelQueries({ queryKey });
+  for (const [key, data] of queryClient.getQueriesData({ queryKey })) {
+    const next = withoutRun(data, runId);
+    if (next !== data) queryClient.setQueryData(key, next);
+  }
 }
 
 // refreshDashboard: mark project queries stale but DON'T trigger an

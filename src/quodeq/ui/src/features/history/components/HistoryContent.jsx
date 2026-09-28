@@ -127,7 +127,7 @@ function useHistoryVisibleRows({ availableRuns, trend, partialRuns }) {
  */
 export function HistoryContent({ data, callbacks, runNav, languageSub, selectedSource, isRefreshing }) {
   const { trend, partialRuns, selectedRunId, availableRuns } = data;
-  const { onRunClick, onRunHover, onRunHoverEnd, onRunChange, onDeleteRun, deletingRunId } = callbacks;
+  const { onRunClick, onRunHover, onRunHoverEnd, onRunChange, onDeleteRun, deletingRunIds } = callbacks;
   // Toast state for clicks on running runs that have no scored dimensions yet.
   // toastKey forces remount so consecutive clicks restart the auto-dismiss timer.
   const [toastKey, setToastKey] = useState(0);
@@ -161,7 +161,7 @@ export function HistoryContent({ data, callbacks, runNav, languageSub, selectedS
         onRunHover={onRunHover}
         onRunHoverEnd={onRunHoverEnd}
         onDeleteRun={onDeleteRun}
-        deletingRunId={deletingRunId}
+        deletingRunIds={deletingRunIds}
         onNotReadyClick={handleNotReadyClick}
       />
 

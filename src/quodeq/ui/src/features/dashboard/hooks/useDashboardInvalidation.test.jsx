@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import { dropRunFromProjectQueries } from './useDashboardInvalidation.js';
 import { projectKeys } from '../../../api/queryKeys.js';
@@ -40,5 +40,26 @@ describe('dropRunFromProjectQueries', () => {
     dropRunFromProjectQueries(client, P, 'local', 'B');
     expect(client.getQueryData(projectKeys.gradeExplain(P, 'B', 'security'))).toBeNull();
     expect(client.getQueryData(projectKeys.runs(P))).toEqual([row('B')]);
+  });
+
+  it('does not touch the state of queries the run was not in', () => {
+    const client = new QueryClient();
+    seed(client);
+    const key = projectKeys.gradeExplain(P, 'B', 'security');
+    const before = client.getQueryState(key).dataUpdateCount;
+    const untouchedKey = projectKeys.dashboard(P, 'C');
+    client.setQueryData(untouchedKey, { trend: [row('A')] });
+    const untouchedBefore = client.getQueryState(untouchedKey).dataUpdateCount;
+    dropRunFromProjectQueries(client, P, 'local', 'B');
+    expect(client.getQueryState(key).dataUpdateCount).toBe(before);
+    expect(client.getQueryState(untouchedKey).dataUpdateCount).toBe(untouchedBefore);
+  });
+
+  it('cancels fetches in flight under the project so a stale reply cannot re-add the run', () => {
+    const client = new QueryClient();
+    seed(client);
+    const cancel = vi.spyOn(client, 'cancelQueries');
+    dropRunFromProjectQueries(client, P, 'local', 'B');
+    expect(cancel).toHaveBeenCalledWith({ queryKey: projectKeys.project(P, 'local') });
   });
 });

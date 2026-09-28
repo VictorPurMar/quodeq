@@ -68,9 +68,9 @@ describe('useHistoryDeleteRun pending state', () => {
     const { result } = renderHook(() => useHistoryDeleteRun({ selectedSource: 'local', deleteEvaluation, onRunDeleted }));
     let call;
     act(() => { call = result.current.handleDeleteRun('run-1', '2026-09-16'); });
-    await waitFor(() => expect(result.current.deletingRunId).toBe('run-1'));
+    await waitFor(() => expect(result.current.deletingRunIds.has('run-1')).toBe(true));
     await act(async () => { d.resolve({ ok: true }); await call; });
-    expect(result.current.deletingRunId).toBeNull();
+    expect(result.current.deletingRunIds.size).toBe(0);
     expect(onRunDeleted).toHaveBeenCalledWith('run-1');
   });
 
@@ -78,7 +78,7 @@ describe('useHistoryDeleteRun pending state', () => {
     const deleteEvaluation = vi.fn().mockRejectedValue(new Error('409 running'));
     const { result } = renderHook(() => useHistoryDeleteRun({ selectedSource: 'local', deleteEvaluation, onRunDeleted: vi.fn() }));
     await act(async () => { await result.current.handleDeleteRun('run-1'); });
-    expect(result.current.deletingRunId).toBeNull();
+    expect(result.current.deletingRunIds.size).toBe(0);
     expect(showToast).toHaveBeenCalledTimes(1);
   });
 
@@ -88,7 +88,7 @@ describe('useHistoryDeleteRun pending state', () => {
     const { result } = renderHook(() => useHistoryDeleteRun({ selectedSource: 'local', deleteEvaluation, onRunDeleted: vi.fn() }));
     let first;
     act(() => { first = result.current.handleDeleteRun('run-1'); });
-    await waitFor(() => expect(result.current.deletingRunId).toBe('run-1'));
+    await waitFor(() => expect(result.current.deletingRunIds.has('run-1')).toBe(true));
     await act(async () => { await result.current.handleDeleteRun('run-1'); });
     expect(deleteEvaluation).toHaveBeenCalledTimes(1);
     await act(async () => { d.resolve({ ok: true }); await first; });
@@ -100,9 +100,13 @@ describe('useHistoryDeleteRun pending state', () => {
     const { result } = renderHook(() => useHistoryDeleteRun({ selectedSource: 'local', deleteEvaluation, onRunDeleted: vi.fn() }));
     let first;
     act(() => { first = result.current.handleDeleteRun('run-1'); });
-    await waitFor(() => expect(result.current.deletingRunId).toBe('run-1'));
+    await waitFor(() => expect(result.current.deletingRunIds.has('run-1')).toBe(true));
     await act(async () => { await result.current.handleDeleteRun('run-2'); });
     expect(deleteEvaluation).toHaveBeenCalledTimes(2);
+    // The first row stays pending while its own request is still out.
+    expect(result.current.deletingRunIds.has('run-1')).toBe(true);
+    expect(result.current.deletingRunIds.has('run-2')).toBe(false);
     await act(async () => { d.resolve({ ok: true }); await first; });
+    expect(result.current.deletingRunIds.size).toBe(0);
   });
 });

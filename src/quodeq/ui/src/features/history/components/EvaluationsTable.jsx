@@ -194,20 +194,21 @@ function EvaluationsTableHeader() {
   );
 }
 
-function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusByRunId, onRunClick, onRunHover, onDeleteRun, deletingRunId }) {
+function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusByRunId, onRunClick, onRunHover, onDeleteRun, deletingRunIds }) {
   const { date, time } = formatDateParts(entry.dateISO, entry.dateLabel);
   const counts = runCounts(entry);
   const runScore = parseFloat(entry.runNumericAverage ?? entry.numericAverage);
   const grade = gradeLabel(entry.runOverallGrade || entry.overallGrade) || '—';
   const isSelected = entry.runId === selectedRunId;
   const isPartial = PARTIAL_STATUSES.has(statusByRunId.get(entry.runId));
-  // The row whose DELETE is in flight: dimmed, its button disabled.
-  const isDeleting = entry.runId === deletingRunId;
+  // A row whose DELETE is in flight: dimmed, its button disabled, and not
+  // openable or prefetchable by mouse, keyboard or focus in the meantime.
+  const isDeleting = !!deletingRunIds?.has(entry.runId);
   return (
     <HistoryRow
       className={`${isSelected ? 'history-row--selected' : ''}${isPartial ? ' history-row--partial' : ''}${isDeleting ? ' history-row--deleting' : ''}`.trim()}
-      onClick={() => onRunClick(entry.runId, entry.dateLabel)}
-      onHover={onRunHover ? () => onRunHover(entry.runId) : undefined}
+      onClick={isDeleting ? undefined : () => onRunClick(entry.runId, entry.dateLabel)}
+      onHover={onRunHover && !isDeleting ? () => onRunHover(entry.runId) : undefined}
       onDelete={onDeleteRun ? () => onDeleteRun(entry.runId, entry.dateLabel || date) : undefined}
       deleteDisabled={isDeleting}
       cells={{
@@ -243,7 +244,7 @@ function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusBy
 }
 
 function renderEvaluationRow(entry, i, props) {
-  const { selectedRunId, deltas, countDeltas, statusByRunId, onRunClick, onRunHover, onDeleteRun, deletingRunId, onNotReadyClick } = props;
+  const { selectedRunId, deltas, countDeltas, statusByRunId, onRunClick, onRunHover, onDeleteRun, deletingRunIds, onNotReadyClick } = props;
   if (entry.status === RUN_STATE.RUNNING) {
     return (
       <InProgressHistoryRow
@@ -265,7 +266,7 @@ function renderEvaluationRow(entry, i, props) {
       onRunClick={onRunClick}
       onRunHover={onRunHover}
       onDeleteRun={onDeleteRun}
-      deletingRunId={deletingRunId}
+      deletingRunIds={deletingRunIds}
     />
   );
 }

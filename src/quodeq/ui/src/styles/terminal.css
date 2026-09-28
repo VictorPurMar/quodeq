@@ -1229,9 +1229,9 @@ button.term-sev-badge--clickable:focus-visible {
   font-size: 10px;
   letter-spacing: 0.05em;
 }
-/* A row whose delete request is in flight: same dim as dashboard-refreshing. */
+/* A row whose delete request is in flight: same dim as .dashboard-refreshing. */
 .history-table .history-row--deleting {
-  opacity: 0.5;
+  opacity: 0.7;
   pointer-events: none;
 }
 
