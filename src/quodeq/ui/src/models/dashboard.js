@@ -17,6 +17,8 @@
 
 import { createDimension, createSlimDimension } from './dimension.js';
 
+const EMPTY_TREND = Object.freeze([]);
+
 /**
  * Create a canonical Dashboard from a raw API response.
  *
@@ -30,7 +32,7 @@ export function createDashboard(raw) {
     // bodies absent (createDimension would coerce them to [], which reads
     // as "zero findings" to the run views and the map).
     dimensions: (raw.dimensions || []).map((d) => (d && !('violations' in d) ? createSlimDimension(d) : createDimension(d))),
-    trend: raw.trend,
+    trend: raw.trend || EMPTY_TREND,
     partialRuns: raw.partialRuns || [],
     selectedRun: raw.selectedRun,
     sinceBaseline: raw.sinceBaseline || {},

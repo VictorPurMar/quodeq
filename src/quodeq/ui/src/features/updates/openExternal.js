@@ -16,12 +16,11 @@ export function openExternal(url) {
   if (parsed.protocol !== URL_PROTOCOL.HTTP && parsed.protocol !== URL_PROTOCOL.HTTPS) return;
   const api = typeof window !== 'undefined' && window.pywebview && window.pywebview.api;
   if (api && typeof api.open_browser === 'function') {
-    try {
-      api.open_browser(url);
-      return;
-    } catch (err) {
-      console.warn('[openExternal] pywebview open_browser failed, falling back to window.open:', err);
-    }
+    Promise.resolve().then(() => api.open_browser(url)).catch((err) => {
+      console.warn('[updates] open_browser failed:', err);
+      window.open(url, '_blank', 'noopener');
+    });
+    return;
   }
   if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
 }

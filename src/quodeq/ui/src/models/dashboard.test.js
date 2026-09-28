@@ -28,3 +28,7 @@ test('createDashboard passes a null dimension entry through unchanged', () => {
   assert.equal(d.dimensions[0], null);
   assert.equal(d.dimensions[1].dimension, 'security');
 });
+
+test('createDashboard defaults an absent trend to an empty array', () => {
+  assert.deepEqual(createDashboard({ dimensions: [] }).trend, []);
+});
