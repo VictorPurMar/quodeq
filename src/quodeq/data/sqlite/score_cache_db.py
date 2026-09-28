@@ -89,6 +89,14 @@ def _stored_key_shape(conn: sqlite3.Connection) -> str | None:
     return None
 
 
+def _rollback_quietly(conn: sqlite3.Connection) -> None:
+    """Drop any pending transaction on *conn*; a failed rollback is only logged."""
+    try:
+        conn.rollback()
+    except sqlite3.Error:
+        _logger.debug("score cache rollback failed", exc_info=True)
+
+
 def _sync_cache_meta(conn: sqlite3.Connection) -> None:
     """Record the writer epoch, purging ``run_keys`` once when its shape changed.
 
@@ -110,6 +118,9 @@ def _sync_cache_meta(conn: sqlite3.Connection) -> None:
         )
         conn.commit()
     except sqlite3.Error:
+        # Roll back a purge whose meta write failed, so no later commit on
+        # this connection can land it without the shape row it belongs to.
+        _rollback_quietly(conn)
         _logger.warning("score cache meta sync failed", exc_info=True)
 
 
@@ -122,11 +133,17 @@ def _ensure_run_scalars_columns(conn: sqlite3.Connection) -> None:
     """
     try:
         present = {row[1] for row in conn.execute("PRAGMA table_info(run_scalars)")}
-        for column in RUN_SCALARS_COUNT_COLUMNS:
-            if column not in present:
-                conn.execute(f"ALTER TABLE run_scalars ADD COLUMN {column} INTEGER")
+        missing = [c for c in RUN_SCALARS_COUNT_COLUMNS if c not in present]
+        if not missing:
+            return
+        # sqlite3 autocommits each DDL statement unless a transaction is
+        # open; one explicit transaction makes the migration all-or-nothing.
+        conn.execute("BEGIN")
+        for column in missing:
+            conn.execute(f"ALTER TABLE run_scalars ADD COLUMN {column} INTEGER")
         conn.commit()
     except sqlite3.Error:
+        _rollback_quietly(conn)
         _logger.warning("run_scalars column migration failed", exc_info=True)
 
 
