@@ -51,10 +51,13 @@ async function detectCliProvider(id) {
   });
 }
 
-// The only probe whose answer is the response status itself: a reachable
-// health endpoint means the daemon is up.
+// The backend answers 200 whether or not it could reach the daemon; the
+// `running` flag carries the verdict.
 async function detectOllamaDaemon() {
-  return probe('ollama', PROBE_CLASSIFICATION.LOCAL_API, '/api/ollama/health', () => ({ detected: true, defaultModel: null }));
+  return probe('ollama', PROBE_CLASSIFICATION.LOCAL_API, '/api/ollama/status', async (res) => {
+    const data = await res.json();
+    return { detected: Boolean(data.running), defaultModel: null };
+  });
 }
 
 async function detectStoredCloudKey(providerId) {
