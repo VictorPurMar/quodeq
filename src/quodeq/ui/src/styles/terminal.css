@@ -1229,6 +1229,12 @@ button.term-sev-badge--clickable:focus-visible {
   font-size: 10px;
   letter-spacing: 0.05em;
 }
+/* A row whose delete request is in flight: same dim as dashboard-refreshing. */
+.history-table .history-row--deleting {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .history-table .history-row--partial .history-row__col--score strong,
 .history-table .history-row--partial .history-row__col--delta {
   opacity: 0.7;

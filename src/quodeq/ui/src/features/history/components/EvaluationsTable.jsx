@@ -61,7 +61,7 @@ function formatDimSummary(entry) {
  *
  *   [ DATE ][ TIME ][ GRADE ][ SCORE ][ Δ ][ MAJORS ][ Δ ][ TYPES ][ Δ ][ DIMENSIONS (flex) ]
  */
-function HistoryRow({ className = '', onClick, onHover, cells, onDelete, title }) {
+function HistoryRow({ className = '', onClick, onHover, cells, onDelete, deleteDisabled = false, title }) {
   const common = `history-row ${className}`.trim();
   const isHeader = className.includes('history-row--header');
   function handleDeleteClick(e) {
@@ -108,6 +108,7 @@ function HistoryRow({ className = '', onClick, onHover, cells, onDelete, title }
                 title={t('history.deleteRunTitle')}
                 onClick={handleDeleteClick}
                 onKeyDown={handleDeleteKeyDown}
+                disabled={deleteDisabled}
               >
                 ×
               </button>
@@ -193,19 +194,22 @@ function EvaluationsTableHeader() {
   );
 }
 
-function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusByRunId, onRunClick, onRunHover, onDeleteRun }) {
+function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusByRunId, onRunClick, onRunHover, onDeleteRun, deletingRunId }) {
   const { date, time } = formatDateParts(entry.dateISO, entry.dateLabel);
   const counts = runCounts(entry);
   const runScore = parseFloat(entry.runNumericAverage ?? entry.numericAverage);
   const grade = gradeLabel(entry.runOverallGrade || entry.overallGrade) || '—';
   const isSelected = entry.runId === selectedRunId;
   const isPartial = PARTIAL_STATUSES.has(statusByRunId.get(entry.runId));
+  // The row whose DELETE is in flight: dimmed, its button disabled.
+  const isDeleting = entry.runId === deletingRunId;
   return (
     <HistoryRow
-      className={`${isSelected ? 'history-row--selected' : ''}${isPartial ? ' history-row--partial' : ''}`.trim()}
+      className={`${isSelected ? 'history-row--selected' : ''}${isPartial ? ' history-row--partial' : ''}${isDeleting ? ' history-row--deleting' : ''}`.trim()}
       onClick={() => onRunClick(entry.runId, entry.dateLabel)}
       onHover={onRunHover ? () => onRunHover(entry.runId) : undefined}
       onDelete={onDeleteRun ? () => onDeleteRun(entry.runId, entry.dateLabel || date) : undefined}
+      deleteDisabled={isDeleting}
       cells={{
         date,
         time: <span className="history-row__muted">{time}</span>,
@@ -239,7 +243,7 @@ function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusBy
 }
 
 function renderEvaluationRow(entry, i, props) {
-  const { selectedRunId, deltas, countDeltas, statusByRunId, onRunClick, onRunHover, onDeleteRun, onNotReadyClick } = props;
+  const { selectedRunId, deltas, countDeltas, statusByRunId, onRunClick, onRunHover, onDeleteRun, deletingRunId, onNotReadyClick } = props;
   if (entry.status === RUN_STATE.RUNNING) {
     return (
       <InProgressHistoryRow
@@ -261,6 +265,7 @@ function renderEvaluationRow(entry, i, props) {
       onRunClick={onRunClick}
       onRunHover={onRunHover}
       onDeleteRun={onDeleteRun}
+      deletingRunId={deletingRunId}
     />
   );
 }

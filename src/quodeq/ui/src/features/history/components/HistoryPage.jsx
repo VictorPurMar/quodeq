@@ -133,7 +133,7 @@ export default function HistoryPage({ trend: rawTrend, partialRuns: rawPartialRu
   const trend = useMemo(() => filterTrendByVisibleStandards(rawTrend || [], visibleSet), [rawTrend, visibleSet]);
   const partialRuns = useMemo(() => filterRunsByVisibleStandards(rawPartialRuns, visibleSet), [rawPartialRuns, visibleSet]);
 
-  const handleDeleteRun = useHistoryDeleteRun({ selectedSource, deleteEvaluation, onRunDeleted });
+  const { handleDeleteRun, deletingRunId } = useHistoryDeleteRun({ selectedSource, deleteEvaluation, onRunDeleted });
 
   const { overviewRunIndex, currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest } = useRunNavigator({
     selectedRun: selectedRunId || LATEST_RUN_ID,
@@ -163,6 +163,7 @@ export default function HistoryPage({ trend: rawTrend, partialRuns: rawPartialRu
         // handleDeleteRun — is what makes the row's delete button vanish,
         // since HistoryRow already gates on `{onDelete && ...}`.
         onDeleteRun: selectedSource === PROJECT_SOURCE.LOCAL ? handleDeleteRun : undefined,
+        deletingRunId,
       }}
       runNav={{ runNavLabel, overviewRunIndex, currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest }}
       languageSub={languageSub}

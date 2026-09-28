@@ -119,3 +119,21 @@ describe('EvaluationsTable majors and types columns', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(5);
   });
 });
+
+describe('EvaluationsTable pending delete', () => {
+  const doneEntry = { runId: 'run-9', status: 'done', dateISO: '2026-09-16T10:00:00Z', dateLabel: '2026-09-16', overallGrade: 'B' };
+
+  it('disables the delete button and dims the row whose delete is pending', () => {
+    renderTable({ visible: [doneEntry], deletingRunId: 'run-9' });
+    const button = screen.getByRole('button', { name: 'Delete run' });
+    expect(button).toBeDisabled();
+    expect(button.closest('.history-row').className).toContain('history-row--deleting');
+  });
+
+  it('leaves other rows untouched', () => {
+    renderTable({ visible: [doneEntry], deletingRunId: 'run-other' });
+    const button = screen.getByRole('button', { name: 'Delete run' });
+    expect(button).not.toBeDisabled();
+    expect(button.closest('.history-row').className).not.toContain('history-row--deleting');
+  });
+});
