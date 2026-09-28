@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Callable, Iterable
 
 from quodeq.core.types import Finding, ViolationResponse
 from quodeq.core.evidence.req_mapping import PrincipleResolver, build_principle_resolver
+from quodeq.core.stream.events import extract_files_from_event, parse_stream_event
+from quodeq.services import live_jsonl_fold
 from quodeq.services.wiring import (
-    build_req_refs_lookup, count_files_in_stream, decode_jsonl_objects, read_req_to_principle_map,
+    build_req_refs_lookup, decode_jsonl_objects, read_req_to_principle_map,
 )
 from quodeq.services.violation_context import ViolationContext
 from quodeq.services.suppression import SuppressionMatcher, load_req_to_principle
@@ -21,7 +23,6 @@ from quodeq.services._violations_shared import (
     ResponseOptions,
 )
 from quodeq.core.types.finding_type import FINDING_TYPES, FindingType
-from quodeq.shared.utils import open_text
 
 _logger = logging.getLogger(__name__)
 
@@ -56,20 +57,19 @@ def _resolve_and_dedupe(
     return obj
 
 
-def _parse_jsonl_findings(
-    lines: Iterable[str], dimension: str, req_refs_lookup: dict[str, list[dict]] | None = None,
-    resolver: PrincipleResolver | None = None,
-    keys: SuppressionKeys | None = None,
-) -> tuple[list[Finding], list[Finding]]:
+def _jsonl_parser(
+    dimension: str, req_refs_lookup: dict[str, list[dict]] | None,
+    resolver: PrincipleResolver | None, keys: SuppressionKeys | None,
+) -> Callable[[Iterable[str]], tuple[list[Finding], list[Finding]]]:
     """Parse raw JSONL lines into deduplicated violation and compliance lists.
 
     Two exclusions keep this live view from showing more findings than the
     persisted evaluation: rows the dashboard suppresses (the dismissed/deleted
     sets in *keys*), and rows whose principle is not in the dimension's
-    standard, which the report path quarantines in ``group_judgments``.
+    standard, which the report path quarantines in ``group_judgments``. The
+    returned parser dedups across every batch it is given, so a live fold
+    can feed it only the lines appended since its last call.
     """
-    violations: list[Finding] = []
-    compliance: list[Finding] = []
     seen: set[tuple] = set()
     # One seam for both suppression stores, shared with the live-progress
     # tally -- see quodeq.services.suppression for the key shapes.
@@ -94,18 +94,23 @@ def _parse_jsonl_findings(
     def _warn_non_object(raw: str) -> None:
         _logger.warning("Skipping non-object JSONL row in findings file: %s", raw[:200])
 
-    for obj in decode_jsonl_objects(
-        lines, on_malformed_line=_warn_malformed, on_non_object=_warn_non_object,
-    ):
-        resolved_obj = _resolve_and_dedupe(obj, matcher, resolver, seen)
-        if resolved_obj is None:
-            continue
-        entry = build_finding_entry(resolved_obj, dimension, req_refs_lookup)
-        if resolved_obj["t"] == FindingType.VIOLATION:
-            violations.append(entry)
-        else:
-            compliance.append(entry)
-    return violations, compliance
+    def parse(lines: Iterable[str]) -> tuple[list[Finding], list[Finding]]:
+        violations: list[Finding] = []
+        compliance: list[Finding] = []
+        for obj in decode_jsonl_objects(
+            lines, on_malformed_line=_warn_malformed, on_non_object=_warn_non_object,
+        ):
+            resolved_obj = _resolve_and_dedupe(obj, matcher, resolver, seen)
+            if resolved_obj is None:
+                continue
+            entry = build_finding_entry(resolved_obj, dimension, req_refs_lookup)
+            if resolved_obj["t"] == FindingType.VIOLATION:
+                violations.append(entry)
+            else:
+                compliance.append(entry)
+        return violations, compliance
+
+    return parse
 
 
 # Moved to quodeq.services.suppression, which owns the req -> principle map
@@ -140,18 +145,33 @@ def parse_violations_from_jsonl(
     keys: SuppressionKeys | None = None,
     evaluators_dir: Path | None = None,
 ) -> ViolationResponse | None:
-    """Parse live JSONL findings written by the MCP server."""
-    req_refs_lookup = build_req_refs_lookup(compiled_dir, ctx.dimension) if compiled_dir else None
-    resolver = _build_resolver(ctx.dimension, compiled_dir, evaluators_dir)
-    try:
-        with open_text(jsonl_path) as _f:
-            violations, compliance = _parse_jsonl_findings(
-                _f, ctx.dimension, req_refs_lookup, resolver, keys=keys,
-            )
-    except OSError as exc:
-        _logger.warning("Failed to read findings file: %s", exc)
+    """Parse live JSONL findings written by the MCP server.
+
+    Folded incrementally (``live_jsonl_fold``): a poll parses only the lines
+    appended since the previous one, and rebuilds when the suppressions or
+    the standards directories change.
+    """
+    identity = (
+        ctx.dimension, compiled_dir, evaluators_dir,
+        keys.dismissed if keys else None, frozenset(keys.deleted or ()) if keys else None,
+    )
+
+    def new_parser():
+        req_refs_lookup = build_req_refs_lookup(compiled_dir, ctx.dimension) if compiled_dir else None
+        resolver = _build_resolver(ctx.dimension, compiled_dir, evaluators_dir)
+        return _jsonl_parser(ctx.dimension, req_refs_lookup, resolver, keys)
+
+    if not jsonl_path.is_file():
+        _logger.warning("Failed to read findings file: %s", jsonl_path)
         return None
-    files_read = len(count_files_in_stream(stream_path)) if stream_path and stream_path.exists() else 0
+    fold = live_jsonl_fold.fold_for(jsonl_path, identity, new_parser)
+    with fold.lock:
+        fold.advance()
+        violations, compliance = list(fold.violations), list(fold.compliance)
+    files_read = (
+        live_jsonl_fold.stream_files_count(stream_path, _files_in_stream_line)
+        if stream_path and stream_path.exists() else 0
+    )
     return build_violation_response(
         ctx, violations, compliance,
         ResponseOptions(
@@ -159,3 +179,8 @@ def parse_violations_from_jsonl(
             progress={"filesRead": files_read, "violations": len(violations), "compliance": len(compliance)},
         ),
     )
+
+
+def _files_in_stream_line(line: str) -> Iterable[str]:
+    data = parse_stream_event(line)
+    return extract_files_from_event(data) if data is not None else ()

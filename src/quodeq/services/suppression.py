@@ -13,7 +13,7 @@ build its keys here rather than re-deriving them:
 Evidence rows carry ``p`` (a req ID for custom evaluators, otherwise the
 principle name) and optionally ``req``. The delete store carries principle
 *names*, so ``p`` is mapped through the evaluator's req -> principle table
-before the delete key is built -- the same order ``_parse_jsonl_findings``
+before the delete key is built -- the same order ``_jsonl_parser``
 applies when it builds the scored report.
 """
 from __future__ import annotations

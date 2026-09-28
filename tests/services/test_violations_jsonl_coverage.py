@@ -6,7 +6,12 @@ from unittest.mock import patch
 
 import pytest
 
-from quodeq.services._violations_jsonl import _parse_jsonl_findings
+from quodeq.services._violations_jsonl import _jsonl_parser
+
+
+def _parse_jsonl_findings(lines, dimension, *, resolver=None, keys=None):
+    """One-shot parse through the live parser, as the report path did before the fold."""
+    return _jsonl_parser(dimension, None, resolver, keys)(lines)
 
 
 # ---------------------------------------------------------------------------
