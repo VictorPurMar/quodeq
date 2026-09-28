@@ -4,7 +4,8 @@ import { isLowConfidence } from '../../violations/components/LowConfidenceGroup.
 import { FINDING_TYPE } from '../../../vocab/findingType.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { ROW_KIND } from './findingListRows.js';
-import { useHydratedCompliance } from '../hooks/useHydratedCompliance.js';
+import { useHydratedCompliance, useHydratedFindings } from '../hooks/useHydratedCompliance.js';
+import { bucketBySeverity } from './principleFiltering.js';
 import { emptySeverityCounts } from '../../../utils/severity.js';
 
 const dismissKey = (v) => `${v.file}:${v.line}`;
@@ -84,9 +85,15 @@ export function useFileDetailFiltering({ file, onDismiss, activeFilter, lowConfE
     setDismissedSet((prev) => new Set(prev).add(dismissKey(v)));
   }, [onDismiss]);
 
+  // /scores defers reason, snippet, context and links; the cards render
+  // them and a dismiss posts them, so the buckets are rebuilt from the
+  // hydrated rows before anything reads them.
+  const slimViolations = useMemo(() => Object.values(file.violationsBySeverity || {}).flat(), [file.violationsBySeverity]);
+  const hydratedViolations = useHydratedFindings(slimViolations, FINDING_TYPE.VIOLATION);
+  const violationsBySeverity = useMemo(() => bucketBySeverity(hydratedViolations), [hydratedViolations]);
   const { lowConfidenceViolations, highConfidenceBySeverity, liveSevCounts, liveTotal } = useMemo(
-    () => computeLiveBuckets(file.violationsBySeverity, dismissedSet),
-    [file.violationsBySeverity, dismissedSet],
+    () => computeLiveBuckets(violationsBySeverity, dismissedSet),
+    [violationsBySeverity, dismissedSet],
   );
 
   const compliance = useHydratedCompliance(file.compliance);
@@ -107,5 +114,7 @@ export function useFileDetailFiltering({ file, onDismiss, activeFilter, lowConfE
   return {
     dismissedSet, handleDismiss, liveSevCounts, liveTotal,
     totalCompliance, showFilters, items,
+    // The hydrated buckets, for the report and fix-plan panes.
+    violationsBySeverity,
   };
 }

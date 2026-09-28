@@ -6,7 +6,8 @@
 import { createDashboard } from '../models/dashboard.js';
 import { createDimensionEval } from '../models/dimension.js';
 import { request } from './request.js';
-import { attachComplianceDetailRefs } from './complianceDetail.js';
+import { attachFindingDetailRefs } from './complianceDetail.js';
+import { FINDING_TYPE } from '../vocab/findingType.js';
 import { createViolations } from '../models/violation.js';
 import { asOfQuery, parseAccumulated, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
 import { LATEST_RUN_ID } from '../constants.js';
@@ -23,22 +24,33 @@ let scoresGeneration = 0;
 export async function getProjectScores(projectId, asOfRun = null) {
   const data = await request(`${projectPath(projectId)}/scores${asOfQuery(asOfRun)}`);
   scoresGeneration += 1;
-  return attachComplianceDetailRefs(parseUnifiedScores(data), projectId, asOfRun, scoresGeneration);
+  return attachFindingDetailRefs(parseUnifiedScores(data), projectId, asOfRun, scoresGeneration);
 }
 
 /**
- * Full compliance items /scores deferred, for one accumulated dimension.
+ * Full items of one kind /scores deferred, for one accumulated dimension.
  * @param {string} projectId
- * @param {{dimension: string, asOf?: string|null, principle?: string, pathPrefix?: string}} scope
+ * @param {{kind: string, dimension: string, asOf?: string|null, principle?: string, pathPrefix?: string}} scope
+ *   `kind` is FINDING_TYPE.VIOLATION or FINDING_TYPE.COMPLIANCE.
  * @returns {Promise<import('../models/violation.js').Violation[]>}
  */
-export async function getComplianceDetail(projectId, { dimension, asOf, principle, pathPrefix }) {
-  const params = new URLSearchParams({ dimension });
+export async function getFindingDetail(projectId, { kind, dimension, asOf, principle, pathPrefix }) {
+  const params = new URLSearchParams({ dimension, kind });
   if (asOf) params.set('asOf', asOf);
   if (principle) params.set('principle', principle);
   if (pathPrefix) params.set('pathPrefix', pathPrefix);
   const data = await request(`${projectPath(projectId)}/compliance-detail?${params}`);
   return createViolations(data?.items);
+}
+
+/**
+ * `getFindingDetail` for compliance items (the pre-kind entry point).
+ * @param {string} projectId
+ * @param {{dimension: string, asOf?: string|null, principle?: string, pathPrefix?: string}} scope
+ * @returns {Promise<import('../models/violation.js').Violation[]>}
+ */
+export function getComplianceDetail(projectId, scope) {
+  return getFindingDetail(projectId, { ...scope, kind: FINDING_TYPE.COMPLIANCE });
 }
 
 /** @returns {Promise<{dimensions: Array, summary: Object}>} */

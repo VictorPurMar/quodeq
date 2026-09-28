@@ -20,6 +20,7 @@
  */
 import { DEFAULT_PROJECT_SOURCE } from '../vocab/projectSource.js';
 import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
+import { FINDING_TYPE } from '../vocab/findingType.js';
 import { LATEST_RUN_ID } from '../constants.js';
 
 // Stand-in job/run id for queries kept mounted with `enabled: false`:
@@ -59,10 +60,13 @@ export const projectKeys = {
   all: () => [PROJECT_SCOPE],
   project: (projectId, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source),
   scores: (projectId, asOf, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "scores", asOf || LATEST_RUN_ID),
-  complianceDetail: (projectId, asOf, dimension, generation, scope = {}) => projectScope(
-    projectId, DEFAULT_PROJECT_SOURCE, "complianceDetail", asOf || LATEST_RUN_ID, dimension, generation,
+  // Detail /scores deferred, per finding kind (violation | compliance).
+  findingDetail: (projectId, asOf, kind, dimension, generation, scope = {}) => projectScope(
+    projectId, DEFAULT_PROJECT_SOURCE, "findingDetail", kind, asOf || LATEST_RUN_ID, dimension, generation,
     scope.principle ?? null, scope.pathPrefix ?? null,
   ),
+  complianceDetail: (projectId, asOf, dimension, generation, scope = {}) =>
+    projectKeys.findingDetail(projectId, asOf, FINDING_TYPE.COMPLIANCE, dimension, generation, scope),
   // The trailing view keeps the overview (no bodies) and full shapes apart.
   // `dashboard` is an exact key (reads, writes, prefetch); an invalidation
   // that must reach both shapes uses `dashboardAnyView`, the prefix without it.

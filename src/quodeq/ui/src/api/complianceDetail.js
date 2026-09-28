@@ -1,15 +1,19 @@
 /**
- * Compliance detail that /scores defers.
+ * Finding detail that /scores defers.
  *
- * /scores sends accumulated compliance items without `reason`, `snippet` and
- * `context` (flagged `detailDeferred`), since those fields were most of its
- * payload. Pages that render compliance cards fetch the detail from
- * /compliance-detail and merge it back by finding identity.
+ * /scores sends accumulated violation and compliance items without `reason`,
+ * `snippet`, `context` and `reqRefs` (flagged `detailDeferred`), since those
+ * fields are most of its payload. Pages that render finding cards fetch the
+ * detail from /compliance-detail (per kind) and merge it back by identity.
  */
+import { FINDING_TYPE } from '../vocab/findingType.js';
+
+// The accumulated list each kind lives in.
+const LIST_BY_KIND = Object.freeze({ [FINDING_TYPE.VIOLATION]: 'violations', [FINDING_TYPE.COMPLIANCE]: 'compliance' });
 
 /**
- * Tag each deferred compliance item with where its detail lives. One ref
- * object per dimension, shared by its items. `generation` tells two /scores
+ * Tag each deferred item with where its detail lives. One ref object per
+ * dimension and kind, shared by its items. `generation` tells two /scores
  * responses for the same project and asOf apart, so detail cached for an
  * older payload is never merged into a newer one.
  * @param {Object} data Parsed unified scores payload (mutated and returned).
@@ -18,15 +22,20 @@
  * @param {number} generation
  * @returns {Object}
  */
-export function attachComplianceDetailRefs(data, project, asOf, generation) {
+export function attachFindingDetailRefs(data, project, asOf, generation) {
   for (const dim of data?.accumulated?.dimensions || []) {
-    const ref = { project, asOf: asOf || null, dimension: dim.dimension, generation };
-    for (const item of dim.compliance || []) {
-      if (item?.detailDeferred) item.detailRef = ref;
+    for (const [kind, list] of Object.entries(LIST_BY_KIND)) {
+      const ref = { project, asOf: asOf || null, dimension: dim.dimension, generation, kind };
+      for (const item of dim[list] || []) {
+        if (item?.detailDeferred) item.detailRef = ref;
+      }
     }
   }
   return data;
 }
+
+/** `attachFindingDetailRefs` under its pre-kind name. */
+export const attachComplianceDetailRefs = attachFindingDetailRefs;
 
 function commonPrefix(strings) {
   if (strings.length === 0) return '';
@@ -45,7 +54,7 @@ function commonPrefix(strings) {
  * @param {Array} items
  * @returns {Array<{ref: Object, scope: {principle: string|undefined, pathPrefix: string|undefined}}>}
  */
-export function groupDeferredCompliance(items) {
+export function groupDeferredFindings(items) {
   const byRef = new Map();
   for (const item of items || []) {
     if (!item?.detailDeferred || !item.detailRef) continue;
@@ -66,6 +75,9 @@ export function groupDeferredCompliance(items) {
   });
 }
 
+/** `groupDeferredFindings` under its pre-kind name. */
+export const groupDeferredCompliance = groupDeferredFindings;
+
 const identity = (i) => [i.file, i.line, i.endLine, i.principle, i.title].join('\u0000');
 
 /**
@@ -76,7 +88,7 @@ const identity = (i) => [i.file, i.line, i.endLine, i.principle, i.title].join('
  * @param {Array<{ref: Object, items: Array}>} loaded
  * @returns {Array}
  */
-export function mergeComplianceDetail(items, loaded) {
+export function mergeFindingDetail(items, loaded) {
   if (!loaded.length) return items;
   const queues = new Map();
   for (const { ref, items: details } of loaded) {
@@ -92,6 +104,9 @@ export function mergeComplianceDetail(items, loaded) {
   return items.map((item) => {
     const detail = item?.detailDeferred && queues.get(item.detailRef)?.get(identity(item))?.shift();
     if (!detail) return item;
-    return { ...item, reason: detail.reason, snippet: detail.snippet, context: detail.context, detailDeferred: false };
+    return { ...item, reason: detail.reason, snippet: detail.snippet, context: detail.context, reqRefs: detail.reqRefs, detailDeferred: false };
   });
 }
+
+/** `mergeFindingDetail` under its pre-kind name. */
+export const mergeComplianceDetail = mergeFindingDetail;

@@ -10,6 +10,7 @@ import copy
 import pytest
 
 from quodeq.api.app import create_app
+from quodeq.shared.stamp_memo import StampCache
 
 
 def _item(file: str, line: int, principle: str, **extra) -> dict:
@@ -55,7 +56,9 @@ def served(tmp_path, monkeypatch):
         calls.append((project, as_of))
         return payload
 
-    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores", fake_scores)
+    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores_stamped",
+                        lambda root, project, as_of=None, *a, **kw: (fake_scores(root, project, as_of), ("v",)))
+    monkeypatch.setattr("quodeq.api._scores_routes._WIRE", StampCache())
     app = create_app(test_config={"TESTING": True})
     with app.test_client() as c:
         yield c, payload, calls
@@ -71,12 +74,20 @@ def test_scores_drops_compliance_detail_and_marks_it_deferred(served) -> None:
     assert (item["file"], item["line"], item["practiceId"], item["title"]) == ("src/a.py", 1, "P1", "P1 ok")
 
 
-def test_scores_keeps_violation_detail(served) -> None:
+def test_scores_defers_violation_detail_too(served) -> None:
     client, _, _ = served
     body = client.get("/api/projects/demo/scores").get_json()
 
     violation = body["accumulated"]["dimensions"][0]["violations"][0]
-    assert violation["snippet"] == "kept" and violation["reason"] == "kept"
+    assert "snippet" not in violation and "reason" not in violation
+    assert violation["detailDeferred"] is True and violation["file"] == "a.py"
+
+
+def test_detail_refills_violations_by_kind(served) -> None:
+    client, _, _ = served
+    body = client.get("/api/projects/demo/compliance-detail?dimension=security&kind=violation").get_json()
+    assert body["items"] == [{"file": "a.py", "line": 1, "snippet": "kept", "reason": "kept"}]
+    assert client.get("/api/projects/demo/compliance-detail?dimension=security&kind=nope").status_code == 400
 
 
 def test_scores_does_not_mutate_the_cached_payload(served) -> None:
@@ -141,7 +152,7 @@ def test_detail_rejects_traversal_project(served) -> None:
 
 def test_detail_missing_project_is_404(served, monkeypatch) -> None:
     client, _, _ = served
-    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores", lambda *a, **kw: None)
+    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores_stamped", lambda *a, **kw: (None, None))
     resp = client.get("/api/projects/demo/compliance-detail?dimension=security")
 
     assert resp.status_code == 404
