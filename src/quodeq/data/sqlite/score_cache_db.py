@@ -15,6 +15,7 @@ from typing import Iterator
 
 from quodeq.data.sqlite.constants import SQLITE_BUSY_TIMEOUT_MS
 from quodeq.data.sqlite._score_cache_epoch import CACHE_WRITER_EPOCH
+from quodeq.data.sqlite.score_cache_rows import RUN_SCALARS_COUNT_COLUMNS
 from quodeq.shared.env import get_score_cache_path
 
 _logger = logging.getLogger(__name__)
@@ -47,6 +48,8 @@ _SCHEMA = (
     "CREATE TABLE IF NOT EXISTS run_scalars ("
     " project TEXT NOT NULL, run_id TEXT NOT NULL, version TEXT NOT NULL,"
     " dimension TEXT NOT NULL, overall_score TEXT, overall_grade TEXT,"
+    " violation_count INTEGER, compliance_count INTEGER,"
+    " critical INTEGER, major INTEGER, minor INTEGER, unknown INTEGER, open_types INTEGER,"
     " updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
     " PRIMARY KEY (project, run_id, dimension, version));"
     "CREATE INDEX IF NOT EXISTS idx_run_scalars_lookup ON run_scalars(project, version);"
@@ -88,6 +91,23 @@ def _purge_run_keys_on_epoch_change(conn: sqlite3.Connection) -> None:
         _logger.warning("run_keys epoch purge failed", exc_info=True)
 
 
+def _ensure_run_scalars_columns(conn: sqlite3.Connection) -> None:
+    """Add the count columns to a ``run_scalars`` table created before them.
+
+    ``CREATE TABLE IF NOT EXISTS`` leaves an existing table as it is, so an
+    older cache file keeps its narrow table. The counts are NULL on its old
+    rows (which the epoch bump retires anyway) and stored on new ones.
+    """
+    try:
+        present = {row[1] for row in conn.execute("PRAGMA table_info(run_scalars)")}
+        for column in RUN_SCALARS_COUNT_COLUMNS:
+            if column not in present:
+                conn.execute(f"ALTER TABLE run_scalars ADD COLUMN {column} INTEGER")
+        conn.commit()
+    except sqlite3.Error:
+        _logger.warning("run_scalars column migration failed", exc_info=True)
+
+
 def _init(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     try:
@@ -95,6 +115,7 @@ def _init(path: Path) -> sqlite3.Connection:
         conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
         conn.executescript(_SCHEMA)
         conn.commit()
+        _ensure_run_scalars_columns(conn)
         _purge_run_keys_on_epoch_change(conn)
     except sqlite3.DatabaseError:
         # Close before re-raising so the caller's rebuild path can unlink the

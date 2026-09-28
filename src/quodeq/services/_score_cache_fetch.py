@@ -20,6 +20,7 @@ from quodeq.services.wiring import (
     read_all_cached_rows,
     read_cached_accumulated,
     read_cached_project_summary,
+    scalar_dimension,
     write_cached_accumulated,
     write_cached_project_summary,
     write_cached_rows,
@@ -235,9 +236,7 @@ def make_cache_backed_fetcher(
         if hit is not None:
             return hit
         dims = base_fetcher(run_id)
-        scalars = [DimensionResult(dimension=d.dimension, overall_score=d.overall_score,
-                                   overall_grade=d.overall_grade)
-                   for d in dims if d.dimension]
+        scalars = [scalar_dimension(d) for d in dims if d.dimension]
         by_run_version[(run_id, version)] = scalars
         if is_cacheable is None or is_cacheable(run_id):
             try:

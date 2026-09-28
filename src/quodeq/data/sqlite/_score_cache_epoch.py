@@ -36,4 +36,8 @@ from __future__ import annotations
 # fingerprint) (#1165). Cached run_keys rows hold line keys only, so the
 # per-run scoped version could not see a fingerprinted dismissal touch a run;
 # this bump purges them so they rebuild with both key shapes.
-CACHE_WRITER_EPOCH = "7"
+# "8": run_scalars rows now store each dimension's counts (violations,
+# severities, open types) next to its score; rows written by the prior writer
+# have none, which History rendered as 0 majors and 0 types for every finished
+# run. This bump retires them so they rebuild with the counts.
+CACHE_WRITER_EPOCH = "8"
