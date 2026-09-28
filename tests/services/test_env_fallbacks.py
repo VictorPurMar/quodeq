@@ -75,7 +75,7 @@ class TestRunDimCacheMax:
 
     def test_invalid_value_falls_back(self, monkeypatch):
         monkeypatch.setenv("QUODEQ_RUN_DIM_CACHE_MAX", "lots")
-        assert run_dim_cache_max() == 256
+        assert run_dim_cache_max() == 8
 
 
 class TestImportTimeConstants:

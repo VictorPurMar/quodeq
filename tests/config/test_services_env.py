@@ -12,7 +12,7 @@ from quodeq.shared.env import get_index_db_path
 
 
 @pytest.mark.parametrize("resolver, var, default", [
-    (services_env.run_dim_cache_max, "QUODEQ_RUN_DIM_CACHE_MAX", 256),
+    (services_env.run_dim_cache_max, "QUODEQ_RUN_DIM_CACHE_MAX", 8),
     (services_env.max_history_runs, "QUODEQ_MAX_HISTORY_RUNS", 100),
     (services_env.max_concurrent_jobs, "QUODEQ_MAX_CONCURRENT_JOBS", 8),
     (services_env.max_violation_files, "QUODEQ_MAX_VIOLATION_FILES", 20),

@@ -13,7 +13,11 @@ from pathlib import Path
 from quodeq.shared.env import env_float, env_int
 from quodeq.shared.env_resolve import resolve_env
 
-RUN_DIM_CACHE_MAX_DEFAULT = 256
+# Each entry is one run's full findings (tens of MB for a large project). The
+# trend and the scores persist their per-run results in the score cache, so only
+# the selected-run views reuse entries; a small bound keeps a history rebuild
+# from holding every run it rescored in memory.
+RUN_DIM_CACHE_MAX_DEFAULT = 8
 MAX_HISTORY_RUNS_DEFAULT = 100
 CANCEL_GRACE_S_DEFAULT = 30.0
 MAX_CONCURRENT_JOBS_DEFAULT = 8
@@ -22,7 +26,7 @@ MAX_VIOLATION_FILES_DEFAULT = 20
 
 
 def run_dim_cache_max(env: Mapping[str, str] | None = None) -> int:
-    """QUODEQ_RUN_DIM_CACHE_MAX, default 256; negative or invalid -> default (0 disables the cache)."""
+    """QUODEQ_RUN_DIM_CACHE_MAX, default 8; negative or invalid -> default (0 disables the cache)."""
     return env_int("QUODEQ_RUN_DIM_CACHE_MAX", RUN_DIM_CACHE_MAX_DEFAULT, minimum=0, env=env)
 
 
