@@ -162,7 +162,7 @@ src/quodeq/ui/src/features/side-pane/breadcrumbSiblings.js:8
 src/quodeq/ui/src/features/standards/components/StandardEditor.impactDialog.test.jsx:4
 src/quodeq/ui/src/features/standards/components/StandardEditor.overrides.test.jsx:6
 src/quodeq/ui/src/features/standards/components/_standardEditor.fixtures.js:4
-src/quodeq/ui/src/features/standards/hooks/useStandardEditorOverrides.js:39
+src/quodeq/ui/src/features/standards/hooks/useStandardEditorOverrides.js:48
 src/quodeq/ui/src/features/terminal/TerminalPane.lifecycle.test.jsx:5
 src/quodeq/ui/src/features/terminal/TerminalPane.sessions.test.jsx:5
 src/quodeq/ui/src/features/terminal/components/TerminalTabStrip.jsx:11
