@@ -5,8 +5,7 @@
  * the same panel, and differ only in the score hint, the violations note and
  * the header above them. What is common lives here.
  */
-import { StatStrip, Stat, StatBody } from '../../../components/terminal/index.js';
-import HelpHint from '../../../components/HelpHint.jsx';
+import { StatStrip, Stat } from '../../../components/terminal/index.js';
 import { scoreColorClass, complianceRatio } from '../../../utils/formatters.js';
 import { t } from '../../../strings/index.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
@@ -37,42 +36,38 @@ export function ratioDisplay(violations, compliance) {
 }
 
 /**
- * The fourth tile: RATIO on the left and, when the run recorded a files-read
- * count, DENSITY on the right with its own label and "?". Without a density
- * the ratio takes the whole tile; nothing renders as a dash.
- * @param {{ratio: string, density: number|null|undefined, learnMore?: {label: string, onClick: Function}}} props
+ * The fourth tile: RATIO as the number, with its reading on the first hint
+ * line and, when the run recorded a files-read count, the density on a
+ * second one. Without a density the tile is the ratio alone; nothing
+ * renders as a dash.
+ * @param {{ratio: string, density: number|null|undefined}} props
  */
-export function RatioDensityStat({ ratio, density, learnMore }) {
-  if (typeof density !== 'number') {
-    return <Stat label={t('overview.statRatio')} value={ratio} hint={t('overview.ratioHint')} />;
-  }
-  const densityLabel = (
-    <>
-      {t('overview.statDensity')}
-      {' '}
-      <HelpHint label={t('overview.hintAbout', { name: t('overview.statDensity') })} learnMore={learnMore}>{t('overview.hintDensity')}</HelpHint>
-    </>
-  );
+export function RatioDensityStat({ ratio, density }) {
+  const hasDensity = typeof density === 'number';
   return (
-    <div className="term-stat term-stat--default term-stat--pair">
-      <div className="term-stat__half">
-        <StatBody label={t('overview.statRatio')} value={ratio} />
-        <div className="term-stat__hint">{t('overview.ratioHint')}</div>
-      </div>
-      <div className="term-stat__half">
-        <StatBody label={densityLabel} value={density.toFixed(DENSITY_DECIMALS)} />
-        <div className="term-stat__hint">{t('overview.densityUnitHint')}</div>
-      </div>
-    </div>
+    <Stat
+      label={t('overview.statRatio')}
+      value={ratio}
+      hint={(
+        <>
+          <span className="term-stat__hint-line">{t('overview.ratioHint')}</span>
+          {hasDensity && (
+            <span className="term-stat__hint-line">
+              <b>{density.toFixed(DENSITY_DECIMALS)}</b> {t('overview.densityUnitHint')}
+            </span>
+          )}
+        </>
+      )}
+    />
   );
 }
 
 /**
  * The two stats every hero strip ends with: the compliance count (clickable
  * when there is something to show) and the ratio tile, with the density
- * beside it when the run has one.
+ * under it when the run has one.
  */
-export function ComplianceAndRatioStats({ compliance, totalChecks, ratio, density, learnMore, onCompliance, complianceAriaKey }) {
+export function ComplianceAndRatioStats({ compliance, totalChecks, ratio, density, onCompliance, complianceAriaKey }) {
   return (
     <>
       <Stat
@@ -82,7 +77,7 @@ export function ComplianceAndRatioStats({ compliance, totalChecks, ratio, densit
         onClick={onCompliance}
         ariaLabel={compliance > 0 ? t(complianceAriaKey) : undefined}
       />
-      <RatioDensityStat ratio={ratio} density={density} learnMore={learnMore} />
+      <RatioDensityStat ratio={ratio} density={density} />
     </>
   );
 }
@@ -105,16 +100,24 @@ export function heroCardHandlers(onCardNavigate, { violations, compliance }) {
 }
 
 /**
- * The SCORE stat both heroes open with: the number, the grade chip and any
- * extra trailing accessory (the accumulated hero's trend badge).
+ * The SCORE stat both heroes open with: the number, then a row under it with
+ * the grade chip and the trend badge (the accumulated hero's), laid out like
+ * the severity chips under VIOLATIONS. `hint` adds a note after them.
  */
 export function ScoreStat({ scoreDisplay, grade, extraTrailing = null, hint = null }) {
   return (
     <Stat
       label={t('overview.statScore')}
       value={scoreDisplay}
-      trailing={<>{<GradeChip grade={grade} score={scoreDisplay} />}{extraTrailing}</>}
-      hint={hint}
+      hint={(
+        <>
+          <span className="acc-eval-sev-row">
+            <GradeChip grade={grade} score={scoreDisplay} />
+            {extraTrailing}
+          </span>
+          {hint}
+        </>
+      )}
     />
   );
 }

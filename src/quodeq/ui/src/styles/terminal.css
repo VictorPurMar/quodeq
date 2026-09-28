@@ -109,16 +109,6 @@
 .term-stat__label { margin-bottom: 0; }
 }
 
-/* A card split in two: RATIO beside DENSITY. Both card containers (the
-   overview strip and the dimension page's 2x2 grid) set the card to a column
-   flex, so the pair rule names both to win on specificity. */
-.term-stat-strip--cards .term-stat.term-stat--pair,
-.qd-stats-2x2 .term-stat.term-stat--pair,
-.term-stat.term-stat--pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--term-space-3); }
-.term-stat__half { min-width: 0; display: flex; flex-direction: column; gap: var(--term-space-1); }
-.term-stat__half + .term-stat__half { border-left: 1px solid var(--color-border); padding-left: var(--term-space-3); }
-.term-stat--pair .term-stat__value { --stat-value-max: 22px; }
-
 /* `count-abbr` sev badge variant used in the VIOLATIONS stat cell */
 .term-sev-badge--count-abbr {
   font-variant-numeric: tabular-nums;
@@ -169,6 +159,10 @@
   flex: 0 0 auto;
   white-space: nowrap;
 }
+/* A hint of two lines (RATIO's reading, then the density). */
+.term-stat__hint-line { display: block; }
+.term-stat__hint-line + .term-stat__hint-line { margin-top: 2px; }
+
 .term-stat__hint {
   margin-top: var(--term-space-1);
   font-size: 11px;
@@ -292,10 +286,10 @@
   border: 1px solid transparent;
   text-transform: uppercase;
 }
-/* The change since the baseline run, inside a severity chip: down is good. */
-.term-sev-badge__delta { margin-left: 5px; font-variant-numeric: tabular-nums; }
-.term-sev-badge__delta--good { color: var(--color-success); }
-.term-sev-badge__delta--bad { color: var(--color-sev-critical-text); }
+/* The change since the baseline run, inside a severity chip: the score
+   tile's trend badge, at the chip's size. */
+.term-sev-badge__delta { margin-left: 4px; }
+.term-sev-badge__delta .trend-badge { padding: 0; font-size: inherit; gap: 2px; }
 
 .term-sev-badge__count {
   font-weight: 400;

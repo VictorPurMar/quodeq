@@ -17,7 +17,6 @@ import { HERO_CARD_KIND } from '../../dashboard/dashboardVocab.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
 import { HELP_SECTION } from '../../../vocab/helpSection.js';
 import { buildHeadline, chipDeltas, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
-import { overviewLearnMore } from '../../dashboard/overviewLearnMore.js';
 
 /** Empty/loading/error states, checked in order — extracted so the main
  * render stays a single happy-path return. */
@@ -123,7 +122,6 @@ function ExplorerTopGrid({
         sev={d.severityCounts}
         deltas={chipDeltas(sinceBaseline ? sumSinceBaseline({ entry: sinceBaseline }) : null)}
         density={buildHeadline([dimensionHeadlineInput(d.allViolations, d.severityCounts, d.evalData)]).density}
-        learnMore={overviewLearnMore(onNavigate)}
         onSeverityBadge={onSeverityBadge}
         onNavigate={onNavigate}
         onCardNavigate={handleCardNavigate}

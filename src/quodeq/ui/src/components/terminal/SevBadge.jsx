@@ -1,3 +1,4 @@
+import TrendBadge from '../TrendBadge.jsx';
 /**
  * SevBadge — severity label rendered as a thin-outlined box using the theme's
  * `--color-sev-*` tokens.
@@ -10,8 +11,9 @@
  *                     card on the overview.
  *
  * A `delta` (the change since a baseline run) renders after the label as
- * "▾83" or "▴1": down is good for a finding count, up is bad; zero and
- * null render nothing.
+ * the app's trend badge, inverted: "-83" with the up arrow is good for a
+ * finding count, "+1" with the down arrow is bad; zero and null render
+ * nothing.
  *
  * @param {object} props
  * @param {'critical'|'major'|'minor'} props.level
@@ -26,15 +28,15 @@ const ABBR = { critical: 'crit', major: 'maj', minor: 'min' };
 const FORMAT_SHORT = 'short';
 const FORMAT_COUNT_ABBR = 'count-abbr';
 
-const ARROW_DOWN = '\u25BE';
-const ARROW_UP = '\u25B4';
-
+// The same badge the score tile uses for its trend, inverted: fewer
+// findings is the improving direction, so "-83" gets the up arrow and the
+// app's trend-up colour. Counts are whole numbers, so any change is a full
+// arrow, never the soft one the score's small deltas get.
 function renderDelta(delta) {
   if (!delta) return null;
-  const good = delta < 0;
   return (
-    <span className={`term-sev-badge__delta term-sev-badge__delta--${good ? 'good' : 'bad'}`}>
-      {good ? ARROW_DOWN : ARROW_UP}{Math.abs(delta)}
+    <span className="term-sev-badge__delta">
+      <TrendBadge delta={String(delta)} trend={delta < 0 ? 'up' : 'down'} invert />
     </span>
   );
 }

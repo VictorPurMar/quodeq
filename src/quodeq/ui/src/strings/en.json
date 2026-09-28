@@ -1495,7 +1495,6 @@
   "heatGrid.severityCellAriaOne": "{severity}: 1 violation in {label}",
   "heatGrid.violationsCellAriaOne": "1 violation in {label}, open details",
   "heatGrid.unnamedRow": "row",
-  "overview.statDensity": "DENSITY",
   "helpHint.learnMore": "Learn more",
   "help.navWhyThisGrade": "Why This Grade",
   "helpFigure.stageTypes": "violation types, weighted",
@@ -1531,8 +1530,6 @@
   "violations.openTypeAria": "Show findings of {req}",
   "violations.unknownPrinciple": "(no principle)",
   "violations.dismissTypeCountDiffers": "Dismissed {actual} of the {expected} findings shown; the rest were already dismissed or are not in this run.",
-  "overview.hintAbout": "About {name}",
-  "overview.hintDensity": "Open findings per 100 files read across the dimensions shown.",
   "overview.customFormulaNote": "custom formula",
   "gradeFormula.tabFormula": "FORMULA",
   "gradeFormula.tabTypes": "TYPES",
@@ -1575,5 +1572,5 @@
   "history.colTypes": "TYPES",
   "sidebar.majorsTitleOne": "{count} major",
   "sidebar.majorsTitleMany": "{count} majors",
-  "overview.densityUnitHint": "findings /100 files read"
+  "overview.densityUnitHint": "violations : 100 files"
 }
