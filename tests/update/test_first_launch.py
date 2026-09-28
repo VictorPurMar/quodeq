@@ -223,3 +223,32 @@ def test_successful_copy_replaces_previous_bundle(tmp_path: Path) -> None:
     assert not (dest / "marker").exists()
     assert sorted(p.name for p in apps_dir.iterdir()) == ["Quodeq.app"]
     assert runner.calls[-1] == ["open", "-n", str(dest)]
+
+
+def _dmg_with_bundle_left_aside(tmp_path: Path) -> tuple[Path, Path]:
+    """A DMG bundle plus an earlier install left at Quodeq.app.previous, no Quodeq.app."""
+    app, apps_dir = _dmg_with_previous_install(tmp_path)
+    (apps_dir / "Quodeq.app").rename(apps_dir / "Quodeq.app.previous")
+    return app, apps_dir
+
+
+def test_bundle_left_aside_is_put_back_when_the_copy_fails(tmp_path: Path) -> None:
+    app, apps_dir = _dmg_with_bundle_left_aside(tmp_path)
+    runner = _runner(ditto_rc=1)
+    moved = first_launch.offer_move_to_applications(
+        Path("/Volumes/Quodeq/Quodeq.app"), applications_dir=apps_dir, runner=_spy_fs(runner, app),
+    )
+    assert moved is False
+    assert (apps_dir / "Quodeq.app" / "marker").read_text() == "previous"
+    assert sorted(p.name for p in apps_dir.iterdir()) == ["Quodeq.app"]
+
+
+def test_bundle_left_aside_is_replaced_when_the_copy_succeeds(tmp_path: Path) -> None:
+    app, apps_dir = _dmg_with_bundle_left_aside(tmp_path)
+    runner = _runner()
+    moved = first_launch.offer_move_to_applications(
+        Path("/Volumes/Quodeq/Quodeq.app"), applications_dir=apps_dir, runner=_spy_fs(runner, app),
+    )
+    assert moved is True
+    assert (apps_dir / "Quodeq.app" / "Contents" / "marker").read_text() == "new"
+    assert sorted(p.name for p in apps_dir.iterdir()) == ["Quodeq.app"]

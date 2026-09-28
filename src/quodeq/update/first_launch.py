@@ -45,11 +45,15 @@ def _swap_bundle(app: Path, dest: Path, runner) -> bool:
 
     The previous bundle at *dest* stays usable on every failure: a failed
     copy removes only the partial copy, and a failed rename puts the
-    previous bundle back. False means the swap did not happen.
+    previous bundle back. A bundle left aside by an interrupted swap is
+    put back before the copy starts. False means the swap did not happen.
     """
     tmp = dest.with_name(dest.name + ".partial")
     aside = dest.with_name(dest.name + ".previous")
     shutil.rmtree(tmp, ignore_errors=True)
+    if not dest.exists() and aside.exists():
+        _logger.info("restoring the bundle left aside at %s", aside)
+        aside.rename(dest)
     shutil.rmtree(aside, ignore_errors=True)
     copied = runner(["ditto", str(app), str(tmp)], capture_output=True, text=True, encoding="utf-8")
     if copied.returncode != 0:
