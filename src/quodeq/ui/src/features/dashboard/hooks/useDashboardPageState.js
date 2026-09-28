@@ -37,7 +37,20 @@ const GRACE_TIMEOUT_MS = 700;
 // above), fall back to the partial page (frame + a content spinner) so a slow
 // load shows progress instead of a hang. The grace comfortably exceeds a warm
 // load, so the fast path still gets one clean transition.
-function useContentReadiness(runMode, dashboard, accumulated, loading) {
+/**
+ * Whether the project has evaluations at all, from whichever source has
+ * answered: the project card's count, the scores run list, the trend.
+ */
+export function hasRunsFor(projectInfo, availableRuns, dashboard) {
+  return (projectInfo?.runsCount ?? 0) > 0
+    || (availableRuns?.length ?? 0) > 0
+    || (dashboard?.trend?.length ?? 0) > 0;
+}
+
+// *keepSkeleton*: the project has runs and nothing errored, so a settled
+// state without content still shows the skeleton (never the no-runs
+// empty state).
+function useContentReadiness(runMode, dashboard, accumulated, loading, keepSkeleton) {
   const contentReady = runMode ? !!dashboard : (!!dashboard && !!accumulated);
   const [graceElapsed, setGraceElapsed] = useState(false);
   if (graceElapsed && (contentReady || !dashboard)) setGraceElapsed(false);
@@ -52,7 +65,11 @@ function useContentReadiness(runMode, dashboard, accumulated, loading) {
   // Overview only (!runMode): both loader windows above (isLoading itself,
   // and the grace-fallback window once dashboard has landed but accumulated
   // hasn't) render one continuous OverviewSkeleton instead of a LoadingScreen.
-  const showOverviewSkeleton = !runMode && !!(isLoading || (dashboard && !isLoading && !contentReady));
+  // A project with runs whose payloads are missing without an error (a
+  // disabled scoped query, a timeout between retries) keeps the skeleton
+  // too: it has evaluations, so the no-runs empty state would be a lie.
+  const settledWithoutData = keepSkeleton && !contentReady;
+  const showOverviewSkeleton = !runMode && !!(isLoading || (dashboard && !isLoading && !contentReady) || settledWithoutData);
 
   return { contentReady, isLoading, showOverviewSkeleton };
 }
@@ -123,10 +140,15 @@ function useDashboardAppear(dashboardAppearKey, isLoading, showOverviewSkeleton)
 // excluded from this branch outright, so its own dashboard-only readiness
 // never applies here), so holding the empty state open until BOTH payloads
 // land closes the gap without a separate flag to keep in sync.
-function useNoRunsSticky(runMode, contentReady, error, loading, noRunsScopeKey) {
+function useNoRunsSticky(runMode, contentReady, error, loading, noRunsScopeKey, hasRuns) {
   const [noRunsEmptySticky, setNoRunsEmptySticky] = useState({ scopeKey: noRunsScopeKey, active: false });
   const wasNoRunsEmpty = noRunsEmptySticky.scopeKey === noRunsScopeKey && noRunsEmptySticky.active;
-  const showNoRunsEmpty = !runMode && !contentReady && !error && (!loading || wasNoRunsEmpty);
+  // Only a project without runs can settle into "No evaluations yet". A
+  // latched empty state still rides through the load that follows a first
+  // run (dimmed, until content lands) rather than flashing a skeleton.
+  const settledWithoutRuns = !loading && !hasRuns;
+  const latchHolds = wasNoRunsEmpty && (loading || !hasRuns);
+  const showNoRunsEmpty = !runMode && !contentReady && !error && (settledWithoutRuns || latchHolds);
   if (!runMode && (noRunsEmptySticky.scopeKey !== noRunsScopeKey || noRunsEmptySticky.active !== showNoRunsEmpty)) {
     setNoRunsEmptySticky({ scopeKey: noRunsScopeKey, active: showNoRunsEmpty });
   }
@@ -141,13 +163,13 @@ function useNoRunsSticky(runMode, contentReady, error, loading, noRunsScopeKey) 
  * useState/useEffect/useRef call order StrictMode's double-invocation
  * depends on.
  */
-export function useDashboardPageState({ runMode, dashboard, accumulated, loading, error, selectedProject, selectedSource, selectedRunId }) {
-  const { contentReady, isLoading, showOverviewSkeleton } = useContentReadiness(runMode, dashboard, accumulated, loading);
+export function useDashboardPageState({ runMode, dashboard, accumulated, loading, error, selectedProject, selectedSource, selectedRunId, hasRuns = false }) {
+  const { contentReady, isLoading, showOverviewSkeleton } = useContentReadiness(runMode, dashboard, accumulated, loading, hasRuns && !error);
   // Keyed like noRunsScopeKey below, but the run is folded in too so a run
   // switch on run-detail gets its own fade.
   const dashboardAppearKey = `${selectedProject}::${selectedSource}::${runMode ? selectedRunId : 'overview'}`;
   const dashboardAppearClass = useDashboardAppear(dashboardAppearKey, isLoading, showOverviewSkeleton);
   const noRunsScopeKey = `${selectedProject}::${selectedSource}`;
-  const showNoRunsEmpty = useNoRunsSticky(runMode, contentReady, error, loading, noRunsScopeKey);
+  const showNoRunsEmpty = useNoRunsSticky(runMode, contentReady, error, loading, noRunsScopeKey, hasRuns);
   return { contentReady, isLoading, showOverviewSkeleton, dashboardAppearClass, showNoRunsEmpty };
 }
