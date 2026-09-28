@@ -17,6 +17,7 @@ import { useEvaluationLifecycle } from './useEvaluationLifecycle.js';
 import { useProjectActions } from './useProjectActions.js';
 import { useVisibleRuns } from './useVisibleRuns.js';
 import { LATEST_RUN_ID } from '../constants.js';
+import { nextSelectedRunAfterDelete } from './runDeletion.js';
 import { NAV_TAB } from '../vocab/navTab.js';
 import { projectIdOrSelf } from '../utils/projectIdentity.js';
 
@@ -264,12 +265,23 @@ export function useAppState() {
   // usually nearly identical. The dashboard-refreshing class dims the
   // page during the background refetch so the user sees that something
   // is happening without the jarring full-screen LoadingScreen.
-  const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, sharedProjectInfo } = useDashboard({
+  const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, dropRunFromCache, sharedProjectInfo } = useDashboard({
     selectedProject,
     selectedRun: effectiveRun,
     selectedSource,
     keepPlaceholder: !isHistoryRun && !isHistoryTab,
   });
+  // A run deleted from History: drop it from every cached run list now (the
+  // rollup refetch below is debounced and pulls the whole dashboard), move
+  // a selection that pointed at it, then the same reconcile dismiss/restore
+  // use, plus a projects reload for the cards' run counts.
+  const handleRunDeleted = useCallback((runId) => {
+    dropRunFromCache(runId);
+    setSelectedRun((current) => nextSelectedRunAfterDelete(current, runId));
+    if (historySelectedRun === runId) setHistorySelectedRun(LATEST_RUN_ID);
+    scheduleDashboardReconcile();
+    loadProjects();
+  }, [dropRunFromCache, setSelectedRun, historySelectedRun, setHistorySelectedRun, scheduleDashboardReconcile, loadProjects]);
   const { dailyRuns: rawDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useMemo(() => ({
     dailyRuns: buildPeriodRuns(availableRuns, dashboard?.trend || [], granularity),
     ...computeDerivedState(accumulated, dashboard, selectedProject, projects),
@@ -293,7 +305,7 @@ export function useAppState() {
     currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers,
     headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId,
     historySelectedRun, setHistorySelectedRun,
-    evalLifecycle, settings, activeTab, showProjectHeader, showRunNav, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile,
+    evalLifecycle, settings, activeTab, showProjectHeader, showRunNav, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, handleRunDeleted,
     granularity, onGranularityChange,
   };
 }

@@ -86,6 +86,8 @@ export function buildContentProps({
     // other suppression mutation converge without waiting for a project
     // switch.
     scheduleDashboardReconcile: state.scheduleDashboardReconcile,
+    // A History run delete: cache drop + selection reset + reconcile + projects reload.
+    handleRunDeleted: state.handleRunDeleted,
     dismissFinding,
     // Patch the dashboard/scores caches from the dismiss response delta so the
     // Overview updates instantly. Additive — the refreshDashboard /
