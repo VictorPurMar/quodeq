@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api/ApiContext.jsx";
 import { useProjectScores } from "../../../hooks/useProjectScores.js";
-import { projectKeys } from "../../../api/queryKeys.js";
+import { projectKeys, sameDashboardView } from "../../../api/queryKeys.js";
 import { useScopedPlaceholder } from "../../../hooks/useScopedPlaceholder.js";
 import { isFrozenRun } from '../../../models/runRules.js';
 import { t } from '../../../strings/index.js';
@@ -85,8 +85,12 @@ function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fe
     // Disabled when keepPlaceholder=false (History run details).
     // Scoped to this project+source: a PROJECT switch must fall through to a
     // real loading state instead of parking the old project's overview on
-    // screen (see samePlaceholderScope).
-    placeholderData: keepPlaceholder ? keepInScope : undefined,
+    // screen (see samePlaceholderScope). Also scoped to this view: the
+    // overview shape has no bodies, so it never stands in for a full-view
+    // observer (see sameDashboardView).
+    placeholderData: keepPlaceholder
+      ? (prev, prevQuery) => (sameDashboardView(prevQuery, view) ? keepInScope(prev, prevQuery) : undefined)
+      : undefined,
   };
 }
 

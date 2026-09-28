@@ -214,8 +214,8 @@ describe("applyMutationDelta", () => {
     expect(invalidated).toBe(false);
   });
 
-  it("leaves the overview (slim) latest entry alone and only invalidates it", () => {
-    const { client, store, invalidateQueries } = makeClient();
+  it("leaves the overview (slim) latest entry untouched; the project reconcile refreshes it", () => {
+    const { client, store, setQueryData } = makeClient();
     const overviewKey = projectKeys.dashboard(PROJECT, "latest", "local", DASHBOARD_VIEW.OVERVIEW);
     const slim = { dimension: "security", overallScore: "5.0", overallGrade: "C", totals: { violationCount: 3 } };
     seedDashboard(store, overviewKey, [slim]);
@@ -230,6 +230,10 @@ describe("applyMutationDelta", () => {
     });
 
     expect(store.get(JSON.stringify(overviewKey)).dimensions[0]).toEqual(slim);
-    expect(invalidateQueries).toHaveBeenCalledWith(expect.objectContaining({ queryKey: projectKeys.dashboard(PROJECT, "latest") }));
+    // The exact-key patch targets the full key only: no write ever reached
+    // the overview entry. It catches up on the debounced project reconcile
+    // every mutation caller runs after applying the delta.
+    const written = setQueryData.mock.calls.map(([k]) => JSON.stringify(k));
+    expect(written).not.toContain(JSON.stringify(overviewKey));
   });
 });

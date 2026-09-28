@@ -64,6 +64,12 @@ class TestDashboardViewParam:
         assert client._provider.get_dashboard.call_count == 2
         client._provider.get_dashboard_overview.assert_not_called()
 
+    def test_empty_view_means_full(self, client):
+        client._provider.get_dashboard.return_value = {"dimensions": []}
+        assert client.get("/api/projects/myproj/dashboard?view=").status_code == 200
+        client._provider.get_dashboard.assert_called_once()
+        client._provider.get_dashboard_overview.assert_not_called()
+
     def test_unknown_view_is_400(self, client):
         resp = client.get("/api/projects/myproj/dashboard?view=slim")
         assert resp.status_code == 400

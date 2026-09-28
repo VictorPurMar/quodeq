@@ -111,3 +111,13 @@ def test_overview_with_no_runs_matches_full(tmp_path: Path) -> None:
     overview = build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW)
     assert overview == full
     assert overview["dimensions"] == []
+
+
+def test_overview_matches_full_for_a_run_without_evals(tmp_path: Path) -> None:
+    run_dir = tmp_path / "proj" / RUN
+    run_dir.mkdir(parents=True)
+    (run_dir / "status.json").write_text(json.dumps({"state": "running", "dateISO": "2026-01-01T00:00:00Z"}))
+    full = build_dashboard(str(tmp_path), "proj", "latest")
+    overview = build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW)
+    assert overview["dimensions"] == full["dimensions"] == []
+    assert overview["selectedRun"] == full["selectedRun"]

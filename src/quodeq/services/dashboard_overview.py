@@ -8,6 +8,11 @@ them, slimmed, on the stamps of everything that can change them: the run's
 own files (``run_fingerprint``) and the project's dismissal, deletion and
 rule files, plus the scoring params. The memo miss pays the full parse;
 every other request pays a few ``stat`` calls.
+
+Not in the stamp: the compiled standards and evaluator directories the
+evidence rescore reads the req-to-principle map from. A standards
+recompile therefore refreshes a project's overview scalars on its next
+run write or dismissal, or on API restart, not immediately.
 """
 from __future__ import annotations
 

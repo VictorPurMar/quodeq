@@ -29,7 +29,7 @@ export function createDashboard(raw) {
     // A dimension without a violations key is the overview shape: keep its
     // bodies absent (createDimension would coerce them to [], which reads
     // as "zero findings" to the run views and the map).
-    dimensions: (raw.dimensions || []).map((d) => ('violations' in d ? createDimension(d) : createSlimDimension(d))),
+    dimensions: (raw.dimensions || []).map((d) => (d && !('violations' in d) ? createSlimDimension(d) : createDimension(d))),
     trend: raw.trend,
     partialRuns: raw.partialRuns || [],
     selectedRun: raw.selectedRun,
