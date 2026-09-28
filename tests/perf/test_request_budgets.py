@@ -2,7 +2,7 @@
 
 Performance regressed one fix at a time: each change looked local, while the
 same log was replayed and the same reports re-read by more and more code
-paths per request (docs/performance.md). These tests count the reads one
+paths per request. These tests count the reads one
 scenario does on a fixed project and hold them to the committed budgets in
 ``request_budgets.json``. Counts, not timings, so they are deterministic.
 
