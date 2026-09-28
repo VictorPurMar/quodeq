@@ -15,7 +15,7 @@
  * @property {Object}        sinceBaseline  per-dimension since-baseline summary from the backend; {} while the run is not terminal
  */
 
-import { createDimension } from './dimension.js';
+import { createDimension, createSlimDimension } from './dimension.js';
 
 /**
  * Create a canonical Dashboard from a raw API response.
@@ -26,7 +26,10 @@ import { createDimension } from './dimension.js';
 export function createDashboard(raw) {
   if (!raw || typeof raw !== 'object') return raw;
   return {
-    dimensions: (raw.dimensions || []).map(createDimension),
+    // A dimension without a violations key is the overview shape: keep its
+    // bodies absent (createDimension would coerce them to [], which reads
+    // as "zero findings" to the run views and the map).
+    dimensions: (raw.dimensions || []).map((d) => ('violations' in d ? createDimension(d) : createSlimDimension(d))),
     trend: raw.trend,
     partialRuns: raw.partialRuns || [],
     selectedRun: raw.selectedRun,

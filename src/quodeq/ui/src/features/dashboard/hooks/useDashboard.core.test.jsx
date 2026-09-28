@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useDashboard } from "./useDashboard";
+import { useDashboard, dashboardViewForPage } from "./useDashboard";
+import { DASHBOARD_VIEW } from "../../../vocab/dashboardView.js";
+import { NAV_TAB } from "../../../vocab/navTab.js";
 import { withQueryClient } from "../../../test-utils/withQueryClient.jsx";
 import { ApiProvider } from "../../../api/ApiContext.jsx";
 import { projectKeys } from "../../../api/queryKeys.js";
@@ -226,7 +228,7 @@ describe("useDashboard source-aware fetch selection", () => {
       { wrapper: ({ children }) => wrap(fakeApi, children) },
     );
     await waitFor(() => expect(result.current.dashboard).not.toBeNull());
-    expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", null);
+    expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", null, "full");
     expect(fakeApi.sharedGetDashboard).not.toHaveBeenCalled();
     expect(fakeApi.getProjectScores).toHaveBeenCalled();
     expect(fakeApi.sharedGetProjectScores).not.toHaveBeenCalled();
@@ -239,7 +241,7 @@ describe("useDashboard source-aware fetch selection", () => {
       { wrapper: ({ children }) => wrap(fakeApi, children) },
     );
     await waitFor(() => expect(result.current.dashboard?.marker).toBe("shared"));
-    expect(fakeApi.sharedGetDashboard).toHaveBeenCalledWith("p1", null);
+    expect(fakeApi.sharedGetDashboard).toHaveBeenCalledWith("p1", null, "full");
     expect(fakeApi.getDashboard).not.toHaveBeenCalled();
     expect(fakeApi.sharedGetProjectScores).toHaveBeenCalled();
     expect(fakeApi.getProjectScores).not.toHaveBeenCalled();
@@ -271,5 +273,22 @@ describe("useDashboard source-aware fetch selection", () => {
     expect(fakeApi.sharedGetDashboard).toHaveBeenCalledTimes(1);
     // And flipping didn't re-trigger the local fetch either.
     expect(fakeApi.getDashboard).toHaveBeenCalledTimes(1);
+  });
+
+  it("keys and fetches by view", async () => {
+    const fakeApi = makeFakeApi();
+    const { result } = renderHook(
+      () => useDashboard({ selectedProject: "p1", selectedRun: null, view: DASHBOARD_VIEW.OVERVIEW }),
+      { wrapper: ({ children }) => wrap(fakeApi, children) },
+    );
+    await waitFor(() => expect(result.current.dashboard).not.toBeNull());
+    expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", null, "overview");
+  });
+
+  it("dashboardViewForPage is full only on run pages", () => {
+    expect(dashboardViewForPage(NAV_TAB.RUN)).toBe(DASHBOARD_VIEW.FULL);
+    expect(dashboardViewForPage(NAV_TAB.HISTORY_RUN)).toBe(DASHBOARD_VIEW.FULL);
+    expect(dashboardViewForPage(NAV_TAB.OVERVIEW)).toBe(DASHBOARD_VIEW.OVERVIEW);
+    expect(dashboardViewForPage(NAV_TAB.HISTORY)).toBe(DASHBOARD_VIEW.OVERVIEW);
   });
 });

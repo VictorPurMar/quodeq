@@ -48,7 +48,7 @@ describe('usePrefetchRun', () => {
       expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1'))).toBeTruthy();
       expect(queryClient.getQueryData(projectKeys.scores('p1', 'r1'))).toBeTruthy();
     });
-    expect(getDashboard).toHaveBeenCalledWith('p1', 'r1');
+    expect(getDashboard).toHaveBeenCalledWith('p1', 'r1', 'full');
     expect(getProjectScores).toHaveBeenCalledWith('p1', 'r1');
   });
 
@@ -74,7 +74,7 @@ describe('usePrefetchRun', () => {
     await vi.advanceTimersByTimeAsync(PREFETCH_DWELL_MS);
 
     expect(getDashboard).toHaveBeenCalledTimes(1);
-    expect(getDashboard).toHaveBeenCalledWith('p1', 'r3');
+    expect(getDashboard).toHaveBeenCalledWith('p1', 'r3', 'full');
     expect(getProjectScores).toHaveBeenCalledTimes(1);
     expect(getProjectScores).toHaveBeenCalledWith('p1', 'r3');
   });
@@ -136,7 +136,7 @@ describe('usePrefetchRun', () => {
       await waitFor(() => {
         expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1', 'local'))).toBeTruthy();
       });
-      expect(getDashboard).toHaveBeenCalledWith('p1', 'r1');
+      expect(getDashboard).toHaveBeenCalledWith('p1', 'r1', 'full');
       expect(getProjectScores).toHaveBeenCalledWith('p1', 'r1');
       expect(sharedGetDashboard).not.toHaveBeenCalled();
       expect(sharedGetProjectScores).not.toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe('usePrefetchRun', () => {
       await waitFor(() => {
         expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1', 'shared'))).toBeTruthy();
       });
-      expect(sharedGetDashboard).toHaveBeenCalledWith('p1', 'r1');
+      expect(sharedGetDashboard).toHaveBeenCalledWith('p1', 'r1', 'full');
       expect(sharedGetProjectScores).toHaveBeenCalledWith('p1', 'r1');
       expect(getDashboard).not.toHaveBeenCalled();
       expect(getProjectScores).not.toHaveBeenCalled();

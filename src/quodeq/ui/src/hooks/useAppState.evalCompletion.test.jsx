@@ -82,14 +82,15 @@ describe('useAppState eval-completion: single refetch path (P5-T1)', () => {
 
     await waitFor(() => expect(result.current.selectedProject).toBe('project-a'));
     await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledTimes(1));
-    expect(fakeApi.getDashboard).toHaveBeenNthCalledWith(1, 'project-a', 'latest');
+    // The root hook is on the Overview, so it asks for the overview shape.
+    expect(fakeApi.getDashboard).toHaveBeenNthCalledWith(1, 'project-a', 'latest', 'overview');
 
     evaluationState.job = { jobId: 'j1', status: 'done', outputProject: 'project-a', outputRunId: 'run-2' };
     rerender();
 
     await waitFor(() => expect(result.current.selectedRun).toBe('run-2'));
     await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledTimes(2));
-    expect(fakeApi.getDashboard).toHaveBeenNthCalledWith(2, 'project-a', 'run-2');
+    expect(fakeApi.getDashboard).toHaveBeenNthCalledWith(2, 'project-a', 'run-2', 'overview');
     expect(fakeApi.getDashboard.mock.calls.filter(([p, r]) => p === 'project-a' && r === 'latest')).toHaveLength(1);
 
     // Settle a beat longer to catch any late-firing redundant refetch.

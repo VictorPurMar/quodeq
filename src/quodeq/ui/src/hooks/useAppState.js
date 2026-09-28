@@ -3,7 +3,7 @@ import { t } from '../strings/index.js';
 import { formatRunDate } from '../utils/formatters.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSidePane } from '../features/side-pane/SidePaneContext.jsx';
-import { useDashboard } from '../features/dashboard/hooks/useDashboard.js';
+import { useDashboard, dashboardViewForPage } from '../features/dashboard/hooks/useDashboard.js';
 import { usePrefetchAdjacentRuns } from '../features/dashboard/hooks/usePrefetchAdjacentRuns.js';
 import { buildPeriodRuns } from '../utils/dailyGrouping.js';
 import { readScoreHistoryGranularity, writeScoreHistoryGranularity } from '../utils/scoreHistoryPrefs.js';
@@ -254,8 +254,7 @@ export function useAppState() {
   } = projectBundle;
   const settings = useAppSettings();
   const { granularity, onGranularityChange } = useScoreHistoryGranularity();
-  const isHistoryRun = activePage.page === NAV_TAB.HISTORY_RUN;
-  const isHistoryTab = activePage.page === NAV_TAB.HISTORY;
+  const isHistoryRun = activePage.page === NAV_TAB.HISTORY_RUN, isHistoryTab = activePage.page === NAV_TAB.HISTORY;
   const effectiveRun = isHistoryRun ? historySelectedRun : selectedRun;
   // History views (the History tab and its run-detail page) show specific
   // past runs in a comparison-oriented mental model — flashing the previous
@@ -269,6 +268,7 @@ export function useAppState() {
     selectedRun: effectiveRun,
     selectedSource,
     keepPlaceholder: !isHistoryRun && !isHistoryTab,
+    view: dashboardViewForPage(activePage.page),
   });
   const { dailyRuns: rawDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useMemo(() => ({
     dailyRuns: buildPeriodRuns(availableRuns, dashboard?.trend || [], granularity),
