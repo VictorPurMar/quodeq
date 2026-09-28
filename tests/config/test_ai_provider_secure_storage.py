@@ -11,6 +11,13 @@ from quodeq.config.ai_provider import get_api_key_secure, store_api_key_secure
 from quodeq.config.paths import ConfigPaths
 
 
+@pytest.fixture(autouse=True)
+def _allow_plaintext_fallback(monkeypatch):
+    """These tests cover the opted-in cleartext fallback; the default-off
+    gate is covered in test_ai_provider_plaintext_opt_in.py."""
+    monkeypatch.setenv("QUODEQ_ALLOW_PLAINTEXT_KEY", "1")
+
+
 @pytest.fixture()
 def paths(tmp_path, monkeypatch):
     cfg_paths = ConfigPaths.from_root(tmp_path)

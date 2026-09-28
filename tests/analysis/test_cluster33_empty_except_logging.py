@@ -248,6 +248,7 @@ def test_seed_dimension_states_propagates_unnamed_write_error(
 
 def test_write_env_logs_cleanup_failure_and_reraises(tmp_path, monkeypatch) -> None:
     paths = ConfigPaths.from_root(tmp_path)
+    monkeypatch.setenv("QUODEQ_ALLOW_PLAINTEXT_KEY", "1")
 
     def _raise(*_args, **_kwargs):
         raise OSError("boom")

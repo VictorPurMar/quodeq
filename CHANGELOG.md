@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Security
+- **Provider keys stay off disk by default**: when no operating system keyring is available, an API key is no longer written to `.quodeq.env`. Export the provider's key variable (for example `ANTHROPIC_API_KEY`) in your shell, or set `QUODEQ_ALLOW_PLAINTEXT_KEY=1` to keep the previous owner-only file fallback.
+
 ### Improvements
 - **Numbers that only move with the code**: the `quodeq evaluate` summary line now reads `dim: SCORE (N major, T open types, D per 100 files, C% coverage)`; the raw violation count is no longer on it, and a critical finding counts as major. Run history rows carry violations, majors and open requirement types per dimension, and the dashboard payload carries a since-baseline block per dimension (the previous run it was compared with, majors delta, requirement types closed and opened, new and resolved findings in the files changed between the two commits, or in every file when a commit is unknown or the tree was dirty).
 

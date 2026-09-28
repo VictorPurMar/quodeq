@@ -203,7 +203,9 @@ def provider_store_key() -> Response:
 
     Returns ``{"stored", "secure"}``; ``secure`` is False when the keychain
     was unavailable and the key fell back to ``.quodeq.env`` on disk, which
-    the UI surfaces as a warning.
+    the UI surfaces as a warning. That fallback is opt-in
+    (``QUODEQ_ALLOW_PLAINTEXT_KEY=1``): without it and without a keychain,
+    ``stored`` is False and nothing is written.
     """
     data, err = object_body_or_error()
     if err is not None:
