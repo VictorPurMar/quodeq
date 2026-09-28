@@ -75,6 +75,10 @@ const CODE_KEYS = {
   REFRESH_FAILED: 'apiError.sharedRepoRefreshFailed',
   PUBLISH_IN_PROGRESS: 'apiError.publishInProgress',
   PUBLISH_START_FAILED: 'apiError.publishStartFailed',
+  CONNECT_IN_PROGRESS: 'apiError.connectInProgress',
+  CONNECT_START_FAILED: 'apiError.connectStartFailed',
+  CONNECT_FAILED: 'apiError.connectFailed',
+  CONNECT_TIMEOUT: 'apiError.connectTimeout',
 
   // Assistant workspace: diff/apply/discard on the isolated write worktree
   // (assistant_workspace_routes.py).
