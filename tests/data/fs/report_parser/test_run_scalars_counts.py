@@ -34,3 +34,49 @@ def test_scalars_carry_violations_majors_and_open_types(tmp_path: Path) -> None:
     assert (dim.totals.violation_count, dim.totals.severity.major, dim.totals.severity.critical) == (5, 1, 1)
     assert dim.open_types == 3
     assert dimension_counts(dim) == {"violations": 5, "majors": 2, "openTypes": 3, "critical": 1}
+
+
+def _compliance(req: str, i: int) -> dict:
+    return dict(practice_id="Confidentiality", verdict="compliance", dimension=_DIM,
+                file=f"c{i}.py", line=i, reason="ok", req=req, severity="minor")
+
+
+def test_scalars_carry_the_compliance_count(tmp_path: Path) -> None:
+    rows = [_violation("S-CON-1", "minor", 0), _violation("S-CON-2", "major", 1),
+            _compliance("S-CON-1", 2), _compliance("S-CON-3", 3), _compliance("S-CON-3", 4)]
+    _seed_run(tmp_path, _PROJECT, _RUN, rows)
+
+    (dim,) = read_run_scalars(tmp_path, _PROJECT, _RUN)
+
+    assert dim.totals is not None
+    assert (dim.totals.violation_count, dim.totals.compliance_count) == (2, 3)
+
+
+def _scorable() -> list[dict]:
+    """Enough violations in one principle to clear the confidence floor, so the run has a score."""
+    return [_violation(f"S-CON-{i}", "minor", i) for i in range(5)]
+
+
+def test_scalars_carry_the_stored_files_read(tmp_path: Path) -> None:
+    import sqlite3
+
+    run_dir = _seed_run(tmp_path, _PROJECT, _RUN, _scorable())
+    with sqlite3.connect(run_dir / "evaluation.db") as conn:
+        conn.execute("UPDATE dimension_scores SET files_read = 584, source_count = 1494")
+
+    (dim,) = read_run_scalars(tmp_path, _PROJECT, _RUN)
+
+    assert dim.files_read == 584
+
+
+def test_scalars_keep_a_zero_files_read(tmp_path: Path) -> None:
+    """A coverage-0 stub must stay 0 (not None): has_valid_score rejects 0 and trusts None."""
+    import sqlite3
+
+    run_dir = _seed_run(tmp_path, _PROJECT, _RUN, _scorable())
+    with sqlite3.connect(run_dir / "evaluation.db") as conn:
+        conn.execute("UPDATE dimension_scores SET files_read = 0, source_count = 0")
+
+    (dim,) = read_run_scalars(tmp_path, _PROJECT, _RUN)
+
+    assert dim.files_read == 0
