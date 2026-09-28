@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from quodeq.core.run.state import RunState
+from quodeq.core.run.state import TERMINAL_STATES, RunState
 from quodeq.core.scoring.params import ScoringParams
 from quodeq.services.dashboard_trend import build_accumulated_trend
 from quodeq.services.accumulated import compute_accumulated
@@ -31,7 +31,7 @@ from quodeq.services.dismissed import dismissed_keys
 from quodeq.services.suppression_keys import SuppressionKeys
 from quodeq.shared.log_sink import SHARED_LOG
 from quodeq.shared.stamp_memo import StampCache
-from quodeq.services.wiring import find_children, list_runs
+from quodeq.services.wiring import find_children, list_runs, run_fingerprint
 from quodeq.services.scoring import _fetchers
 from quodeq.services.scoring._deps import ScoringDeps, NO_DEPS
 from quodeq.services.scoring._rescoring import rescore_accumulated_with_coverage
@@ -119,8 +119,9 @@ def _empty_project_scores(scoring_meta: dict) -> dict[str, Any]:
     }
 
 
-#: Full payloads per (reports root, project, as_of); a few projects' worth.
-PAYLOAD_MEMO_MAX = 32
+#: One full payload per project (latest only); a decoded payload can be tens
+#: of MB, so the bound is a handful of projects, like the stale slots.
+PAYLOAD_MEMO_MAX = 8
 _PAYLOADS = StampCache(max_entries=PAYLOAD_MEMO_MAX)
 
 
@@ -129,11 +130,19 @@ def _payload_stamp(
 ) -> tuple:
     """Everything the payload depends on: the accumulated version (params,
     per-run content), the project's suppression state, each run's status,
-    the formula flag."""
+    the formula flag, and the files of every run still in flight (its cache
+    version only sees suppressions that touch it, yet its trend point moves
+    with every dimension it scores)."""
+    project_dir = req.reports_root / req.project
+    in_flight = tuple(
+        (r.run_id, run_fingerprint(project_dir / r.run_id))
+        for r in all_runs if r.status not in TERMINAL_STATES
+    )
     return (
         accumulated_cache_version(req.params, run_versions, req.as_of),
         suppression_state_fingerprint(req.params, keys.dismissed, keys.deleted),
         tuple((r.run_id, str(r.status)) for r in all_runs),
+        in_flight,
         custom,
     )
 
@@ -193,12 +202,18 @@ def get_project_scores_stamped(
     req = _ScoresRequest(reports_root, project, as_of, params, d)
     project_dir = reports_root / project
     keys = SuppressionKeys(dismissed_keys(project_dir), deleted_keys(project_dir))
+    parent = find_children(reports_root, project)
+    # Parents never had per-run versions (they bypass the accumulated cache);
+    # an as-of payload is frozen client-side already, so only the latest
+    # payload of a project is worth an entry.
+    if parent or as_of is not None:
+        run_versions = [] if parent else per_run_versions(
+            project_dir, project, params, [(r.run_id, r.status) for r in all_runs], keys=keys)
+        return _build_project_scores(req, all_runs, scoring_meta, run_versions, keys)[0], None
     run_versions = per_run_versions(project_dir, project, params,
                                     [(r.run_id, r.status) for r in all_runs], keys=keys)
-    if find_children(reports_root, project):
-        return _build_project_scores(req, all_runs, scoring_meta, run_versions, keys)[0], None
     stamp = _payload_stamp(req, all_runs, run_versions, keys, scoring_meta["customFormula"])
-    key = f"{reports_root}|{project}|{as_of}"
+    key = f"{reports_root}|{project}"
     hit = _PAYLOADS.get(key, stamp)
     if hit is not None:
         return hit, stamp  # type: ignore[return-value]

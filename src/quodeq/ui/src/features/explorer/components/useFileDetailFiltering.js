@@ -114,5 +114,7 @@ export function useFileDetailFiltering({ file, onDismiss, activeFilter, lowConfE
   return {
     dismissedSet, handleDismiss, liveSevCounts, liveTotal,
     totalCompliance, showFilters, items,
+    // The hydrated buckets, for the report and fix-plan panes.
+    violationsBySeverity,
   };
 }

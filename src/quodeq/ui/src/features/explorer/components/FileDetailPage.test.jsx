@@ -12,6 +12,14 @@ import FileDetailPage from './FileDetailPage.jsx';
 import { SidePaneProvider } from '../../side-pane/index.js';
 import { withQueryClient, withStableQueryApi } from '../../../test-utils/withQueryClient.jsx';
 import { t } from '../../../strings/index.js';
+import { useFileDetailWindowSpecs } from './useFileDetailWindowSpecs.jsx';
+
+// The report and fix-plan panes build from the file object they are given;
+// it must be the hydrated one (see the deferred-detail cases below).
+vi.mock('./useFileDetailWindowSpecs.jsx', async (importOriginal) => {
+  const mod = await importOriginal();
+  return { ...mod, useFileDetailWindowSpecs: vi.fn(mod.useFileDetailWindowSpecs) };
+});
 
 function makeFile(overrides = {}) {
   const violation = {
@@ -61,6 +69,19 @@ describe('FileDetailPage deferred violation detail', () => {
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onDismiss.mock.calls[0][0]).toMatchObject({ reason: 'User input reaches a sink unchecked.', snippet: 'sink(input)', reqRefs: [{ label: 'CWE-20' }] });
+  });
+
+  it('builds the report and fix plan from the hydrated file', async () => {
+    const getFindingDetail = vi.fn(async () => [full]);
+    render(
+      <SidePaneProvider>
+        <FileDetailPage file={makeFile({ violationsBySeverity: { critical: [], major: [slim], minor: [] } })} runId="run-1" dateLabel="2026-08-01" onDismiss={vi.fn()} />
+      </SidePaneProvider>,
+      { wrapper: withStableQueryApi({ getFindingDetail }) },
+    );
+    await screen.findByText('User input reaches a sink unchecked.');
+    const lastCall = useFileDetailWindowSpecs.mock.calls.at(-1)[0];
+    expect(lastCall.file.violationsBySeverity.major[0]).toMatchObject({ reason: 'User input reaches a sink unchecked.', snippet: 'sink(input)' });
   });
 });
 

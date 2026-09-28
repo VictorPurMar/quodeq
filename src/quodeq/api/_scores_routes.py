@@ -26,8 +26,9 @@ from quodeq.shared.stamp_memo import StampCache
 
 _logger = logging.getLogger(__name__)
 
-#: Shipped (deferred) payloads per (project, asOf), reused while the stamp holds.
-WIRE_MEMO_MAX = 32
+#: Shipped (deferred) payloads per (reports dir, project), reused while the
+#: stamp holds; the service only stamps a project's latest payload.
+WIRE_MEMO_MAX = 8
 _WIRE = StampCache(max_entries=WIRE_MEMO_MAX)
 
 KIND_PARAM = "kind"
@@ -55,7 +56,7 @@ def _wire_payload(project: str, result: dict, stamp: tuple | None) -> dict:
     """
     if stamp is None:
         return defer_finding_detail(result)
-    key = f"{project}|{request.args.get('asOf')}"
+    key = f"{reports_dir()}|{project}"
     hit = _WIRE.get(key, stamp)
     if hit is not None:
         return hit  # type: ignore[return-value]
