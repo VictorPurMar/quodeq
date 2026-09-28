@@ -157,7 +157,7 @@ class FilesystemActionProvider(ActionProvider):
 
     def cancel_evaluation(
         self, job_id: str, reports_dir: str | None = None,
-        *, discard_partial: bool = False,
+        *, discard_partial: bool = False, wait_for_exit: bool = False,
     ) -> bool:
         """Cancel a running job; promote stale rows when SIGTERM has nothing to signal.
 
@@ -174,7 +174,7 @@ class FilesystemActionProvider(ActionProvider):
         surface the discarded run again.
         """
         ok = self._eval_handler.cancel_evaluation(
-            job_id, reports_dir=reports_dir, discard_partial=discard_partial,
+            job_id, reports_dir=reports_dir, discard_partial=discard_partial, wait_for_exit=wait_for_exit,
         )
         if not ok:
             ok = self._evaluations.promote_stale_to_cancelled(job_id, reports_dir=reports_dir)

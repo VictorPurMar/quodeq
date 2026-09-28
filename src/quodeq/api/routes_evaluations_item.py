@@ -74,6 +74,10 @@ def _resolve_cancel_intent(snapshot: Any, intent: str | None) -> tuple[dict, int
 
 def _cancel_running(app: Flask, provider: ActionProvider, job_id: str) -> Response | tuple[Response, int]:
     discard = request.args.get("discard", "").lower() == QUERY_FLAG_TRUE
+    # ?wait=true: answer only once the run's process is gone and scored. The
+    # window close sends it: it kills this server right after, which would
+    # take the background escalation (and its scoring) down with it.
+    wait = request.args.get("wait", "").lower() == QUERY_FLAG_TRUE
     _logger.info(
         "cancel_evaluation: job_id=%s, discard=%s, remote_addr=%s",
         job_id, discard, request.remote_addr,
@@ -86,7 +90,7 @@ def _cancel_running(app: Flask, provider: ActionProvider, job_id: str) -> Respon
         # resurrecting a run the user just discarded.
         claims.claim(job_id)
     ok = provider.cancel_evaluation(
-        job_id, reports_dir=reports_dir(), discard_partial=discard,
+        job_id, reports_dir=reports_dir(), discard_partial=discard, wait_for_exit=wait,
     )
     if not ok:
         if discard:

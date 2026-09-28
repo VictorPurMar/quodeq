@@ -106,3 +106,22 @@ def test_keep_findings_cancel_scores_only_after_the_process_exits(tmp_path, monk
         proc.threads[0].join(timeout=budget(5))
 
     assert alive_when_scored == [False]
+
+
+def test_wait_for_exit_cancel_scores_before_it_returns(tmp_path, monkeypatch):
+    """The window close's ?wait=true: scoring must be done when the call returns."""
+    monkeypatch.setenv("QUODEQ_CANCEL_GRACE_S", "0.05")
+    _write_pid(tmp_path)
+    proc = _StubbornProcess()
+    mixin = FsEvaluationMixin()
+    mixin._jobs = _manager(proc)
+    snapshot = JobSnapshot(job_id="ext-run", status="running", output_project="proj", output_run_id="run")
+    alive_when_scored: list[bool] = []
+
+    with patch.object(FsEvaluationMixin, "get_evaluation_status", return_value=snapshot), \
+         patch(_WAIT_TERMINAL), \
+         patch(_SCORE, side_effect=lambda *_a: alive_when_scored.append(proc.pid_alive(0))):
+        assert mixin.cancel_evaluation("ext-run", reports_dir=str(tmp_path), wait_for_exit=True) is True
+
+    assert alive_when_scored == [False]
+    assert proc.threads == []

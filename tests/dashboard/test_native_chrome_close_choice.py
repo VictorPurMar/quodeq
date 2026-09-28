@@ -112,6 +112,7 @@ class TestOnClosingChoice:
                 return False
 
         def _fake_urlopen(req, timeout=None):
+            captured["timeout"] = timeout
             captured["url"] = req.full_url
             captured["method"] = req.get_method()
             captured["origin"] = req.headers.get("Origin")
@@ -119,7 +120,11 @@ class TestOnClosingChoice:
 
         with patch("urllib.request.urlopen", side_effect=_fake_urlopen):
             api._cancel_evaluation("job-42")
-        assert captured["url"] == "http://127.0.0.1:7863/api/evaluations/job-42"
+        # wait=true: the server is killed right after, so the cancel must
+        # finish (escalation + scoring) before it answers; the client timeout
+        # has to outlast the 30s SIGTERM grace.
+        assert captured["url"] == "http://127.0.0.1:7863/api/evaluations/job-42?intent=cancel&wait=true"
+        assert captured["timeout"] > 30
         assert captured["method"] == "DELETE"
         assert captured["origin"] == "http://127.0.0.1:7863"
 

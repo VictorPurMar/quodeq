@@ -180,7 +180,7 @@ class FsEvaluationMixin:
 
     def cancel_evaluation(
         self, job_id: str, reports_dir: str | None = None,
-        *, discard_partial: bool = False,
+        *, discard_partial: bool = False, wait_for_exit: bool = False,
     ) -> bool:
         """Cancel a running evaluation job; score completed dims unless discarding.
 
@@ -227,10 +227,11 @@ class FsEvaluationMixin:
                 score_completed_evidence(reports_dir, ref)
         # A discard deletes the run's files next, so it must not race a
         # process still inside its SIGTERM grace window; a keep-findings
-        # cancel returns at once and scores once the escalation is done.
+        # cancel returns at once and scores once the escalation is done,
+        # unless the caller (window close, about to kill this server) waits.
         ok = self._jobs.cancel_job(
             job_id, reports_root=reports_root, run_dir=run_dir,
-            wait_for_exit=discard_partial, on_exit=on_exit,
+            wait_for_exit=discard_partial or wait_for_exit, on_exit=on_exit,
         )
         if ok and run_dir is not None:
             wait_for_terminal_status(run_dir)

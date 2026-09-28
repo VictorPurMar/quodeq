@@ -168,9 +168,12 @@ class EvaluationActions(Protocol):
 
     def cancel_evaluation(
         self, job_id: str, reports_dir: str | None = None,
-        *, discard_partial: bool = False,
+        *, discard_partial: bool = False, wait_for_exit: bool = False,
     ) -> bool:
         """Cancel a running evaluation job. Return True on success.
+
+        ``wait_for_exit`` returns only once the run's process is gone (and a
+        keep-findings cancel has scored), for a caller about to shut down.
 
         When ``discard_partial`` is True, any in-flight dim's
         ``<dim>_queue.json`` and ``<dim>_fingerprint.json`` are deleted so
