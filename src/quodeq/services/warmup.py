@@ -145,6 +145,11 @@ class WarmupEngine:
             if getattr(entry, "summary_pending", False):
                 self.enqueue(entry.id)
 
+    def generation(self) -> int:
+        """How many projects the worker has finished; moves on every completion."""
+        with self._cond:
+            return self._done
+
     def snapshot(self) -> dict | None:
         """Return warm-up progress for the API, or None before ``start``."""
         with self._cond:
