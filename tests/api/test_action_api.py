@@ -42,7 +42,7 @@ class StubProvider(ActionProvider):
             return {"jobId": "job-1", "status": "done", "logs": []}
         return None
 
-    def cancel_evaluation(self, job_id: str, reports_dir: str | None = None) -> bool:
+    def cancel_evaluation(self, job_id: str, reports_dir: str | None = None, **_kwargs) -> bool:
         return False
 
     def list_evaluations(self, *, limit: int = 0, reports_dir: str | None = None) -> list[dict]:
