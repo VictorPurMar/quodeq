@@ -7,6 +7,8 @@ a direct _write_env refuses too.
 """
 from __future__ import annotations
 
+import sys
+
 import keyring.errors
 import pytest
 
@@ -73,7 +75,7 @@ def test_opt_in_keeps_the_0600_cleartext_fallback_with_a_warning(paths, monkeypa
 
     assert "export ANTHROPIC_API_KEY=sk-opted-in" in paths.env_file.read_text()
     assert warnings and "cleartext" in warnings[0]
-    if hasattr(ai_provider.os, "fchmod"):
+    if sys.platform != "win32":  # POSIX mode bits; os.fchmod exists on 3.13 Windows but is a no-op for them
         assert paths.env_file.stat().st_mode & 0o777 == 0o600
 
 
