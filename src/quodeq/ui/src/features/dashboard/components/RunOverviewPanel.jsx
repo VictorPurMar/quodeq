@@ -15,7 +15,6 @@ import { useRunReportSpecs } from './runReportSpecs.jsx';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
-import { overviewLearnMore } from '../overviewLearnMore.js';
 
 export { RunHeroSection };
 
@@ -116,7 +115,7 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, projectName
 
   return (
     <div className="run-overview-fade run-overview-ready">
-      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} deltas={chipDeltas(since)} density={headline.density} learnMore={overviewLearnMore(onNavigate)} />
+      <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} deltas={chipDeltas(since)} density={headline.density} />
       <section className="quality-dimensions" aria-label={t('overview.qualityDimensionsAria')}>
         <div className="quality-dimensions__head">
           <SectionLabel>{t('overview.qualityDimensionsLabel')} · {dimCount}</SectionLabel>

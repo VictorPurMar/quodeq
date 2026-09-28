@@ -13,11 +13,11 @@ describe('SeverityBadgeRow deltas', () => {
   it('mixed directions: criticals up reads bad, majors down reads good, minor has none', () => {
     const { container } = render(<SeverityBadgeRow severity={severity} deltas={{ critical: 1, major: -83 }} />);
     const crit = badge(container, 'critical').querySelector('.term-sev-badge__delta');
-    expect(crit).toHaveTextContent('▴1');
-    expect(crit.className).toContain('term-sev-badge__delta--bad');
+    expect(crit).toHaveTextContent('+1');
+    expect(crit.querySelector('.trend-badge-down')).not.toBeNull();
     const maj = badge(container, 'major').querySelector('.term-sev-badge__delta');
-    expect(maj).toHaveTextContent('▾83');
-    expect(maj.className).toContain('term-sev-badge__delta--good');
+    expect(maj).toHaveTextContent('-83');
+    expect(maj.querySelector('.trend-badge-up')).not.toBeNull();
     expect(badge(container, 'minor').querySelector('.term-sev-badge__delta')).toBeNull();
   });
 
@@ -30,14 +30,14 @@ describe('SeverityBadgeRow deltas', () => {
   it('zero shows no arrow', () => {
     const { container } = render(<SeverityBadgeRow severity={severity} deltas={{ critical: 0, major: -7 }} />);
     expect(badge(container, 'critical').querySelector('.term-sev-badge__delta')).toBeNull();
-    expect(badge(container, 'major').querySelector('.term-sev-badge__delta')).toHaveTextContent('▾7');
+    expect(badge(container, 'major').querySelector('.term-sev-badge__delta')).toHaveTextContent('-7');
   });
 
   it('a count that dropped to zero keeps its chip so the arrow shows', () => {
     const { container } = render(<SeverityBadgeRow severity={{ critical: 0, major: 5, minor: 0 }} deltas={{ critical: -3, major: 0 }} />);
     const crit = badge(container, 'critical');
     expect(crit).toHaveTextContent('0 crit');
-    expect(crit.querySelector('.term-sev-badge__delta')).toHaveTextContent('▾3');
+    expect(crit.querySelector('.term-sev-badge__delta')).toHaveTextContent('-3');
     expect(badge(container, 'minor')).toBeNull();
   });
 });

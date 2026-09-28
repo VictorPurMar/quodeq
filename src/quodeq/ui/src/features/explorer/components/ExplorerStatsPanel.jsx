@@ -11,7 +11,7 @@ import { GradeChip, RatioDensityStat, ratioDisplay } from '../../dashboard/compo
  * chart: the left column of the dimension page's top grid. */
 export default function ExplorerStatsPanel({
   overallScoreNum, overallGrade, allViolations, totalCompliant, sev, onSeverityBadge,
-  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, deltas = null, density = null, learnMore,
+  onNavigate, onCardNavigate, trend, dimension, activeRunId, granularity, onGranularityChange, onBarClick, deltas = null, density = null,
 }) {
   return (
     <div className="qd-top-left">
@@ -47,7 +47,7 @@ export default function ExplorerStatsPanel({
           onClick={onNavigate && totalCompliant > 0 ? () => onCardNavigate('compliance') : undefined}
           ariaLabel={totalCompliant > 0 ? t('overview.showComplianceAria') : undefined}
         />
-        <RatioDensityStat ratio={ratioDisplay(allViolations.length, totalCompliant)} density={density} learnMore={learnMore} />
+        <RatioDensityStat ratio={ratioDisplay(allViolations.length, totalCompliant)} density={density} />
       </StatGrid2x2>
 
       <DimensionScoreHistoryPanel

@@ -11,8 +11,8 @@ Overview shows the latest scored result for each dimension, even when those resu
 - **Score** the overall number and grade, with a delta against the previous run.
 - **Violations** active findings with severity badges. The CRIT and MAJ badges carry their change since the baseline run (the previous finished run): down is good, up is bad, and a badge with no change shows no arrow. When both runs recorded a commit, the arrow counts only the files that changed between them, so re-sampled untouched files do not move it; otherwise it counts every file. Click the stat, or a single badge, to open a project-wide findings view filtered to that severity.
 - **Compliance** evidence of good practice. Click it to browse the compliant findings.
-- **Ratio** violations to compliance, one decimal: `1:0.9` means fewer compliant checks than violations.
-- **Density** open findings per 100 files read across the dimensions shown, beside the ratio. A run that recorded no files-read count shows no density.
+- **Ratio** violations to compliance: `1:3` means three compliant checks per violation.
+- **Density** under the ratio, violations : 100 files: violations per 100 files read across the dimensions shown. A run that recorded no files-read count shows no density.
 
 ### Panels
 
