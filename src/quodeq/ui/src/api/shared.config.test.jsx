@@ -30,6 +30,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -79,6 +80,51 @@ describe('shared repo API client', () => {
       expect(JSON.parse(calls[0].opts.body)).toEqual({
         url: 'https://github.com/example/repo.git',
       });
+    });
+
+    // PUT answers 202 {started: true}; the clone runs server-side and the
+    // outcome arrives under `connect` in /shared/status.
+    function stubConnectJob(states) {
+      const seen = [];
+      vi.stubGlobal('fetch', vi.fn(async (url, opts) => {
+        seen.push({ url, method: opts?.method });
+        const body = opts?.method === 'PUT' ? { started: true, url: 'u' } : { connect: states.shift() };
+        return { ok: true, json: async () => body };
+      }));
+      return seen;
+    }
+
+    it('connectShared polls /shared/status until the connect job is done', async () => {
+      vi.useFakeTimers();
+      const seen = stubConnectJob([{ state: 'running' }, { state: 'done', url: 'u' }]);
+      const result = shared.connectShared('u');
+      await vi.advanceTimersByTimeAsync(2 * shared.CONNECT_POLL_INTERVAL_MS);
+      await expect(result).resolves.toEqual({ configured: true, url: 'u' });
+      expect(seen.map((c) => c.method ?? 'GET')).toEqual(['PUT', 'GET', 'GET']);
+    });
+
+    it('connectShared rejects with the job code and a request()-shaped error', async () => {
+      vi.useFakeTimers();
+      stubConnectJob([{ state: 'error', code: 'CLONE_FAILED', error: 'could not clone' }]);
+      const result = shared.connectShared('u').catch((e) => e);
+      await vi.advanceTimersByTimeAsync(shared.CONNECT_POLL_INTERVAL_MS);
+      const err = await result;
+      expect([err.message, err.code, err.status]).toEqual(['could not clone', 'CLONE_FAILED', 502]);
+    });
+
+    it('connectShared gives up with CONNECT_TIMEOUT after the deadline', async () => {
+      vi.useFakeTimers();
+      stubConnectJob(new Array(1000).fill({ state: 'running' }));
+      const result = shared.connectShared('u').catch((e) => e);
+      await vi.advanceTimersByTimeAsync(shared.CONNECT_DEADLINE_MS + shared.CONNECT_POLL_INTERVAL_MS);
+      expect((await result).code).toBe('CONNECT_TIMEOUT');
+    });
+
+    it('connectShared lets a PUT error through without polling', async () => {
+      const err = { error: 'a connect is already running', code: 'CONNECT_IN_PROGRESS' };
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 409, json: async () => err })));
+      await expect(shared.connectShared('u')).rejects.toMatchObject({ status: 409, code: 'CONNECT_IN_PROGRESS' });
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it('disconnectShared DELETEs /shared/config', async () => {

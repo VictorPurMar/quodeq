@@ -31,6 +31,33 @@ _DEFAULT_CIRCUIT_THRESHOLD = 5  # consecutive failures before the circuit breake
 _DEFAULT_RETRY_BACKOFF_S = 0.5  # QUODEQ_RETRY_BACKOFF_S fallback
 
 
+class BlockedRedirect(urllib.error.URLError):
+    """A 3xx pointed at a target the private-address policy refuses."""
+
+
+class _RedirectGuard(urllib.request.HTTPRedirectHandler):
+    """Re-validate every redirect target before urllib follows it.
+
+    The pre-flight check in :meth:`FetchClient.fetch` only sees the URL the
+    caller asked for; a public host answering 302 to 169.254.169.254 or
+    localhost would otherwise be followed with the body handed back.
+    """
+
+    def __init__(self, allow_private: bool) -> None:
+        super().__init__()
+        self._allow_private = allow_private
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: PLR0913 - urllib's signature
+        target = urlparse(newurl)
+        hostname = target.hostname or ""
+        if target.scheme not in (SCHEME_HTTP, SCHEME_HTTPS) or (
+            hostname and not self._allow_private and _is_private_hostname(hostname)
+        ):
+            _logger.warning("Blocked redirect to %s://%s", target.scheme, hostname)
+            raise BlockedRedirect(f"redirect to blocked target {target.scheme}://{hostname}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class FetchClient:
     """Thread-safe HTTP fetcher with circuit breaker (trips after repeated failures)."""
 
@@ -90,6 +117,10 @@ class FetchClient:
         if self._is_circuit_open():
             return None
 
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPSHandler(context=_ssl.create_default_context()),
+            _RedirectGuard(self._allow_private),
+        )
         last_exc: Exception | None = None
         for retry in range(self._MAX_RETRIES):
             try:
@@ -97,8 +128,7 @@ class FetchClient:
                     _logger.warning("Blocked fetch after DNS re-check: %s", hostname)
                     return None
                 req = urllib.request.Request(url, headers=headers or {})
-                _ctx = _ssl.create_default_context()
-                with urllib.request.urlopen(req, timeout=self._timeout, context=_ctx) as r:
+                with opener.open(req, timeout=self._timeout) as r:
                     # One byte over the cap is enough to prove it was exceeded,
                     # and stops the read there rather than buffering the rest.
                     body = r.read(self._MAX_BODY_BYTES + 1)
@@ -113,6 +143,11 @@ class FetchClient:
                     return None
                 self._record_success()
                 return body.decode("utf-8", errors="replace")
+            except BlockedRedirect as exc:
+                # Policy, not transport: the endpoint will redirect the same
+                # way again, so a retry only repeats the blocked hop.
+                self._record_failure(exc)
+                return None
             except (urllib.error.URLError, OSError, ValueError) as exc:
                 last_exc = exc
                 if retry < self._MAX_RETRIES - 1:

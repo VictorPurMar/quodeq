@@ -34,6 +34,7 @@ from quodeq.services._publish_staging import (
     merge_actions_log,
     stage_project,
 )
+from quodeq.services.job_status import JobSlotStatus
 from quodeq.services.wiring import (
     MARKER_FILENAME,
     RepoFormat,
@@ -138,7 +139,7 @@ class PublishState(StrEnum):
     ERROR = "error"
 
 
-class PublishStatus:
+class PublishStatus(JobSlotStatus):
     """Lock-guarded publish job status (states: idle/running/done/error).
 
     Instantiable so tests get isolated status; production shares the
@@ -146,35 +147,20 @@ class PublishStatus:
     """
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._status: dict = {
-            "state": PublishState.IDLE,
-            "project": None,
-            "runs": None,
-            "error": None,
-            "finished_at": None,
-        }
-
-    def copy(self) -> dict:
-        """Return a snapshot of the status fields, safe to hand to a route."""
-        with self._lock:
-            return dict(self._status)
-
-    def set(self, **fields) -> None:
-        """Merge *fields* into the status. Keys are not validated."""
-        with self._lock:
-            self._status.update(fields)
+        super().__init__(
+            {
+                "state": PublishState.IDLE,
+                "project": None,
+                "runs": None,
+                "error": None,
+                "finished_at": None,
+            },
+            PublishState.RUNNING,
+        )
 
     def claim(self, project_id: str) -> bool:
         """Atomically take the publish slot; False when a publish is running."""
-        with self._lock:
-            if self._status["state"] == PublishState.RUNNING:
-                return False
-            self._status.update(
-                state=PublishState.RUNNING, project=project_id, runs=None, error=None,
-                finished_at=None,
-            )
-            return True
+        return self.claim_slot(project=project_id)
 
 
 _default_status = PublishStatus()

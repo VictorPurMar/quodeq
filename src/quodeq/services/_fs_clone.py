@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import errno
+import ipaddress
 import logging
 import subprocess as _subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 from quodeq.services.wiring import clone_repo, remove_clone_dir
 from quodeq.config.clone_env import clone_shallow_months, git_clone_timeout_s
+from quodeq.shared.constants import SCHEME_HTTP, SCHEME_HTTPS
+from quodeq.shared.ssrf import resolve_addresses
 
 _logger = logging.getLogger(__name__)
+
+_DEFAULT_PORTS = {SCHEME_HTTP: 80, SCHEME_HTTPS: 443}
+_KIND_NETWORK = "network"
 
 
 class CloneError(RuntimeError):
@@ -68,14 +75,44 @@ def _classify_stderr(stderr: str) -> str:
 _RETRYABLE_KINDS = ("network", "unknown")
 
 
+def _pinned_git_config(url: str) -> list[str]:
+    """``http.curloptResolve`` entries pinning git's connection to the
+    addresses *url*'s host resolves to right now.
+
+    The URL was validated against the private-address policy before the
+    clone, but git runs its own DNS lookup, and a rebinding host can answer
+    that second lookup with an internal address. Resolving once here, judging
+    that answer, and handing the same addresses to git closes the gap for
+    http(s) remotes. Other schemes (scp-like ``git@host:``) cannot be pinned
+    and get no entry.
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if parsed.scheme not in _DEFAULT_PORTS or not hostname:
+        return []
+    addresses = resolve_addresses(hostname)
+    if not addresses:
+        raise CloneError(_KIND_NETWORK, f"could not resolve {hostname}")
+    if any(_is_internal(a) for a in addresses):
+        raise CloneError(_KIND_NETWORK, f"{hostname} resolves to a private/internal address")
+    port = parsed.port or _DEFAULT_PORTS[parsed.scheme]
+    return [f"http.curloptResolve={hostname}:{port}:{','.join(addresses)}"]
+
+
+def _is_internal(address: str) -> bool:
+    addr = ipaddress.ip_address(address)
+    return addr.is_private or addr.is_loopback or addr.is_link_local
+
+
 def _clone_once(
     url: str, clone_dest: Path, extra_args: list[str], *, timeout_s: int | None = None,
 ) -> None:
     # The subprocess invocation lives in the data layer (ports.clone_repo);
     # this function owns mapping its raw failures onto CloneError kinds.
     resolved_timeout = timeout_s if timeout_s is not None else git_clone_timeout_s()
+    git_config = _pinned_git_config(url)
     try:
-        clone_repo(url, clone_dest, extra_args, timeout_s=resolved_timeout)
+        clone_repo(url, clone_dest, extra_args, timeout_s=resolved_timeout, git_config=git_config)
     except _subprocess.CalledProcessError as exc:
         raw = exc.stderr
         if isinstance(raw, bytes):
@@ -101,6 +138,10 @@ def run_git_clone(
     url: str, clone_dest: Path, *, timeout_s: int | None = None, shallow_months: int | None = None,
 ) -> None:
     """Execute ``git clone`` for *url* into *clone_dest*. Raises CloneError on failure.
+
+    An http(s) remote is cloned against the addresses its host resolves to
+    at this moment (see ``_pinned_git_config``); a host that resolves to an
+    internal address, or not at all, is refused before git starts.
 
     Clones shallow by default (``--single-branch``, ``--no-tags``,
     ``--shallow-since``): the working copy is evaluated at HEAD and the only

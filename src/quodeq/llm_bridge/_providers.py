@@ -101,6 +101,10 @@ def resolve_api_key(
     return _api_key(env_name, env), env_name
 
 
+def _same_endpoint(requested: str, configured: str) -> bool:
+    return requested.rstrip("/") == configured.rstrip("/")
+
+
 def resolve_test_endpoint(
     provider_id: str, api_base: str, api_key: str,
 ) -> tuple[str, str, str]:
@@ -110,12 +114,29 @@ def resolve_test_endpoint(
     *api_base*/*api_key* are the request body's values (possibly empty). An
     empty *api_base* falls back to the provider config's default; an empty
     *api_key* is resolved from the environment. *api_key_env* is returned
-    either way, so the caller can report which variable is missing.
+    with it, so the caller can report which variable is missing.
+
+    The environment key belongs to the provider's configured endpoint. A
+    body that names a different *api_base* gets neither the key nor the
+    env name, so the server's credential is never sent to a host the
+    request chose.
     """
     configs = get_provider_configs()
     provider_cfg = configs.get(provider_id, {}) if provider_id else {}
     resolved_base = api_base or provider_cfg.get("api_base", "")
     api_key_env = ""
-    if not api_key:
+    if not api_key and _catalog_endpoint(api_base, provider_cfg):
         api_key, api_key_env = resolve_api_key(provider_id, resolved_base)
     return resolved_base, api_key, api_key_env
+
+
+def _catalog_endpoint(api_base: str, provider_cfg: dict) -> bool:
+    """True when *api_base* is empty or is the endpoint *provider_cfg* names.
+
+    With no provider config the caller matches the base against the whole
+    catalog (``resolve_api_key_env``), which is a catalog endpoint by
+    construction.
+    """
+    if not api_base or not provider_cfg:
+        return True
+    return _same_endpoint(api_base, provider_cfg.get("api_base") or "")

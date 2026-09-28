@@ -163,11 +163,9 @@ describe("useEvaluation", () => {
     expect(payload.apiKey).toBeUndefined();
   });
 
-  it("startEvaluation still forwards a genuine legacy raw api key", async () => {
-    // Installs that saved a key through the (since-deleted) Settings input
-    // still have the raw value in this browser's localStorage and nothing
-    // migrated it. Dropping it outright silently sent no key at all for
-    // them — a live regression, not just dead code.
+  it("startEvaluation never forwards a raw api key left in browser storage", async () => {
+    // The backend resolves the key from its own secure store; a raw value
+    // here is moved there by the legacy provider-key migration at boot.
     localStorage.setItem("cc-ollama-api-key", "sk-legacy-raw-value");
     fakeApi.startEvaluation.mockResolvedValue({ jobId: "j5", status: "pending", dimensions: [] });
     const { result } = renderHook(() => useEvaluation(), { wrapper: makeWrapper() });
@@ -175,7 +173,7 @@ describe("useEvaluation", () => {
       await result.current.startEvaluation({ repo: "x", dimensions: ["security"] });
     });
     const [payload] = fakeApi.startEvaluation.mock.calls.at(-1);
-    expect(payload.apiKey).toBe("sk-legacy-raw-value");
+    expect(payload).not.toHaveProperty("apiKey");
   });
 
   it("startEvaluation sends no api key when nothing is stored", async () => {

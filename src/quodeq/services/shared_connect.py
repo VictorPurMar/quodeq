@@ -1,10 +1,10 @@
 """Use case: connect (validate + clone) a shared results repository.
 
-Extracted from the PUT /api/shared/config route body so the connect-and-
-validate business logic is testable without an HTTP request; the route
-becomes a thin translation of a ConnectOutcome into one of five response
-shapes. Distinct from services/shared_publish.py, which stages an already-
-LOCAL project's data into an already-connected clone.
+Kept apart from the HTTP layer so the connect-and-validate business logic is
+testable without a request. PUT /api/shared/config runs it as a background
+job (services/shared_connect_job.py), which maps a ConnectOutcome to the
+reported code and message. Distinct from services/shared_publish.py, which
+stages an already-LOCAL project's data into an already-connected clone.
 """
 from __future__ import annotations
 

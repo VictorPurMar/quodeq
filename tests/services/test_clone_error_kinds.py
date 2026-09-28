@@ -10,6 +10,13 @@ import pytest
 from quodeq.services._fs_clone import CloneError, run_git_clone
 
 
+@pytest.fixture(autouse=True)
+def _public_remote(monkeypatch):
+    """The fake remote resolves to one public address, so the pin step
+    never touches DNS and never refuses the clone."""
+    monkeypatch.setattr("quodeq.services._fs_clone.resolve_addresses", lambda hostname: ("140.82.121.3",))
+
+
 def _stderr(text: str) -> subprocess.CalledProcessError:
     err = subprocess.CalledProcessError(returncode=128, cmd=["git", "clone"])
     err.stderr = text.encode() if isinstance(text, str) else text

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 class TestCreateWorktreeCleanupOnFailure:
@@ -115,3 +115,27 @@ class TestCreateWorktreeCleanupOnFailure:
         assert argv[dash_dash_index + 1] == "--upload-pack=evil", (
             f"Branch argument should immediately follow --: {argv}"
         )
+
+
+class TestFetchBranchArgv:
+    def test_fetch_refspec_follows_an_option_terminator(self, tmp_path: Path) -> None:
+        """A dash-prefixed branch reaches ``git fetch`` as a refspec, never
+        as an option: the first ``worktree add`` fails, the fetch runs with
+        ``--`` before ``<branch>:<branch>``, and the retry succeeds."""
+        from quodeq.cli_evaluation import create_worktree
+
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        ok = MagicMock(returncode=0)
+
+        with patch(
+            "quodeq._cli_resolution.subprocess.run",
+            side_effect=[subprocess.CalledProcessError(1, "git"), ok, ok],
+        ) as mock_run:
+            result = create_worktree(repo_dir, "--upload-pack=evil")
+
+        assert result is not None
+        fetch_argv = mock_run.call_args_list[1][0][0]
+        assert fetch_argv[fetch_argv.index("fetch"):] == [
+            "fetch", "origin", "--", "--upload-pack=evil:--upload-pack=evil",
+        ]

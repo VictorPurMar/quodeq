@@ -52,13 +52,11 @@ def _resolve_target_path(request: MaterializeRequest) -> Path:
         # resolution between _validate_clone_target's check and here (index
         # load, legacy directory scan, project creation) does real disk I/O and
         # can take enough wall-clock time for a DNS-rebinding attacker to flip
-        # the host from a public to a private IP. This narrows, but does not
-        # close, the race -- git clone re-resolves DNS again itself, independently,
-        # inside the subprocess below; only pinning the resolved IP through git's
-        # own connection (a hosts-file override or proxy layer) would close it,
-        # and that's out of scope here.
+        # the host from a public to a private IP. run_git_clone then resolves
+        # the host once more, judges that answer and pins git's connection to
+        # it (http.curloptResolve), so git's own lookup cannot land elsewhere.
         validate_remote_url(request.repo)
-        # run_git_clone raises CloneError on failure (Task A8). We let it propagate.
+        # run_git_clone raises CloneError on failure; it propagates.
         run_git_clone(request.repo, target_path)
         return target_path
 

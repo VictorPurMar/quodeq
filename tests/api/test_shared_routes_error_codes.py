@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 
 from quodeq.data.fs.shared_repo import FORMAT_NAME, MARKER_FILENAME, shared_repo_path
-from quodeq.services.shared_connect import ConnectOutcome
 from quodeq.services.shared_settings import SharedSettings, write_settings
 from tests.api._routes_shared_fixtures import (  # noqa: F401 -- client/_clean_publish_status are pytest fixtures
     _ORIGIN,
@@ -74,15 +73,25 @@ def test_shared_root_foreign_message_tells_user_to_reconnect(client):
 
 
 def test_put_config_invalid_url_has_code(client, monkeypatch):
-    monkeypatch.setattr(
-        "quodeq.api.routes_shared_config.connect_shared_repo",
-        lambda url, **_kwargs: ConnectOutcome(status="invalid_url", url=url, detail="bad url"),
-    )
+    def _reject(url):
+        raise ValueError("bad url")
+
+    monkeypatch.setattr("quodeq.services.shared_connect_job.validate_remote_url", _reject)
     resp = client.put("/api/shared/config", json={"url": "not-a-url"}, headers=_ORIGIN)
     assert resp.status_code == 400
     body = resp.get_json()
     assert body["code"] == "INVALID_URL"
     assert body["error"] == "bad url"
+
+
+def test_put_config_start_failure_has_code(client, monkeypatch):
+    monkeypatch.setattr("quodeq.services.shared_connect_job.validate_remote_url", lambda url: None)
+    monkeypatch.setattr("quodeq.api.routes_shared_config.start_connect", lambda url, **_kw: "failed")
+    resp = client.put(
+        "/api/shared/config", json={"url": "https://example.invalid/x.git"}, headers=_ORIGIN
+    )
+    assert resp.status_code == 500
+    assert resp.get_json()["code"] == "CONNECT_START_FAILED"
 
 
 def test_shared_refresh_no_repo_configured_has_code(client, monkeypatch, tmp_path):

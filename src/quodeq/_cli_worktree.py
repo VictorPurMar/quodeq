@@ -45,11 +45,13 @@ def _fetch_branch(repo_dir: Path, branch: str) -> bool:
     Single-branch clones (online repos registered via run_git_clone) have no
     refspec for other branches, so a plain ``fetch origin <branch>`` would
     only update FETCH_HEAD; the explicit ``<branch>:<branch>`` refspec makes
-    it usable by ``worktree add``. Returns True when the fetch succeeded.
+    it usable by ``worktree add``. The ``--`` keeps a branch name that starts
+    with a dash a refspec rather than a fetch option, the same way
+    ``worktree add`` is called. Returns True when the fetch succeeded.
     """
     from quodeq import _cli_resolution as _facade
     try:
-        result = _git(repo_dir, "fetch", "origin", f"{branch}:{branch}", timeout=_facade.FETCH_TIMEOUT_S)
+        result = _git(repo_dir, "fetch", "origin", "--", f"{branch}:{branch}", timeout=_facade.FETCH_TIMEOUT_S)
         return result.returncode == 0
     except (subprocess.SubprocessError, OSError):
         return False
