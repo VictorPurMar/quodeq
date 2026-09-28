@@ -200,16 +200,19 @@ class Projector:
 
         # Project actions. If events changed too, force-replay so brand-new findings
         # get matched against pre-existing dismissals.
+        verdicts_changed = 0
         if staleness.actions_log is not None and (staleness.actions_changed or staleness.events_changed):
-            self._engine.update_actions(
+            verdicts_changed = self._engine.update_actions(
                 staleness.actions_log, run_dir, force=staleness.events_changed,
             )
 
         # Grade tables are derived from findings + dismissals. Recompute
-        # whenever either source changed, or when the stored grades were
-        # computed with an older version of the math (recompute_grades
-        # stamps the current one).
-        if (staleness.events_changed or staleness.actions_changed or staleness.grades_stale
+        # whenever the findings changed, a dismissal moved one of this run's
+        # verdicts, or the stored grades were computed with an older version
+        # of the math (recompute_grades stamps the current one). A dismissal
+        # that touches no finding here leaves the grades as they are: one
+        # dismiss grows actions.jsonl for every run of the project.
+        if (staleness.events_changed or verdicts_changed or staleness.grades_stale
                 or staleness.coverage_stale):
             from quodeq.data.projection.grade_projector import recompute_grades  # noqa: PLC0415
             recompute_grades(run_dir)

@@ -12,8 +12,13 @@ from quodeq.core.dismissals import fold_dismissals
 from quodeq.data.events.reader import EventLogReader
 from quodeq.data.projection.handlers import handle
 from quodeq.data.sqlite.state_store import SQLiteStateStore
+from quodeq.shared.stamp_memo import StampCache, file_stamp, memoized_by_stamp
 
 _logger = logging.getLogger(__name__)
+
+# Every run of a project folds the same actions.jsonl after a dismiss; fold it
+# once per change. DismissedKeys is frozen, so sharing it is safe.
+_FOLDS = StampCache(max_entries=256)  # a few entries per project
 
 
 class ProjectionEngine:
@@ -73,7 +78,10 @@ class ProjectionEngine:
         if not force and current_size == last_size:
             return 0
 
-        dismissed = fold_dismissals(read_action_events(actions_log.parent))
+        stamp = file_stamp(actions_log)
+        fold = lambda: fold_dismissals(read_action_events(actions_log.parent))  # noqa: E731
+        dismissed = fold() if stamp is None else memoized_by_stamp(
+            str(actions_log), stamp, fold, cache=_FOLDS)
         with store.connection():
             changed = store.apply_dismissed_state(dismissed)
             store.save_actions_projected_size(current_size)
