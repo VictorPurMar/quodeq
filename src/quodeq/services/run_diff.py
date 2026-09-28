@@ -1,6 +1,7 @@
 """Diff one run against another, per dimension, from their dimension reports."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -145,39 +146,84 @@ def _baseline_scope(
     return base_state, files
 
 
-def diff_runs(reports_root: Path, project: str, run_id: str, against: str | None) -> dict[str, Any]:
-    """Per-dimension diff of *run_id*. With *against* every dimension uses that
-    run; without it each dimension picks its own baseline (see ``_baseline_for``)
-    and reports it as ``againstRunId``."""
+_CommitState = tuple[str | None, bool | None]
+_Scope = tuple[_CommitState, set[str] | None]
+
+
+@dataclass(frozen=True)
+class _DiffContext:
+    """What every dimension of one diff shares: the run dirs, project-wide
+    suppressions and the head commit."""
+
+    project_dir: Path
+    current_dir: Path
+    older: list[str]
+    suppressed: tuple[set, set]  # (dismissed keys, deleted keys)
+    repo_root: Path | None
+    head: _CommitState
+
+
+def _locate_runs(
+    reports_root: Path, project: str, run_id: str, against: str | None,
+) -> tuple[Path, Path, list[str]]:
+    """``(project_dir, current_dir, older_runs)``; a missing run raises FileNotFoundError."""
     project_dir = _run_dir(reports_root, project)
     current_dir = _run_dir(project_dir, run_id)
     if against:
         _run_dir(project_dir, against)
     older = [] if against else _older_runs(reports_root, project, run_id)
+    return project_dir, current_dir, older
+
+
+def _diff_context(reports_root: Path, project: str, run_id: str, against: str | None) -> _DiffContext:
+    project_dir, current_dir, older = _locate_runs(reports_root, project, run_id, against)
     # Dismissals and deletions are project-wide; a dismissed finding is neither
     # new on every run nor resolved when it stops being reported.
-    dkeys, delkeys = dismissed_keys(project_dir), deleted_keys(project_dir)
-    repo_root = local_repo_root(reports_root, project)
-    head = _commit_state(current_dir)
+    suppressed = (dismissed_keys(project_dir), deleted_keys(project_dir))
+    return _DiffContext(
+        project_dir, current_dir, older, suppressed,
+        local_repo_root(reports_root, project), _commit_state(current_dir),
+    )
+
+
+def _active_findings(ctx: _DiffContext, base: str | None, dim: str, report: dict) -> tuple[list, list]:
+    """Unsuppressed ``(baseline, current)`` violations of *dim*."""
+    previous = (read_eval_report(_run_dir(ctx.project_dir, base) / _EVAL_DIR, dim) or {}) if base else {}
+    dkeys, delkeys = ctx.suppressed
+    prev_active = unsuppressed(previous.get(_KEY_VIOLATIONS) or [], dkeys, delkeys, dim, None)
+    curr_active = unsuppressed(report.get(_KEY_VIOLATIONS) or [], dkeys, delkeys, dim, None)
+    return prev_active, curr_active
+
+
+def _dimension_entry(
+    ctx: _DiffContext, dim: str, report: dict, base: str | None, scope: _Scope,
+) -> dict[str, Any]:
+    """One dimension's payload: the full diff plus the changed-files view."""
+    base_state, files = scope
+    prev_active, curr_active = _active_findings(ctx, base, dim, report)
+    seen = _files_seen(report)
+    entry = _payload(diff_findings(prev_active, curr_active, current_files=seen))
+    entry["againstRunId"] = base
+    entry["againstCommitSha"], entry["againstCommitDirty"] = base_state
+    entry["sinceBaseline"] = _since_baseline(prev_active, curr_active, files, seen)
+    return entry
+
+
+def diff_runs(reports_root: Path, project: str, run_id: str, against: str | None) -> dict[str, Any]:
+    """Per-dimension diff of *run_id*. With *against* every dimension uses that
+    run; without it each dimension picks its own baseline (see ``_baseline_for``)
+    and reports it as ``againstRunId``."""
+    ctx = _diff_context(reports_root, project, run_id, against)
     # Several dimensions share one baseline run (always, with *against*);
     # its commit state and the git diff against head are resolved once.
-    scopes: dict[str | None, tuple[tuple[str | None, bool | None], set[str] | None]] = {}
+    scopes: dict[str | None, _Scope] = {}
     dimensions: dict[str, Any] = {}
-    for dim, report in _reports(current_dir).items():
-        base = against or _baseline_for(project_dir, older, dim)
+    for dim, report in _reports(ctx.current_dir).items():
+        base = against or _baseline_for(ctx.project_dir, ctx.older, dim)
         if base not in scopes:
-            scopes[base] = _baseline_scope(project_dir, repo_root, base, head)
-        base_state, files = scopes[base]
-        previous = (read_eval_report(_run_dir(project_dir, base) / _EVAL_DIR, dim) or {}) if base else {}
-        prev_active = unsuppressed(previous.get(_KEY_VIOLATIONS) or [], dkeys, delkeys, dim, None)
-        curr_active = unsuppressed(report.get(_KEY_VIOLATIONS) or [], dkeys, delkeys, dim, None)
-        seen = _files_seen(report)
-        entry = _payload(diff_findings(prev_active, curr_active, current_files=seen))
-        entry["againstRunId"] = base
-        entry["againstCommitSha"], entry["againstCommitDirty"] = base_state
-        entry["sinceBaseline"] = _since_baseline(prev_active, curr_active, files, seen)
-        dimensions[dim] = entry
+            scopes[base] = _baseline_scope(ctx.project_dir, ctx.repo_root, base, ctx.head)
+        dimensions[dim] = _dimension_entry(ctx, dim, report, base, scopes[base])
     return {
-        "runId": run_id, "commitSha": head[0], "commitDirty": head[1],
+        "runId": run_id, "commitSha": ctx.head[0], "commitDirty": ctx.head[1],
         "againstRunId": against, "dimensions": dimensions,
     }
