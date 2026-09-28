@@ -194,6 +194,16 @@ function EvaluationsTableHeader() {
   );
 }
 
+// The state classes of a completed row: selected, partial (cancelled with
+// scores) and deleting (its DELETE is in flight).
+function completedRowClass({ isSelected, isPartial, isDeleting }) {
+  return [
+    isSelected && 'history-row--selected',
+    isPartial && 'history-row--partial',
+    isDeleting && 'history-row--deleting',
+  ].filter(Boolean).join(' ');
+}
+
 function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusByRunId, onRunClick, onRunHover, onDeleteRun, deletingRunIds }) {
   const { date, time } = formatDateParts(entry.dateISO, entry.dateLabel);
   const counts = runCounts(entry);
@@ -206,7 +216,7 @@ function CompletedHistoryRow({ entry, delta, countDelta, selectedRunId, statusBy
   const isDeleting = !!deletingRunIds?.has(entry.runId);
   return (
     <HistoryRow
-      className={`${isSelected ? 'history-row--selected' : ''}${isPartial ? ' history-row--partial' : ''}${isDeleting ? ' history-row--deleting' : ''}`.trim()}
+      className={completedRowClass({ isSelected, isPartial, isDeleting })}
       onClick={isDeleting ? undefined : () => onRunClick(entry.runId, entry.dateLabel)}
       onHover={onRunHover && !isDeleting ? () => onRunHover(entry.runId) : undefined}
       onDelete={onDeleteRun ? () => onDeleteRun(entry.runId, entry.dateLabel || date) : undefined}
