@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Callable, Optional, TypeVar
 
@@ -8,6 +9,7 @@ _PROJECTED_SIZE_KEY = "projection_event_log_size"
 _ACTIONS_SIZE_KEY = "actions_log_projected_size"
 _GRADES_ALGO_KEY = "grades_algo_version"
 _COVERAGE_STAMP_KEY = "coverage_report_stamp"
+_MAPPING_STAMPS_KEY = "standard_mapping_stamps"
 
 T = TypeVar("T")
 
@@ -72,3 +74,12 @@ class StateStoreMetaMixin:
 
     def save_coverage_stamp(self, stamp: str) -> None:
         self._save_meta(_COVERAGE_STAMP_KEY, stamp)
+
+    def get_mapping_stamps(self) -> dict[str, str] | None:
+        """``{dimension: mapping stamp}`` of the standards the findings were placed
+        with; None when the run was projected before stamps existed."""
+        stamps = self._get_meta(_MAPPING_STAMPS_KEY, json.loads)
+        return stamps if isinstance(stamps, dict) else None
+
+    def save_mapping_stamps(self, stamps: dict[str, str]) -> None:
+        self._save_meta(_MAPPING_STAMPS_KEY, json.dumps(stamps, sort_keys=True))

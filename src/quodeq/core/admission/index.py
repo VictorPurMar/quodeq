@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
-from quodeq.core.evidence.req_mapping import id_shape, normalize_req_id
+from quodeq.core.admission.ids import id_shape, normalize_req_id
 
 _NEAREST_MAX = 5  # hint length sent back to a model that used an unknown code
 _FAR = 10**9  # sort key for ids with no comparable number
@@ -96,6 +96,11 @@ class StandardCatalog:
     def get(self, dimension: str | None) -> StandardIndex | None:
         """The index for *dimension*, case-insensitive, or None when not loaded."""
         return self.indexes.get((dimension or "").lower())
+
+    def only(self, dimensions: Iterable[str]) -> StandardCatalog:
+        """This catalog limited to *dimensions* (case-insensitive)."""
+        keep = {d.lower() for d in dimensions}
+        return StandardCatalog({d: i for d, i in self.indexes.items() if d in keep})
 
     def owner_of(self, req: str, *, besides: str | None) -> StandardIndex | None:
         """The one other dimension whose standard defines *req* exactly, if any."""

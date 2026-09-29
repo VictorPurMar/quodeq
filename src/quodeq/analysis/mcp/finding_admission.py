@@ -65,15 +65,16 @@ def is_unplaceable(placed: Admitted | Unmapped) -> bool:
     return isinstance(placed, Unmapped) and placed.reason is UnmappedReason.NO_STANDARD
 
 
-def dedup_principle(args: dict, placed: Admitted | Unmapped) -> object:
-    """The principle the dedup key uses: the standard's when placed, else the reported one.
+def dedup_identity(args: dict, placed: Admitted | Unmapped) -> object:
+    """What the dedup key identifies a finding by: its requirement.
 
-    The key stays on the principle for now so the router agrees with the JSONL
-    and SQL dedup, which still key on it.
+    The canonical id when placed, the reported code otherwise, and the
+    principle only for a row with no code at all. The JSONL dedup and the SQL
+    ``dedup_key`` use the same rule, so all three agree on what a duplicate is.
     """
     if isinstance(placed, Admitted):
-        return placed.principle
-    return args.get("p") or args.get("req")
+        return placed.req or placed.facts.req or placed.principle
+    return args.get("req") or args.get("p")
 
 
 def apply_admission(

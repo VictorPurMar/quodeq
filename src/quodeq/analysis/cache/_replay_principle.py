@@ -20,7 +20,7 @@ from quodeq.context.trust_model import TrustModel
 from quodeq.core.admission import StandardCatalog
 from quodeq.core.observability import NULL_LOG, LogSink
 from quodeq.data.fs.standard_index_loader import load_standard_catalog
-from quodeq.data.projection.principle_from_req import default_standards_dirs
+from quodeq.data.projection.standards_defaults import default_standards_dirs
 
 CatalogLoader = Callable[[Iterable[str]], StandardCatalog]
 
@@ -60,7 +60,10 @@ def readmit(findings: list[dict], catalog: StandardCatalog | None, *, log: LogSi
     for finding in findings:
         copy = dict(finding)
         if catalog is not None:
-            placed = admission_of(finding, catalog, finding.get("d"))
+            # Within the finding's own dimension, as projection does: the
+            # live path already routed it when the scan covered several.
+            own = catalog.only([finding.get("d") or ""])
+            placed = admission_of(finding, own, finding.get("d"))
             if not is_unplaceable(placed):
                 apply_admission(copy, finding, placed, finding.get("d"), log)
         out.append(copy)

@@ -101,7 +101,7 @@ def _classify_finding_row(
     if not isinstance(obj, dict):
         return _RowClass.SKIP  # valid JSON but not an object (a bare list/number)
     t = obj.get("t")
-    key = (obj.get("p"), obj.get("file"), obj.get("line"), t)
+    key = (obj.get("req") or obj.get("p"), obj.get("file"), obj.get("line"), t)
     if key in seen:
         return _RowClass.DUPLICATE
     seen.add(key)
@@ -109,8 +109,9 @@ def _classify_finding_row(
         # Non-finding rows (e.g. the file_done markers the pool appends)
         # still occupy a dedup key but classify as neither.
         return _RowClass.SKIP
-    # Mirror parse_jsonl_line: `p` wins, `req` is the fallback.
-    if resolver is not None and resolver.resolve(obj.get("p") or obj.get("req")) is None:
+    # Placed the way every other reader places it: by the requirement, then
+    # by the principle the row named.
+    if resolver is not None and resolver.place(obj.get("req"), obj.get("p")) is None:
         return _RowClass.QUARANTINED
     if t == FindingType.VIOLATION:
         if suppressed is not None and suppressed(obj):
@@ -124,7 +125,7 @@ def tally_unique_findings(
     suppressed: "Callable[[dict], bool] | None" = None,
     resolver: PrincipleResolver | None = None,
 ) -> FindingTally:
-    """Count unique findings (deduplicated by ``(p, file, line, t)``) and duplicates.
+    """Count unique findings (deduplicated by ``(requirement or principle, file, line, t)``) and duplicates.
 
     Single source of truth for the heartbeat and the dashboard progress reader,
     so the terminal and UI never disagree mid-batch — before the on-disk

@@ -35,6 +35,7 @@ from quodeq.services.suppression_keys import (  # re-exported API
 from quodeq.shared.validation import validate_path_segment
 from quodeq.services.wiring import load_suppression_rules  # re-exported API
 from quodeq.services.wiring import read_req_to_principle_map
+from quodeq.core.evidence.req_mapping import PrincipleResolver
 
 
 @dataclass(frozen=True)
@@ -47,15 +48,25 @@ class SuppressionMatcher:
     deleted: frozenset = frozenset()
     rules: tuple = ()
     req_to_principle: Mapping[str, str] = field(default_factory=dict)
+    _resolver: PrincipleResolver = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_resolver", PrincipleResolver(
+            dict(self.req_to_principle), frozenset(self.req_to_principle.values())))
 
     @property
     def active(self) -> bool:
         """False when nothing is suppressed -- callers can skip the scan."""
         return bool(self.dismissed or self.deleted or self.rules)
 
-    def principle_for(self, raw: str) -> str:
-        """Map an evidence ``p`` (req ID or principle name) to a principle name."""
-        return self.req_to_principle.get(raw, raw)
+    def principle_for(self, raw: str, *, req: str | None = None) -> str:
+        """The principle a row is filed under, for the delete key.
+
+        Placed like every reader places it (``PrincipleResolver.place``, so a
+        near-miss code folds); a row the standard cannot place keeps what it
+        named, so deleting it still matches the row the user saw.
+        """
+        return self._resolver.place(req, raw) or raw
 
     def is_suppressed(self, row: dict) -> bool:
         """True when the dashboard would hide this raw evidence row.
@@ -75,7 +86,7 @@ class SuppressionMatcher:
         if is_dismissed(self.dismissed, ref, rules=self.rules):
             return True
         return is_deleted(self.deleted, dimension=self.dimension,
-                          principle=self.principle_for(raw), file=file)
+                          principle=self.principle_for(row.get("p") or raw, req=row.get("req")), file=file)
 
 
 def load_req_to_principle(dimension: str, evaluators_dir: Path) -> dict[str, str]:

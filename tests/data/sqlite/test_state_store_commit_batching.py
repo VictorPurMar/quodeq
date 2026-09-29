@@ -91,8 +91,9 @@ def test_rebuild_replay_commits_a_bounded_number_of_times(tmp_path, commits):
 
     ProjectionEngine().rebuild(log, tmp_path)
 
-    # clear_all, save_checkpoint, save_projected_size, and the exit commit.
-    assert len(commits) <= 4
+    # clear_all, save_checkpoint, save_projected_size, the standard mapping
+    # stamps, and the exit commit: constant, never one per finding.
+    assert len(commits) <= 5
     assert _count_findings(tmp_path) == _FINDINGS
 
 
