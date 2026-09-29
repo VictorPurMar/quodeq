@@ -19,9 +19,9 @@ from quodeq.analysis.mcp.severity_gates import apply_severity_gates
 from quodeq.context.trust_model import TrustModel, resolve_trust_model
 from quodeq.core.events.models import Judgment, JudgmentCreatedEvent
 from quodeq.core.evidence.jsonl import judgment_to_dict
-from quodeq.core.evidence.req_mapping import build_principle_resolver
+from quodeq.core.admission import Admitted, FindingFacts, StandardCatalog, admit
 from quodeq.data.fs.import_graph import build_import_graph
-from quodeq.data.fs.standards_loader import read_req_to_principle_map
+from quodeq.data.fs.standard_index_loader import load_standard_index
 from quodeq.data.fs.stream_files import append_jsonl_rows
 from quodeq.data.fs.symbol_uses import build_symbol_uses
 from quodeq.core.evidence.model import Evidence, PrincipleEvidence
@@ -105,8 +105,34 @@ def _to_wire(j: Judgment) -> dict:
     return row
 
 
-def _merge_into_evidence(evidence: Evidence, judgments: list[Judgment], resolver) -> int:
-    """Add *judgments* to their principles, recomputing metrics. Returns the count.
+def _admit_all(
+    judgments: list[Judgment], rows: list[dict], catalog: StandardCatalog, dimension: str,
+) -> tuple[list[Judgment], list[dict]]:
+    """The judgments the standard can place, with principle and requirement set.
+
+    A checker names its requirement in ``practice_id``; admission turns that
+    into the canonical requirement and its principle, on the judgment and on
+    its wire row alike. One the standard cannot place is dropped from every
+    sink, not only from the evidence.
+    """
+    kept: list[Judgment] = []
+    kept_rows: list[dict] = []
+    for j, row in zip(judgments, rows):
+        placed = admit(FindingFacts.from_wire(row), catalog, dimension)
+        if not isinstance(placed, Admitted):
+            _logger.warning(
+                "checks: dropping %s — %r is not a requirement of %r (%s)",
+                j.file, j.practice_id, dimension, placed.reason.value,
+            )
+            continue
+        kept.append(dataclasses.replace(
+            j, practice_id=placed.principle, req=placed.req, dimension=placed.dimension))
+        kept_rows.append({**row, "p": placed.principle, "req": placed.req, "d": placed.dimension})
+    return kept, kept_rows
+
+
+def _merge_into_evidence(evidence: Evidence, judgments: list[Judgment]) -> int:
+    """Add admitted *judgments* to their principles, recomputing metrics. Returns the count.
 
     A checker reports both verdicts: a violation when it found something and a
     compliance when it ran clean. Routing on ``j.verdict`` rather than assuming
@@ -114,13 +140,7 @@ def _merge_into_evidence(evidence: Evidence, judgments: list[Judgment], resolver
     """
     added = 0
     for j in judgments:
-        principle = resolver.resolve(j.practice_id)
-        if principle is None:
-            _logger.warning(
-                "checks: dropping %s — %r is not a principle of %r",
-                j.file, j.practice_id, j.dimension,
-            )
-            continue
+        principle = j.practice_id
         pe = evidence.principles.get(principle)
         if pe is None:
             pe = PrincipleEvidence(
@@ -240,10 +260,12 @@ def apply_deterministic_checks(
         gated.append(judgment)
         rows.append(row)
 
-    resolver = build_principle_resolver(dimension, evaluators_dir, compiled_dir, req_map_reader=read_req_to_principle_map)
-    added = _merge_into_evidence(evidence, gated, resolver)
+    index = load_standard_index(dimension, evaluators_dir=evaluators_dir, compiled_dir=compiled_dir)
+    catalog = StandardCatalog.of([index] if index is not None else [])
+    admitted, admitted_rows = _admit_all(gated, rows, catalog, dimension)
+    added = _merge_into_evidence(evidence, admitted)
     if added and jsonl_path is not None:
-        (persist_fn or _persist)(jsonl_path, gated, rows)
+        (persist_fn or _persist)(jsonl_path, admitted, admitted_rows)
     return added
 
 
