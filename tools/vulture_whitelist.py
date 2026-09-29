@@ -304,3 +304,6 @@ _.read_run_score_from_dim_scores  # data/ports/grade_tables.py: GradeTablesReade
 _.DEFAULT_RUN_DIM_CACHE_MAX  # services/_dashboard_cache.py: only caller is tests/services/test_env_seams_t5.py.
 _.DEFAULT_MAX_HISTORY_RUNS  # services/_dashboard_history.py: only caller is tests/services/test_env_seams_t5.py.
 _.set_verdict  # data/ports/findings.py: FindingsRepository port method; adapters implement it and callers go through the port.
+_.from_wire  # core/admission/facts.py: FindingFacts entry point, read by the writers once they admit findings.
+_.mapping_stamp  # core/admission/index.py: StandardIndex stamp, recorded per run once projection admits findings.
+_.load_standard_catalog  # data/fs/standard_index_loader.py: admission catalog loader, called by the writers once they admit findings.

@@ -77,7 +77,7 @@ def _resolve_req_to_principle_map(
     return mapping or {}
 
 
-def _id_shape(req_id: str) -> tuple[str, str] | None:
+def id_shape(req_id: str) -> tuple[str, str] | None:
     """The trailing ``(category, number)`` of a requirement ID, upper-cased.
 
     ``CLEA-DEP-05`` and ``DEP-05`` both shape to ``("DEP", "05")``. Returns
@@ -110,10 +110,10 @@ def normalize_req_id(raw: str, canonical_ids) -> str | None:
     for candidate in ids:
         if candidate == raw:
             return candidate
-    shape = _id_shape(raw)
+    shape = id_shape(raw)
     if shape is None:
         return None
-    matches = [c for c in ids if _id_shape(c) == shape]
+    matches = [c for c in ids if id_shape(c) == shape]
     if len(matches) != 1:
         return None  # unknown, or ambiguous between real requirements
     return matches[0]
