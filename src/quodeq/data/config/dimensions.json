@@ -50,6 +50,14 @@
       "weight": 1.0,
       "source": "Eric Evans / Vaughn Vernon",
       "type": "quodeq"
+    },
+    {
+      "id": "accessibility",
+      "name": "Accessibility",
+      "weight": 1.0,
+      "source": "WCAG 2.2 (W3C, 2023) and EN 301 549 v3.2.1 (ETSI, 2021)",
+      "type": "wcag",
+      "subtype": "2.2"
     }
   ]
 }

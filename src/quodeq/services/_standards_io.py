@@ -9,6 +9,7 @@ from quodeq.core.types.standard import StandardDetail, StandardMeta
 logger = logging.getLogger(__name__)
 
 TYPE_CUSTOM = "custom"
+_ISO_EDITION = "25010"
 _TYPE_BUILTIN = "builtin"
 
 
@@ -68,6 +69,7 @@ def _custom_fields(data: dict, sid: str, type_default: str) -> dict[str, object]
         "managed": data.get("managed", False),
         "origin": data.get("origin"),
         "origin_hash": data.get("origin_hash"),
+        "subtype": data.get("subtype"),
     }
 
 
@@ -90,7 +92,15 @@ def _builtin_fields(
         "managed": True,
         "origin": None,
         "origin_hash": None,
+        "subtype": _builtin_subtype(data),
     }
+
+
+def _builtin_subtype(data: dict) -> str | None:
+    """The edition of a built-in's family; the ISO dimensions carry none in the files."""
+    if subtype := data.get("subtype"):
+        return subtype
+    return _ISO_EDITION if data.get("type", _TYPE_BUILTIN) == _TYPE_BUILTIN else None
 
 
 def build_detail(data: dict, *, type_default: str = TYPE_CUSTOM) -> StandardDetail:
