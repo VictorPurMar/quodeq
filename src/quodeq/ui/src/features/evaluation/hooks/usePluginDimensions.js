@@ -14,7 +14,7 @@ function mergeStandardsDimensions(standards, seen) {
     if (seen.has(s.id)) {
       const existing = seen.get(s.id);
       if (!existing.standardType) {
-        existing.standardType = s.type === STANDARD_TYPES.BUILTIN ? null : s.type;
+        existing.standardType = s.type === STANDARD_TYPES.ISO ? null : s.type;
         if (s.name && !existing.label) existing.label = s.name;
       }
     } else if (NON_ISO_TYPES.has(s.type)) {

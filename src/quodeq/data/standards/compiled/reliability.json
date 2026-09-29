@@ -2,7 +2,7 @@
   "id": "reliability",
   "name": "Reliability",
   "description": "How dependably the system performs its required functions over time. Maturity, fault tolerance, and recoverability keep failures rare, contained, and easy to bounce back from when they happen.",
-  "type": "builtin",
+  "type": "iso",
   "subtype": "25010",
   "version": "2023.11",
   "sources": [

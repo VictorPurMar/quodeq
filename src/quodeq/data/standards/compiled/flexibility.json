@@ -2,7 +2,7 @@
   "id": "flexibility",
   "name": "Flexibility",
   "description": "How well the product adapts to new environments, scale, and integrations without rework. Adaptability, scalability, installability, and replaceability keep deployment and runtime contexts open as requirements evolve.",
-  "type": "builtin",
+  "type": "iso",
   "subtype": "25010",
   "version": "2023.11",
   "sources": [

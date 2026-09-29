@@ -3,7 +3,7 @@ import { standardBaseLabel, STANDARD_TYPES } from './useStandards.js';
 
 describe('standardBaseLabel', () => {
   it('joins the family and its edition', () => {
-    expect(standardBaseLabel({ type: STANDARD_TYPES.BUILTIN, subtype: '25010' })).toBe('iso-25010');
+    expect(standardBaseLabel({ type: STANDARD_TYPES.ISO, subtype: '25010' })).toBe('iso-25010');
     expect(standardBaseLabel({ type: STANDARD_TYPES.WCAG, subtype: '2.2' })).toBe('wcag-2.2');
   });
 

@@ -21,7 +21,7 @@ class StandardMeta:
     description: str
     weight: float
     source: str
-    type: str           # "builtin" (ISO) | "quodeq" | "wcag" | "custom" | "community"
+    type: str           # "iso" | "quodeq" | "wcag" | "custom" | "community"
     managed: bool
     origin: str | None
     origin_hash: str | None

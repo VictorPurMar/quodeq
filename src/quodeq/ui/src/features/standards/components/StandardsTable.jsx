@@ -103,7 +103,7 @@ function RowActions({ standard, isDeletable, isEditable, onOpen, onDuplicate, on
 }
 
 function isDeletableStandard(type) {
-  return type !== STANDARD_TYPES.BUILTIN && type !== STANDARD_TYPES.WCAG && type !== STANDARD_TYPES.QUODEQ;
+  return type !== STANDARD_TYPES.ISO && type !== STANDARD_TYPES.WCAG && type !== STANDARD_TYPES.QUODEQ;
 }
 
 function StandardRowMain({

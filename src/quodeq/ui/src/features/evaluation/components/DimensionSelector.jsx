@@ -7,7 +7,7 @@ const TYPE_CONFIG = {
   custom:    { labelKey: 'evaluate.stdCustom',    className: 'dimension-chip-type--custom',    order: 4 },
   community: { labelKey: 'evaluate.stdCommunity', className: 'dimension-chip-type--community', order: 3 },
 };
-const DEFAULT_TYPE_CONFIG = { labelKey: 'evaluate.stdIso', className: 'dimension-chip-type--builtin', order: 0 };
+const DEFAULT_TYPE_CONFIG = { labelKey: 'evaluate.stdIso', className: 'dimension-chip-type--iso', order: 0 };
 
 // This component's own terminal-styled picker variant (ReEvaluateCard); the
 // default (no variant passed) is the chip grid. Not a shared UI concept.

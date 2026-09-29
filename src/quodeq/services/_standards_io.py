@@ -9,7 +9,7 @@ from quodeq.core.types.standard import StandardDetail, StandardMeta
 logger = logging.getLogger(__name__)
 
 TYPE_CUSTOM = "custom"
-_TYPE_BUILTIN = "builtin"
+_TYPE_ISO = "iso"
 
 
 def _require_id(data: dict, source: str) -> str:
@@ -88,7 +88,7 @@ def _builtin_fields(
         "description": description,
         "weight": weight,
         "source": source,
-        "type": data.get("type", _TYPE_BUILTIN),
+        "type": data.get("type", _TYPE_ISO),
         "managed": True,
         "origin": None,
         "origin_hash": None,

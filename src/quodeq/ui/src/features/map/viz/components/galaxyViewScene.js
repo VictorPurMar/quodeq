@@ -50,7 +50,7 @@ function dimStarTotals(dim) {
 const DEFAULT_STANDARD_TYPE = '_default';
 
 export const CONSTELLATION_LABELS = {
-  builtin: t('map.constellationBuiltin'), wcag: t('map.constellationWcag'), quodeq: t('map.constellationQuodeq'), community: t('map.constellationCommunity'), custom: t('map.constellationCustom'), [DEFAULT_STANDARD_TYPE]: '',
+  iso: t('map.constellationIso'), wcag: t('map.constellationWcag'), quodeq: t('map.constellationQuodeq'), community: t('map.constellationCommunity'), custom: t('map.constellationCustom'), [DEFAULT_STANDARD_TYPE]: '',
 };
 
 /** Group dimensions by standard type, returning the groups and whether they warrant constellations. */

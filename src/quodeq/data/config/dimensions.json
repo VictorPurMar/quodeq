@@ -6,7 +6,7 @@
       "weight": 1.0,
       "iso_25010": "Security",
       "source": "ISO/IEC 25010:2023",
-      "type": "builtin",
+      "type": "iso",
       "subtype": "25010"
     },
     {
@@ -14,7 +14,7 @@
       "weight": 1.0,
       "iso_25010": "Reliability",
       "source": "ISO/IEC 25010:2023",
-      "type": "builtin",
+      "type": "iso",
       "subtype": "25010"
     },
     {
@@ -22,7 +22,7 @@
       "weight": 1.0,
       "iso_25010": "Maintainability",
       "source": "ISO/IEC 25010:2023",
-      "type": "builtin",
+      "type": "iso",
       "subtype": "25010"
     },
     {
@@ -30,7 +30,7 @@
       "weight": 1.0,
       "iso_25010": "Performance Efficiency",
       "source": "ISO/IEC 25010:2023",
-      "type": "builtin",
+      "type": "iso",
       "subtype": "25010"
     },
     {
@@ -38,7 +38,7 @@
       "weight": 1.0,
       "iso_25010": "Usability",
       "source": "ISO/IEC 25010:2023",
-      "type": "builtin",
+      "type": "iso",
       "subtype": "25010"
     },
     {
@@ -46,7 +46,7 @@
       "weight": 1.0,
       "iso_25010": "Flexibility",
       "source": "ISO/IEC 25010:2023",
-      "type": "builtin",
+      "type": "iso",
       "subtype": "25010"
     },
     {

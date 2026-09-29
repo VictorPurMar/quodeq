@@ -6,10 +6,10 @@ import { STANDARDS_CHANGED_REASON, notifyStandardsChanged } from '../../../const
 import { useStandardsQuery } from './useStandardsQuery.js';
 import { t } from '../../../strings/index.js';
 
-export const STANDARD_TYPES = { BUILTIN: 'builtin', WCAG: 'wcag', QUODEQ: 'quodeq', COMMUNITY: 'community', CUSTOM: 'custom' };
+export const STANDARD_TYPES = { ISO: 'iso', WCAG: 'wcag', QUODEQ: 'quodeq', COMMUNITY: 'community', CUSTOM: 'custom' };
 
 const FAMILY_LABEL_KEYS = {
-  [STANDARD_TYPES.BUILTIN]: 'standards.baseIso',
+  [STANDARD_TYPES.ISO]: 'standards.baseIso',
   [STANDARD_TYPES.WCAG]: 'standards.baseWcag',
   [STANDARD_TYPES.QUODEQ]: 'standards.baseQuodeq',
   [STANDARD_TYPES.COMMUNITY]: 'standards.baseCommunity',
@@ -59,7 +59,7 @@ function makeHandleDuplicate({ duplicateStandard, setMutationError, refresh, onD
 
 function groupStandards(standards) {
   const g = {
-    [STANDARD_TYPES.BUILTIN]: [],
+    [STANDARD_TYPES.ISO]: [],
     [STANDARD_TYPES.WCAG]: [],
     [STANDARD_TYPES.QUODEQ]: [],
     [STANDARD_TYPES.COMMUNITY]: [],
