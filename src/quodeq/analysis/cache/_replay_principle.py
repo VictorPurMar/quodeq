@@ -1,49 +1,67 @@
-"""Give a replayed cache finding its principle when the entry has none.
+"""Replayed cache findings go through admission, like fresh ones.
 
-An entry written while its standard was not loaded carries a requirement code
-and no principle. The repair goes on the event only: the cache entry and the
-evidence JSONL row stay as they were.
+A cache entry keeps the finding as it was first written, and the cache key
+ignores the standard on purpose, so an entry can predate the standard it is
+replayed under (or have been written while that standard was not loaded).
+Replay re-admits every finding with the run's standards: the evidence row
+and the event get the same requirement, principle, dimension and refs, and
+a finding the standard cannot place is kept as unmapped instead of being
+graded under a blank principle. The cache entry itself stays as it was.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
+from quodeq.analysis.mcp.finding_admission import admission_of, apply_admission, is_unplaceable
 from quodeq.analysis.run_types import RunConfig
 from quodeq.context.trust_model import TrustModel
-from quodeq.data.projection.principle_from_req import (
-    PrincipleLookup,
-    default_standards_dirs,
-    make_principle_lookup,
-)
+from quodeq.core.admission import StandardCatalog
+from quodeq.core.observability import NULL_LOG, LogSink
+from quodeq.data.fs.standard_index_loader import load_standard_catalog
+from quodeq.data.projection.principle_from_req import default_standards_dirs
+
+CatalogLoader = Callable[[Iterable[str]], StandardCatalog]
 
 
 @dataclass(frozen=True)
 class ReplayPolicy:
     """What a replay applies to cached findings: the trust model the severity
-    gates read, and the lookup that gives a principle-less finding its principle."""
+    gates read, and the loader of the standards findings are re-admitted with."""
 
     trust_model: TrustModel | None = None
-    principle_lookup: PrincipleLookup | None = None
+    catalog_loader: CatalogLoader | None = None
 
 
-def replay_principle_lookup(config: RunConfig) -> PrincipleLookup:
-    """Requirement-to-principle lookup over this run's standards (custom
-    evaluators first, then the built-in ones), or the install's when the
-    run configures neither."""
+def replay_catalog_loader(config: RunConfig) -> CatalogLoader:
+    """Loads this run's standards (custom evaluators first, then the built-in
+    ones), or the install's when the run configures neither."""
     compiled = config.standards_dir / "compiled" if config.standards_dir else None
     evaluators = config.evaluators_dir
     if compiled is None and evaluators is None:
         compiled, evaluators = default_standards_dirs()
-    return make_principle_lookup(compiled, evaluators)
+
+    def load(dimensions: Iterable[str]) -> StandardCatalog:
+        return load_standard_catalog(
+            sorted({d for d in dimensions if d}), evaluators_dir=evaluators,
+            compiled_dir=Path(compiled) if compiled else None,
+        )
+    return load
 
 
-def with_principle(finding: dict, lookup: PrincipleLookup | None) -> dict:
-    """*finding* with ``p`` set from its ``req`` when it has none.
+def readmit(findings: list[dict], catalog: StandardCatalog | None, *, log: LogSink = NULL_LOG) -> list[dict]:
+    """Copies of *findings* with their standard-derived fields re-derived.
 
-    Copy, do not mutate: the dict belongs to the cache entry. An entry written
-    while its standard was not loaded has a requirement code and no principle.
+    Copy, do not mutate: the dicts belong to the cache entries. A finding whose
+    dimension has no loaded standard is copied unchanged.
     """
-    if lookup is None or finding.get("p") or not finding.get("req"):
-        return finding
-    principle = lookup(finding.get("d") or "", finding["req"])
-    return {**finding, "p": principle} if principle else finding
+    out: list[dict] = []
+    for finding in findings:
+        copy = dict(finding)
+        if catalog is not None:
+            placed = admission_of(finding, catalog, finding.get("d"))
+            if not is_unplaceable(placed):
+                apply_admission(copy, finding, placed, finding.get("d"), log)
+        out.append(copy)
+    return out

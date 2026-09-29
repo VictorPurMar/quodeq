@@ -19,7 +19,8 @@ from quodeq.analysis.mcp.severity_gates import apply_severity_gates
 from quodeq.context.trust_model import TrustModel, resolve_trust_model
 from quodeq.core.events.models import Judgment, JudgmentCreatedEvent
 from quodeq.core.evidence.jsonl import judgment_to_dict
-from quodeq.core.admission import Admitted, FindingFacts, StandardCatalog, admit
+from quodeq.analysis.checks.admission import admit_all
+from quodeq.core.admission import StandardCatalog
 from quodeq.data.fs.import_graph import build_import_graph
 from quodeq.data.fs.standard_index_loader import load_standard_index
 from quodeq.data.fs.stream_files import append_jsonl_rows
@@ -27,6 +28,7 @@ from quodeq.data.fs.symbol_uses import build_symbol_uses
 from quodeq.core.evidence.model import Evidence, PrincipleEvidence
 from quodeq.data.fs.standards_loader import load_requirement_checks
 from quodeq.shared.fault_isolation import run_isolated
+from quodeq.shared.log_sink import LoggerSink
 
 _logger = logging.getLogger(__name__)
 
@@ -103,32 +105,6 @@ def _to_wire(j: Judgment) -> dict:
         if value:
             row[key] = value
     return row
-
-
-def _admit_all(
-    judgments: list[Judgment], rows: list[dict], catalog: StandardCatalog, dimension: str,
-) -> tuple[list[Judgment], list[dict]]:
-    """The judgments the standard can place, with principle and requirement set.
-
-    A checker names its requirement in ``practice_id``; admission turns that
-    into the canonical requirement and its principle, on the judgment and on
-    its wire row alike. One the standard cannot place is dropped from every
-    sink, not only from the evidence.
-    """
-    kept: list[Judgment] = []
-    kept_rows: list[dict] = []
-    for j, row in zip(judgments, rows):
-        placed = admit(FindingFacts.from_wire(row), catalog, dimension)
-        if not isinstance(placed, Admitted):
-            _logger.warning(
-                "checks: dropping %s — %r is not a requirement of %r (%s)",
-                j.file, j.practice_id, dimension, placed.reason.value,
-            )
-            continue
-        kept.append(dataclasses.replace(
-            j, practice_id=placed.principle, req=placed.req, dimension=placed.dimension))
-        kept_rows.append({**row, "p": placed.principle, "req": placed.req, "d": placed.dimension})
-    return kept, kept_rows
 
 
 def _merge_into_evidence(evidence: Evidence, judgments: list[Judgment]) -> int:
@@ -262,7 +238,7 @@ def apply_deterministic_checks(
 
     index = load_standard_index(dimension, evaluators_dir=evaluators_dir, compiled_dir=compiled_dir)
     catalog = StandardCatalog.of([index] if index is not None else [])
-    admitted, admitted_rows = _admit_all(gated, rows, catalog, dimension)
+    admitted, admitted_rows = admit_all(gated, rows, catalog, dimension, log=LoggerSink(_logger))
     added = _merge_into_evidence(evidence, admitted)
     if added and jsonl_path is not None:
         (persist_fn or _persist)(jsonl_path, admitted, admitted_rows)

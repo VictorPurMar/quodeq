@@ -24,6 +24,7 @@ ADMISSION_KEY = "admission"
 ADMISSION_UNMAPPED = "unmapped"
 UNMAPPED_REASON_KEY = "unmapped_reason"
 REPORTED_REQ_KEY = "req_reported"
+UNKNOWN_REQ_KEY = "req_unknown"
 
 
 def run_catalog(compiled_dir: str | Path | None, dimensions: Iterable[str]) -> StandardCatalog:
@@ -98,6 +99,8 @@ def apply_admission(
         )
     if placed.folded and args.get("req"):
         finding[REPORTED_REQ_KEY] = args["req"]
+    if placed.unknown_req:
+        finding[UNKNOWN_REQ_KEY] = True
     if placed.req:
         finding["req"] = placed.req
     finding["p"] = placed.principle
@@ -107,6 +110,21 @@ def apply_admission(
     else:
         finding.pop("req_refs", None)
     return None
+
+
+def refusal_of(placed: Admitted | Unmapped, catalog: StandardCatalog) -> Unmapped | None:
+    """The Unmapped to refuse the model with, or None when the code was valid.
+
+    A finding placed only by the principle it named still carries a code the
+    standard lacks, so the live path asks for a valid one first.
+    """
+    if isinstance(placed, Unmapped):
+        return None if placed.reason is UnmappedReason.NO_STANDARD else placed
+    if not placed.unknown_req:
+        return None
+    index = catalog.get(placed.dimension)
+    nearest = index.nearest(placed.facts.req) if index is not None else ()
+    return Unmapped(placed.facts, placed.dimension, UnmappedReason.UNKNOWN_REQUIREMENT, nearest)
 
 
 def unmapped_feedback(placed: Unmapped, reported: str | None) -> str:

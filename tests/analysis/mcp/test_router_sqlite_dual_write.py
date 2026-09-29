@@ -9,7 +9,7 @@ from quodeq.core.events.models import EventType
 
 
 def _message_and_dup(receipt):
-    return receipt.message, receipt.is_duplicate
+    return receipt.message, receipt.status == "duplicate"
 
 
 def _args(p="P1", file="x.py", line=1, t="violation"):

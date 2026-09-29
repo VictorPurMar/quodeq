@@ -108,3 +108,17 @@ def test_the_mcp_tool_reports_a_refusal_as_a_failed_call() -> None:
         request_id=7, params={"name": "report_finding", "arguments": _args(req="NOPE-1")}, router=router)
 
     assert reply["result"]["isError"] is True
+
+
+def test_an_unknown_code_with_a_valid_principle_is_refused_then_kept_under_it() -> None:
+    events = _Events()
+    router, fh = _router(events)
+
+    first = router.receive(_args(req="ACC-PER-99", p="Operable"))
+    second = router.receive(_args(req="ACC-PER-99", p="Operable"))
+
+    assert first.status is ReceiptStatus.REJECTED
+    assert second.status is ReceiptStatus.RECORDED
+    (row,) = _rows(fh)
+    assert (row["p"], row["req_unknown"]) == ("Operable", True)
+    assert len(events.emitted) == 1

@@ -18,7 +18,7 @@ from tests._evidence_helpers import _evidence_line
 
 
 def _message_and_dup(receipt):
-    return receipt.message, receipt.is_duplicate
+    return receipt.message, receipt.status == "duplicate"
 
 
 def test_taxonomy_used_on_parse_then_score(tmp_path):

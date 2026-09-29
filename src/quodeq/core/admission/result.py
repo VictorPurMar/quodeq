@@ -23,6 +23,10 @@ class Admitted:
     named its principle directly. ``folded`` is True when the reported code was
     a near miss (case, prefix, leading zeros) folded onto the canonical one;
     ``routed`` is True when the code belongs to another loaded dimension.
+    ``unknown_req`` is True when the reported code is not in the standard and
+    the finding was placed by the principle it named instead: history keeps
+    counting where readers always counted it, and the live path still asks
+    the model for a valid code first.
     """
 
     facts: FindingFacts
@@ -32,6 +36,7 @@ class Admitted:
     refs: tuple[dict, ...] = ()
     folded: bool = False
     routed: bool = False
+    unknown_req: bool = False
 
 
 @dataclass(frozen=True, slots=True)

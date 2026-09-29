@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable, Protocol, runtime_checkable
 
 from quodeq.analysis.mcp.finding_admission import (
-    admission_of, apply_admission, catalog_from_reqs, dedup_principle, is_unplaceable,
+    admission_of, apply_admission, catalog_from_reqs, dedup_principle, is_unplaceable, refusal_of,
 )
 from quodeq.analysis.mcp._enricher_rules import (
     apply_path_role_downweight, apply_shape_downweight, resolve_principle,
@@ -171,7 +171,8 @@ class FindingEnricher:
         placed = admission_of(args, self._catalog, self._dimension)
         self.last_unmapped = None
         if not is_unplaceable(placed):
-            self.last_unmapped = apply_admission(finding, args, placed, self._dimension, self._log)
+            apply_admission(finding, args, placed, self._dimension, self._log)
+            self.last_unmapped = refusal_of(placed, self._catalog)
             return finding
 
         # No loaded standard: keep what the model sent, as before admission.

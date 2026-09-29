@@ -134,10 +134,15 @@ class FindingsRouter:
                 return Receipt(unmapped_feedback(unmapped, args.get("req")), ReceiptStatus.REJECTED)
         self._seen.add(key)
         self._finish_finding(finding)
-        if unmapped is not None:
+        if unmapped is not None and finding.get(ADMISSION_KEY) == ADMISSION_UNMAPPED:
             return Receipt(
                 f"Recorded as unmapped: {args.get('req')!r} is not in the standard. Move on.",
                 ReceiptStatus.UNMAPPED,
+            )
+        if unmapped is not None:
+            return Receipt(
+                f"Recorded under {finding.get('p')!r} without a valid requirement code. Move on.",
+                ReceiptStatus.RECORDED,
             )
         return Receipt(f"Finding #{self.counter} recorded.", ReceiptStatus.RECORDED)
 

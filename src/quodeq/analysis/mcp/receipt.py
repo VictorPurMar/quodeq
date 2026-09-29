@@ -21,11 +21,6 @@ class Receipt(NamedTuple):
     status: ReceiptStatus
 
     @property
-    def is_duplicate(self) -> bool:
-        """True when the finding had already been captured."""
-        return self.status is ReceiptStatus.DUPLICATE
-
-    @property
     def is_error(self) -> bool:
         """True when the tool call should be reported to the model as failed."""
         return self.status is ReceiptStatus.REJECTED

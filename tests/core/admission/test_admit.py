@@ -89,3 +89,12 @@ def test_an_ambiguous_near_miss_is_not_folded() -> None:
 
     assert isinstance(result, Unmapped)
     assert result.reason is UnmappedReason.UNKNOWN_REQUIREMENT
+
+
+def test_an_unknown_code_with_a_valid_principle_is_placed_by_it_and_flagged() -> None:
+    """History counts where readers always counted it; the flag lets the live
+    path still ask the model for a valid code."""
+    result = admit(_facts(req="ACC-PER-99", p="Operable"), _CATALOG)
+
+    assert isinstance(result, Admitted)
+    assert (result.req, result.principle, result.unknown_req) == (None, "Operable", True)

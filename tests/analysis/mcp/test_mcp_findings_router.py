@@ -9,7 +9,7 @@ from quodeq.analysis.mcp.findings_server import CompiledContext
 
 
 def _message_and_dup(receipt):
-    return receipt.message, receipt.is_duplicate
+    return receipt.message, receipt.status == "duplicate"
 
 
 class TestFindingsRouter:
