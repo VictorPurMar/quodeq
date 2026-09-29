@@ -20,6 +20,7 @@ from quodeq.data.sqlite.connection import open_evaluation_db
 from quodeq.data.sqlite._schema import DELETE_DIMENSION_SCORES_SQL, INSERT_FINDING_SQL
 from quodeq.data.sqlite.row_mappers import judgment_to_row
 from quodeq.data.sqlite._state_store_meta import StateStoreMetaMixin
+from quodeq.data.sqlite._state_store_unmapped import UnmappedFindingsMixin
 
 _logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ _SELECT_VERDICT_ROWS = (
 )
 
 
-class SQLiteStateStore(StateStoreMetaMixin):
+class SQLiteStateStore(StateStoreMetaMixin, UnmappedFindingsMixin):
     """Writes projected event state into evaluation.db."""
 
     def __init__(self, run_dir: Path) -> None:
@@ -103,6 +104,7 @@ class SQLiteStateStore(StateStoreMetaMixin):
         """
         with self._db() as conn:
             conn.execute("DELETE FROM findings")
+            conn.execute("DELETE FROM unmapped_findings")
             conn.execute(DELETE_DIMENSION_SCORES_SQL)
             conn.execute(
                 "DELETE FROM run_meta WHERE key IN (?, ?, ?)",

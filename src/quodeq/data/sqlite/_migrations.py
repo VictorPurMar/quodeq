@@ -11,6 +11,7 @@ from quodeq.data.sqlite._migrations_additive import (
     upgrade_v6_to_v7,
     upgrade_v7_to_v8,
     upgrade_v8_to_v9,
+    upgrade_v9_to_v10,
 )
 from quodeq.data.sqlite._migrations_ddl import V4_REBUILD_DDL
 from quodeq.data.sqlite.errors import SqliteStoreUnreadableError
@@ -185,6 +186,7 @@ _UPGRADES = {
     6: upgrade_v6_to_v7,
     7: upgrade_v7_to_v8,
     8: upgrade_v8_to_v9,
+    9: upgrade_v9_to_v10,
 }
 
 

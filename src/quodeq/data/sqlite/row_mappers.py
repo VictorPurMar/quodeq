@@ -21,8 +21,9 @@ from quodeq.core.utils.numbers import int_or_none
 _logger = logging.getLogger(__name__)
 
 
-def _dedup_key(practice_id: str, file: str, line: int, verdict: str) -> str:
-    return f"{practice_id}|{file}|{line}|{verdict}"
+def _dedup_key(identity: str, file: str, line: int, verdict: str) -> str:
+    """One finding per requirement (the principle for rows without one), file, line and verdict."""
+    return f"{identity}|{file}|{line}|{verdict}"
 
 
 def _scope_downgrade_json(raw: Any) -> str | None:
@@ -96,7 +97,7 @@ def judgment_to_row(j: Judgment) -> dict[str, Any]:
         "context": j.context or "",
         "scope": j.scope or "",
         "req_refs_json": refs_json,
-        "dedup_key": _dedup_key(j.practice_id, j.file, j.line, j.verdict),
+        "dedup_key": _dedup_key(j.req or j.practice_id, j.file, j.line, j.verdict),
         "confidence": coerce_confidence(j.confidence),
         "provenance_downgrade": 1 if j.provenance_downgrade else 0,
         "scope_downgrade_json": json.dumps(j.scope_downgrade) if j.scope_downgrade else None,
@@ -151,3 +152,21 @@ def row_to_finding(row: dict[str, Any]) -> Finding:
         provenance_downgrade=bool(row.get("provenance_downgrade")),
         scope_downgrade=scope_downgrade,
     )
+
+
+def judgment_to_unmapped_row(j: Judgment, reason: str) -> dict[str, Any]:
+    """A judgment the standard cannot place, as an ``unmapped_findings`` row."""
+    return {
+        "dimension": j.dimension or "",
+        "requirement": j.req,
+        "principle_hint": j.practice_id or "",
+        "verdict": j.verdict,
+        "severity": j.severity or "",
+        "file": j.file or "",
+        "line": j.line or 0,
+        "title": j.title or "",
+        "reason": j.reason or "",
+        "snippet": j.snippet or "",
+        "unmapped_reason": reason,
+        "dedup_key": _dedup_key(j.req or j.practice_id or "", j.file or "", j.line or 0, j.verdict),
+    }

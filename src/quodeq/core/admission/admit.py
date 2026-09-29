@@ -31,25 +31,25 @@ def admit(facts: FindingFacts, catalog: StandardCatalog, dimension: str | None =
     """Place *facts* in the standard of *dimension* (default: the facts' own).
 
     Order: the reported requirement code (exact, then folded, then another
-    loaded dimension's exact id); with no code, the principle hint read as a
+    loaded dimension's exact id); then the principle hint read as a
     requirement id (deterministic checks write one there), then as a principle
-    name (older rows). Anything else is Unmapped, never a blank principle.
+    name (older rows, and findings whose code the standard lacks; flagged
+    ``unknown_req``). Anything else is Unmapped, never a blank principle.
     """
     declared = dimension or facts.dimension
     index = catalog.get(declared)
     if index is None or not index.req_to_principle:
         return Unmapped(facts, declared, UnmappedReason.NO_STANDARD)
+    if facts.req and (placed := _by_requirement(facts, index, catalog, facts.req)) is not None:
+        return placed
+    hint = facts.principle_hint
+    if hint and not facts.req and (placed := _by_requirement(facts, index, catalog, hint)) is not None:
+        return placed
+    if hint and hint in index.principles:
+        return Admitted(facts=facts, dimension=index.dimension, req=None, principle=hint,
+                        unknown_req=bool(facts.req))
     if facts.req:
-        placed = _by_requirement(facts, index, catalog, facts.req)
-        if placed is not None:
-            return placed
         return Unmapped(facts, index.dimension, UnmappedReason.UNKNOWN_REQUIREMENT,
                         index.nearest(facts.req))
-    hint = facts.principle_hint
-    if hint:
-        if (placed := _by_requirement(facts, index, catalog, hint)) is not None:
-            return placed
-        if hint in index.principles:
-            return Admitted(facts=facts, dimension=index.dimension, req=None, principle=hint)
     return Unmapped(facts, index.dimension, UnmappedReason.MISSING_REQUIREMENT,
                     index.nearest(hint))

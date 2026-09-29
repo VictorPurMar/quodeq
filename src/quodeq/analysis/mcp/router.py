@@ -21,6 +21,8 @@ from quodeq.analysis.mcp.enricher import (
     FileReader,
     FindingEnricher,
 )
+from quodeq.analysis.mcp.finding_admission import ADMISSION_KEY, ADMISSION_UNMAPPED, unmapped_feedback
+from quodeq.analysis.mcp.receipt import Receipt, ReceiptStatus
 from quodeq.analysis.mcp.schemas import JSONL_MARKER_FILE_DONE, FileDoneStatus
 from quodeq.shared.log_sink import SHARED_LOG
 from typing import TYPE_CHECKING, TextIO
@@ -112,18 +114,37 @@ class FindingsRouter:
         self._event_log: EventLogWriter | None = event_log
         self._on_file_done: "Callable[[str, list[dict]], None] | None" = on_file_done
         self._findings_by_file: dict[str, list[dict]] = {}
+        # (file, line, reported req) refused once: the model gets one retry,
+        # a second unknown code is recorded as unmapped.
+        self._refused: set[tuple] = set()
         self.counter = 0
 
-    def receive(self, args: dict) -> tuple[str, bool]:
-        """Process a finding. Returns (message, is_duplicate)."""
+    def receive(self, args: dict) -> Receipt:
+        """Process one finding the model reported and say what happened to it."""
         key = self._enricher.dedup_key(args)
         if key in self._seen:
-            return "Duplicate finding, already captured. Move on.", True
-        self._seen.add(key)
+            return Receipt("Duplicate finding, already captured. Move on.", ReceiptStatus.DUPLICATE)
 
         finding = self._enricher.enrich(args)
+        unmapped = self._enricher.last_unmapped
+        if unmapped is not None:
+            attempt = (args.get("file"), args.get("line"), args.get("req"))
+            if attempt not in self._refused:
+                self._refused.add(attempt)
+                return Receipt(unmapped_feedback(unmapped, args.get("req")), ReceiptStatus.REJECTED)
+        self._seen.add(key)
         self._finish_finding(finding)
-        return f"Finding #{self.counter} recorded.", False
+        if unmapped is not None and finding.get(ADMISSION_KEY) == ADMISSION_UNMAPPED:
+            return Receipt(
+                f"Recorded as unmapped: {args.get('req')!r} is not in the standard. Move on.",
+                ReceiptStatus.UNMAPPED,
+            )
+        if unmapped is not None:
+            return Receipt(
+                f"Recorded under {finding.get('p')!r} without a valid requirement code. Move on.",
+                ReceiptStatus.RECORDED,
+            )
+        return Receipt(f"Finding #{self.counter} recorded.", ReceiptStatus.RECORDED)
 
     def receive_many(self, findings: list[dict]) -> list[dict]:
         """Process a batch of findings (typically one file's), enriched with
@@ -151,7 +172,9 @@ class FindingsRouter:
         """Write, event-emit, and file-track one already-enriched finding."""
         line = json.dumps(finding) + "\n"
         _locked_write(self._fh, line)
-        if self._event_log is not None:
+        # An unmapped finding has no principle; it never reaches the event log,
+        # so the grade tables can never score it under a blank one.
+        if self._event_log is not None and finding.get(ADMISSION_KEY) != ADMISSION_UNMAPPED:
             self._emit_event(finding)
         if self._on_file_done is not None:
             self._findings_by_file.setdefault(finding["file"], []).append(finding)

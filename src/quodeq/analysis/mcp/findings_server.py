@@ -19,6 +19,7 @@ from quodeq.analysis.subagents.file_queue import FileQueue
 from quodeq.analysis.mcp.args import ServerArgs, parse_args
 from quodeq.analysis.mcp.dispatch import read_message, dispatch as _dispatch
 from quodeq.analysis.mcp.jsonrpc_io import JSONRPC_VERSION, send as _send
+from quodeq.analysis.mcp.finding_admission import run_catalog
 from quodeq.analysis.mcp.precedent_signals import precedent_signals
 from quodeq.data.fs.standards_loader import load_compiled_refs as _load_compiled_refs
 from quodeq.context.project_shape import detect_shape
@@ -90,6 +91,7 @@ def _build_compiled_context(sa: ServerArgs) -> CompiledContext:
     trust_model = resolve_trust_model(work_dir) if work_dir is not None else None
 
     return CompiledContext(
+        catalog=run_catalog(sa.compiled_dir, sa.dimensions),
         compiled_refs=compiled_refs or {},
         compiled_reqs=compiled_reqs or {},
         req_to_dim=req_to_dim,

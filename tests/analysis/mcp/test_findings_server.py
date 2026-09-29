@@ -204,11 +204,11 @@ def _received_finding(tmp_path: Path):
     fh = io.StringIO()
     router = _build_router(fh, findings_path, CompiledContext(), ServerArgs())
 
-    _msg, dup = router.receive({
+    dup = router.receive({
         "p": "P1", "file": "x.py", "line": 1, "t": "violation",
         "severity": "medium", "d": "dim", "reason": "r", "snippet": "s",
         "w": "title",
-    })
+    }).status == "duplicate"
 
     events_log = tmp_path / "run-1" / "events.jsonl"
     return fh, dup, events_log

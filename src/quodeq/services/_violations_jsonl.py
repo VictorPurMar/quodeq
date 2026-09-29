@@ -38,19 +38,20 @@ def _resolve_and_dedupe(
     path quarantines it, so this live view must not show it either), or
     already seen.
     """
-    principle = obj.get("p") or obj.get("req")
-    if not principle or obj.get("t") not in FINDING_TYPES:
+    identity = obj.get("req") or obj.get("p")
+    if not identity or obj.get("t") not in FINDING_TYPES:
         return None
     if matcher.is_suppressed(obj):
         return None
     if resolver is None:
-        obj["p"] = matcher.principle_for(principle)
+        obj["p"] = matcher.principle_for(obj.get("p") or identity, req=obj.get("req"))
     else:
-        resolved = resolver.resolve(principle)
+        resolved = resolver.place(obj.get("req"), obj.get("p"))
         if resolved is None:
             return None
         obj["p"] = resolved
-    dedup_key = (principle, obj.get("t"), obj.get("file"), obj.get("line"))
+    # Same identity as every other dedup: the requirement, else the principle.
+    dedup_key = (identity, obj.get("t"), obj.get("file"), obj.get("line"))
     if dedup_key in seen:
         return None
     seen.add(dedup_key)

@@ -24,6 +24,8 @@ from tests.perf._budget_fixture import LATEST_ONLY, PROJECT, count_io, seed_proj
 
 _BUDGETS = Path(__file__).with_name("request_budgets.json")
 
+pytestmark = pytest.mark.real_standards
+
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
