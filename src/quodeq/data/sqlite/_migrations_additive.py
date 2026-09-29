@@ -99,3 +99,33 @@ def upgrade_v8_to_v9(conn: sqlite3.Connection) -> None:
     Guards and idempotency: see :func:`_add_findings_column`.
     """
     _add_findings_column(conn, "violation_type_raw", "TEXT NOT NULL DEFAULT ''")
+
+
+_MOVE_BLANK_PRINCIPLES_SQL = """
+INSERT OR IGNORE INTO unmapped_findings (
+    dimension, requirement, principle_hint, verdict, severity, file, line,
+    title, reason, snippet, unmapped_reason, dedup_key
+)
+SELECT dimension, requirement, '', verdict, severity, file, line,
+       title, reason, snippet, 'missing_principle', dedup_key
+FROM findings WHERE practice_id = '';
+DELETE FROM findings WHERE practice_id = '';
+"""
+
+
+def upgrade_v9_to_v10(conn: sqlite3.Connection) -> None:
+    """Add ``unmapped_findings`` and the triggers that keep ``findings`` placed.
+
+    Rows already stored with an empty principle move to ``unmapped_findings``
+    rather than being deleted; the run's missing standard stamp then
+    re-projects it from its events, which places them through admission.
+    A DB without a ``findings`` table (very old schemas) only gets the new
+    table. Every statement is idempotent, so a crash before the version bump
+    is safe to re-run.
+    """
+    from quodeq.data.sqlite._schema import PRINCIPLE_TRIGGERS_DDL, UNMAPPED_TABLE_DDL  # noqa: PLC0415
+
+    conn.executescript(UNMAPPED_TABLE_DDL)
+    if table_exists(conn, FINDINGS_TABLE):
+        conn.executescript(_MOVE_BLANK_PRINCIPLES_SQL)
+        conn.executescript(PRINCIPLE_TRIGGERS_DDL)

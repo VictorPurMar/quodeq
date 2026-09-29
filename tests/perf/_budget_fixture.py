@@ -14,15 +14,21 @@ from quodeq.data.events.writer import EventLogWriter
 from quodeq.data.projection.projector import Projector
 
 PROJECT = "proj"
-LATEST_ONLY = {"req": "R10", "file": "f10.py", "line": 20}  # only in the newest run
+LATEST_ONLY = {"req": "S-INT-3", "file": "f10.py", "line": 20}  # only in the newest run
 RUNS = 6
 VIOLATIONS_PER_RUN = 6
 
 
+# Real security requirements, so projection places them as it does in use.
+_REQS = [(f"S-CON-{n}", "Confidentiality") for n in range(1, 9)] + [
+    (f"S-INT-{n}", "Integrity") for n in range(1, 4)]
+
+
 def _violation(i: int) -> dict:
+    req, principle = _REQS[i]
     return dict(
-        practice_id="P1", verdict="violation", dimension="Security",
-        file=f"f{i}.py", line=10 + i, reason="r", req=f"R{i}", severity="high",
+        practice_id=principle, verdict="violation", dimension="security",
+        file=f"f{i}.py", line=10 + i, reason="r", req=req, severity="high",
         snippet=f"md5(secret_{i})",
     )
 

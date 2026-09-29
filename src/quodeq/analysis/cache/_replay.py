@@ -20,7 +20,7 @@ from quodeq.context.trust_model import TrustModel
 from quodeq.data.fs.stream_files import append_jsonl_strict
 from quodeq.analysis.cache._replay_principle import ReplayPolicy, readmit
 from quodeq.analysis.mcp.finding_admission import ADMISSION_KEY, ADMISSION_UNMAPPED
-from quodeq.data.projection.principle_from_req import warn_unmapped
+from quodeq.data.projection.standards_defaults import warn_unmapped
 from quodeq.data.ports.events import EventEmitter
 
 _logger = logging.getLogger(__name__)

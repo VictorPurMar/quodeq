@@ -20,7 +20,7 @@ from quodeq.context.trust_model import TrustModel
 from quodeq.core.admission import StandardCatalog
 from quodeq.core.observability import NULL_LOG, LogSink
 from quodeq.data.fs.standard_index_loader import load_standard_catalog
-from quodeq.data.projection.principle_from_req import default_standards_dirs
+from quodeq.data.projection.standards_defaults import default_standards_dirs
 
 CatalogLoader = Callable[[Iterable[str]], StandardCatalog]
 

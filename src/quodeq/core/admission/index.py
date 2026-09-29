@@ -97,6 +97,11 @@ class StandardCatalog:
         """The index for *dimension*, case-insensitive, or None when not loaded."""
         return self.indexes.get((dimension or "").lower())
 
+    def only(self, dimensions: Iterable[str]) -> StandardCatalog:
+        """This catalog limited to *dimensions* (case-insensitive)."""
+        keep = {d.lower() for d in dimensions}
+        return StandardCatalog({d: i for d, i in self.indexes.items() if d in keep})
+
     def owner_of(self, req: str, *, besides: str | None) -> StandardIndex | None:
         """The one other dimension whose standard defines *req* exactly, if any."""
         skip = (besides or "").lower()

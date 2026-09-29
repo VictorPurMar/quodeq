@@ -127,6 +127,26 @@ def _isolate_quodeq_home(tmp_path_factory: pytest.TempPathFactory,
 
 
 @pytest.fixture(autouse=True)
+def _projection_standards(request, monkeypatch) -> None:
+    """Project fixture events as reported unless a test asks for the real standards.
+
+    Production projection places every finding in the installed standard
+    (``data/projection/admission.py``). Most tests seed events with made-up
+    ids (``P1``/``R1`` under "Security") to exercise scoring, dismissals or
+    caching, not placement; against the real security standard those would
+    all be unmapped. An empty catalog keeps them as reported (the
+    no-standard pass-through). Tests about placement, the integration flows
+    and the perf budgets opt back in with ``@pytest.mark.real_standards``.
+    """
+    if request.node.get_closest_marker("real_standards") is None:
+        from quodeq.core.admission import StandardCatalog  # noqa: PLC0415
+        from quodeq.data.projection import admission  # noqa: PLC0415
+
+        monkeypatch.setattr(admission, "installed_catalog", lambda *_a, **_k: StandardCatalog.of([]))
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _fresh_index_cache() -> None:
     """Clear the shared project-resolver index cache before every test.
 

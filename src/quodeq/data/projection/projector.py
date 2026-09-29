@@ -1,6 +1,8 @@
 """Rebuild-vs-update decision and the staleness checks behind ``ensure_projected``."""
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -36,6 +38,26 @@ class _StalenessCheck:
     actions_log: Path | None
     grades_stale: bool
     coverage_stale: bool = False
+    # The standards the findings were placed with changed (or were never
+    # recorded): re-project from the events so every derived field is current.
+    mapping_stale: bool = False
+
+
+def _mapping_stale(store: SQLiteStateStore) -> bool:
+    """True when a projected run's standard mappings differ from the installed ones.
+
+    A run projected before stamps existed has none, so it re-projects once:
+    that is how runs stored with a blank principle heal. A run never
+    projected is rebuilt through its checkpoint check instead.
+    """
+    get = getattr(store, "get_mapping_stamps", None)
+    if get is None or store.get_checkpoint() is None:
+        return False
+    stored = get()
+    if stored is None:
+        return True
+    from quodeq.data.projection.admission import mapping_stamps  # noqa: PLC0415
+    return mapping_stamps(list(stored)) != stored
 
 
 class EnsureLockRegistry:
@@ -172,6 +194,7 @@ class Projector:
         coverage_stale = stamped != report_stamp(events_path.parent)
 
         return _StalenessCheck(
+            mapping_stale=_mapping_stale(store),
             events_changed=events_changed,
             pre_pr1_db=pre_pr1_db,
             actions_changed=actions_changed,
@@ -193,17 +216,21 @@ class Projector:
         matched against pre-existing dismissals.
         """
         # Project events first (so new findings exist before action events touch them).
-        if staleness.events_changed:
-            result = self.project(events_path, run_dir, force_rebuild=staleness.pre_pr1_db)
+        # A changed standard mapping rebuilds from event zero: every stored
+        # finding is placed again.
+        if staleness.events_changed or staleness.mapping_stale:
+            result = self.project(
+                events_path, run_dir, force_rebuild=staleness.pre_pr1_db or staleness.mapping_stale)
         else:
             result = ProjectionResult(events_projected=0, rebuilt=False)
 
         # Project actions. If events changed too, force-replay so brand-new findings
         # get matched against pre-existing dismissals.
         verdicts_changed = 0
-        if staleness.actions_log is not None and (staleness.actions_changed or staleness.events_changed):
+        replayed = staleness.events_changed or staleness.mapping_stale
+        if staleness.actions_log is not None and (staleness.actions_changed or replayed):
             verdicts_changed = self._engine.update_actions(
-                staleness.actions_log, run_dir, force=staleness.events_changed,
+                staleness.actions_log, run_dir, force=replayed,
             )
 
         # Grade tables are derived from findings + dismissals. Recompute
@@ -212,7 +239,7 @@ class Projector:
         # of the math (recompute_grades stamps the current one). A dismissal
         # that touches no finding here leaves the grades as they are: one
         # dismiss grows actions.jsonl for every run of the project.
-        if (staleness.events_changed or verdicts_changed or staleness.grades_stale
+        if (replayed or verdicts_changed or staleness.grades_stale
                 or staleness.coverage_stale):
             from quodeq.data.projection.grade_projector import recompute_grades  # noqa: PLC0415
             recompute_grades(run_dir)
@@ -238,10 +265,15 @@ class Projector:
                 migrate_if_needed(project_dir)
             store = self._store_factory(run_dir)
 
-            staleness = self._detect_staleness(store, events_path, project_dir)
+            # One connection for every run_meta read the check makes; each read
+            # used to open and configure its own.
+            held = store.connection() if hasattr(store, "connection") else nullcontext()
+            with held:
+                staleness = self._detect_staleness(store, events_path, project_dir)
 
             if not (staleness.events_changed or staleness.actions_changed
-                    or staleness.grades_stale or staleness.coverage_stale):
+                    or staleness.grades_stale or staleness.coverage_stale
+                    or staleness.mapping_stale):
                 return ProjectionResult(events_projected=0, rebuilt=False)
 
             return self._apply_projection_deltas(events_path, run_dir, staleness)
