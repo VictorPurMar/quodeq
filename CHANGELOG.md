@@ -5,6 +5,9 @@
 ### Security
 - **Provider keys stay off disk by default**: when no operating system keyring is available, an API key is no longer written to `.quodeq.env`. Export the provider's key variable (for example `ANTHROPIC_API_KEY`) in your shell, or set `QUODEQ_ALLOW_PLAINTEXT_KEY=1` to keep the previous owner-only file fallback. Settings shows which variable to export when a key cannot be saved.
 
+### Features
+- **Accessibility standard**: a built-in WCAG 2.2 standard covering levels A and AA as applied to software by EN 301 549, with detection hints for Android, iOS and web. It is off by default like Clean Architecture and DDD; turn it on with the eye icon in Standards. Standards now show their family and edition (`iso-25010`, `wcag-2.2`), and the Evaluate chip reads WCAG.
+
 ### Improvements
 - **Numbers that only move with the code**: the `quodeq evaluate` summary line now reads `dim: SCORE (N major, T open types, D per 100 files, C% coverage)`; the raw violation count is no longer on it, and a critical finding counts as major. Run history rows carry violations, majors and open requirement types per dimension, and the dashboard payload carries a since-baseline block per dimension (the previous run it was compared with, majors delta, requirement types closed and opened, new and resolved findings in the files changed between the two commits, or in every file when a commit is unknown or the tree was dirty).
 

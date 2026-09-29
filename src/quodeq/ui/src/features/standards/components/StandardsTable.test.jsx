@@ -148,3 +148,16 @@ describe('StandardsTable download error handling (#500)', () => {
     }, { timeout: 2000 });
   });
 });
+
+describe('StandardsTable WCAG standard', () => {
+  const wcag = {
+    id: 'accessibility', name: 'Accessibility', type: 'wcag', subtype: '2.2',
+    description: '', principleCount: 5, requirementCount: 34,
+  };
+
+  it('shows the family and edition and, like ISO, offers no delete', () => {
+    render(<StandardsTable grouped={{ wcag: [wcag] }} actions={actions} customizedCounts={{}} />);
+    expect(screen.getByText('wcag-2.2')).toBeInTheDocument();
+    expect(screen.queryByLabelText(`${t('violations.delete')} Accessibility`)).not.toBeInTheDocument();
+  });
+});

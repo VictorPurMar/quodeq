@@ -5,6 +5,10 @@ import { STANDARD_TYPES } from '../../standards/hooks/useStandards.js';
 import { t } from '../../../strings/index.js';
 import { STANDARDS_CHANGED_EVENT, STANDARDS_CHANGED_REASON } from '../../../constants.js';
 
+const NON_ISO_TYPES = new Set([
+  STANDARD_TYPES.WCAG, STANDARD_TYPES.QUODEQ, STANDARD_TYPES.COMMUNITY, STANDARD_TYPES.CUSTOM,
+]);
+
 function mergeStandardsDimensions(standards, seen) {
   for (const s of standards) {
     if (seen.has(s.id)) {
@@ -13,7 +17,7 @@ function mergeStandardsDimensions(standards, seen) {
         existing.standardType = s.type === STANDARD_TYPES.BUILTIN ? null : s.type;
         if (s.name && !existing.label) existing.label = s.name;
       }
-    } else if (s.type === STANDARD_TYPES.CUSTOM || s.type === STANDARD_TYPES.COMMUNITY || s.type === STANDARD_TYPES.QUODEQ) {
+    } else if (NON_ISO_TYPES.has(s.type)) {
       seen.set(s.id, { id: s.id, label: s.name, iso_25010: null, standardType: s.type });
     }
   }

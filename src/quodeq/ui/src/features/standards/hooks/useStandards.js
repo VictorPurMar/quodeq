@@ -4,8 +4,24 @@ import { standardsKeys } from '../../../api/queryKeys.js';
 import { apiErrorMessage } from '../../../strings/apiErrors.js';
 import { STANDARDS_CHANGED_REASON, notifyStandardsChanged } from '../../../constants.js';
 import { useStandardsQuery } from './useStandardsQuery.js';
+import { t } from '../../../strings/index.js';
 
-export const STANDARD_TYPES = { BUILTIN: 'builtin', QUODEQ: 'quodeq', COMMUNITY: 'community', CUSTOM: 'custom' };
+export const STANDARD_TYPES = { BUILTIN: 'builtin', WCAG: 'wcag', QUODEQ: 'quodeq', COMMUNITY: 'community', CUSTOM: 'custom' };
+
+const FAMILY_LABEL_KEYS = {
+  [STANDARD_TYPES.BUILTIN]: 'standards.baseIso',
+  [STANDARD_TYPES.WCAG]: 'standards.baseWcag',
+  [STANDARD_TYPES.QUODEQ]: 'standards.baseQuodeq',
+  [STANDARD_TYPES.COMMUNITY]: 'standards.baseCommunity',
+  [STANDARD_TYPES.CUSTOM]: 'standards.baseCustom',
+};
+
+/** The standard's family and, when it has one, its edition: "iso-25010", "wcag-2.2", "custom". */
+export function standardBaseLabel(standard) {
+  const key = FAMILY_LABEL_KEYS[standard?.type];
+  if (!key) return null;
+  return standard.subtype ? `${t(key)}-${standard.subtype}` : t(key);
+}
 
 // Fallback bucket for a standard whose `type` doesn't match any known
 // STANDARD_TYPES value. Keeps it visible (StandardsTable folds this bucket
@@ -44,6 +60,7 @@ function makeHandleDuplicate({ duplicateStandard, setMutationError, refresh, onD
 function groupStandards(standards) {
   const g = {
     [STANDARD_TYPES.BUILTIN]: [],
+    [STANDARD_TYPES.WCAG]: [],
     [STANDARD_TYPES.QUODEQ]: [],
     [STANDARD_TYPES.COMMUNITY]: [],
     [STANDARD_TYPES.CUSTOM]: [],

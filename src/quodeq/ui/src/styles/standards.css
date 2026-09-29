@@ -1415,6 +1415,7 @@
 }
 
 .standards-base-pill--builtin,
+.standards-base-pill--wcag,
 .standards-base-pill--quodeq {
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   color: var(--color-accent);

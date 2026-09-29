@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { t } from '../../../strings/index.js';
 
 const TYPE_CONFIG = {
-  quodeq:    { labelKey: 'evaluate.stdQuodeq',    className: 'dimension-chip-type--quodeq',    order: 1 },
-  custom:    { labelKey: 'evaluate.stdCustom',    className: 'dimension-chip-type--custom',    order: 3 },
-  community: { labelKey: 'evaluate.stdCommunity', className: 'dimension-chip-type--community', order: 2 },
+  wcag:      { labelKey: 'evaluate.stdWcag',      className: 'dimension-chip-type--wcag',      order: 1 },
+  quodeq:    { labelKey: 'evaluate.stdQuodeq',    className: 'dimension-chip-type--quodeq',    order: 2 },
+  custom:    { labelKey: 'evaluate.stdCustom',    className: 'dimension-chip-type--custom',    order: 4 },
+  community: { labelKey: 'evaluate.stdCommunity', className: 'dimension-chip-type--community', order: 3 },
 };
 const DEFAULT_TYPE_CONFIG = { labelKey: 'evaluate.stdIso', className: 'dimension-chip-type--builtin', order: 0 };
 
