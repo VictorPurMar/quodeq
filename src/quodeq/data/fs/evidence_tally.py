@@ -101,7 +101,7 @@ def _classify_finding_row(
     if not isinstance(obj, dict):
         return _RowClass.SKIP  # valid JSON but not an object (a bare list/number)
     t = obj.get("t")
-    key = (obj.get("p"), obj.get("file"), obj.get("line"), t)
+    key = (obj.get("req") or obj.get("p"), obj.get("file"), obj.get("line"), t)
     if key in seen:
         return _RowClass.DUPLICATE
     seen.add(key)
@@ -124,7 +124,7 @@ def tally_unique_findings(
     suppressed: "Callable[[dict], bool] | None" = None,
     resolver: PrincipleResolver | None = None,
 ) -> FindingTally:
-    """Count unique findings (deduplicated by ``(p, file, line, t)``) and duplicates.
+    """Count unique findings (deduplicated by ``(requirement or principle, file, line, t)``) and duplicates.
 
     Single source of truth for the heartbeat and the dashboard progress reader,
     so the terminal and UI never disagree mid-batch — before the on-disk

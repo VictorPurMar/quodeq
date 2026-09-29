@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable, Protocol, runtime_checkable
 
 from quodeq.analysis.mcp.finding_admission import (
-    admission_of, apply_admission, catalog_from_reqs, dedup_principle, is_unplaceable, refusal_of,
+    admission_of, apply_admission, catalog_from_reqs, dedup_identity, is_unplaceable, refusal_of,
 )
 from quodeq.analysis.mcp._enricher_rules import (
     apply_path_role_downweight, apply_shape_downweight, resolve_principle,
@@ -119,10 +119,10 @@ class FindingEnricher:
         """Compute the deduplication key for a raw finding args dict."""
         placed = admission_of(args, self._catalog, self._dimension)
         if is_unplaceable(placed):
-            p = resolve_principle(args.get("p"), args.get("req"), self._reqs)
+            ident = args.get("req") or resolve_principle(args.get("p"), None, self._reqs)
         else:
-            p = dedup_principle(args, placed)
-        return (p, args.get("file"), args.get("line"), args.get("t"))
+            ident = dedup_identity(args, placed)
+        return (ident, args.get("file"), args.get("line"), args.get("t"))
 
     def _resolve_finding_dimension(
         self, finding: dict, args: dict, req: str | None,

@@ -122,3 +122,17 @@ def test_an_unknown_code_with_a_valid_principle_is_refused_then_kept_under_it() 
     (row,) = _rows(fh)
     assert (row["p"], row["req_unknown"]) == ("Operable", True)
     assert len(events.emitted) == 1
+
+
+def test_two_requirements_of_one_principle_on_a_line_are_two_findings(tmp_path) -> None:
+    from quodeq.analysis.subagents.jsonl_utils import deduplicate_jsonl
+
+    router, fh = _router()
+    router.receive(_args(req="ACC-PER-01"))
+    router.receive(_args(req="ACC-PER-02"))
+    duplicate = router.receive(_args(req="acc-per-2"))
+
+    assert duplicate.status is ReceiptStatus.DUPLICATE
+    jsonl = tmp_path / "e.jsonl"
+    jsonl.write_text(fh.getvalue() * 2, encoding="utf-8")
+    assert deduplicate_jsonl(jsonl) == 2
