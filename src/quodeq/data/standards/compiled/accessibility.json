@@ -1,17 +1,17 @@
 {
   "id": "accessibility",
   "name": "Accessibility",
-  "description": "Platform-neutral accessibility conformance for native mobile and web apps. Criteria follow WCAG 2.2 level A and AA as applied to software by EN 301 549 clause 11, plus EN 301 549 clauses 5, 7 and 11.5 to 11.7. Each requirement carries detection hints per platform; apply only the hint that matches the discipline under review.",
+  "description": "Platform-neutral accessibility conformance for native mobile and web apps. Criteria follow WCAG 2.2 level A and AA as applied to software by EN 301 549 clause 11, plus EN 301 549 clauses 5, 7 and 11.5 to 11.7. Each requirement carries detection hints per platform; apply only the hint that matches the discipline under review. Six criteria that EN 301 549 voids for non-web software (2.4.1, 2.4.2, 2.4.5, 3.1.2, 3.2.3, 3.2.4) are out of scope until platform-specific standards exist, so a clean score is not full WCAG conformance for a website.",
+  "version": "2026.09.2",
   "managed": true,
   "type": "wcag",
   "subtype": "2.2",
+  "weight": 1.0,
   "source": "WCAG 2.2 (W3C, 2023) and EN 301 549 v3.2.1 (ETSI, 2021)",
   "sources": [
     "wcag22",
     "en301549"
   ],
-  "version": "2026.09.1",
-  "weight": 1.0,
   "principles": [
     {
       "name": "Perceivable",
@@ -802,6 +802,27 @@
             "web": "autocomplete=\"one-time-code\", paste not blocked, passkey or password manager supported."
           },
           "description": "WCAG level A. Verifiable from source code."
+        },
+        {
+          "id": "ACC-UND-07",
+          "name": "Consistent help",
+          "text": "When help, contact or support options (help screen, chat, phone, FAQ link) are offered on several screens, they MUST appear in the same relative place and order on each of them. Detect on the platform under review. Android: Help or support entry lives in one shared composable (top bar action, settings row, overflow menu) reused across screens, not re-placed per screen. iOS: Help or support entry comes from one shared toolbar item, tab or settings row reused across screens. Web: Help link, chat widget or contact entry comes from a shared header, footer or layout component, in the same position on every page.",
+          "level": "A",
+          "verifiability": "mixed",
+          "refs": [
+            {
+              "source": "wcag22",
+              "id": "3.2.6",
+              "name": "Consistent Help",
+              "url": "https://www.w3.org/WAI/WCAG22/Understanding/consistent-help"
+            }
+          ],
+          "hints": {
+            "mobile_android": "Help or support entry lives in one shared composable (top bar action, settings row, overflow menu) reused across screens, not re-placed per screen.",
+            "mobile_ios": "Help or support entry comes from one shared toolbar item, tab or settings row reused across screens.",
+            "web": "Help link, chat widget or contact entry comes from a shared header, footer or layout component, in the same position on every page."
+          },
+          "description": "WCAG level A. Verifiable from mixed code."
         }
       ]
     },

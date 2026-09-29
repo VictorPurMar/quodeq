@@ -49,4 +49,4 @@ def test_bundled_standards_carry_their_family_and_edition() -> None:
     assert (metas["security"].type, metas["security"].subtype) == ("builtin", "25010")
     assert (metas["accessibility"].type, metas["accessibility"].subtype) == ("wcag", "2.2")
     assert (metas["clean-architecture"].type, metas["clean-architecture"].subtype) == ("quodeq", None)
-    assert metas["accessibility"].requirement_count == 34
+    assert metas["accessibility"].requirement_count == 35
