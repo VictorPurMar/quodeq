@@ -9,7 +9,7 @@ bugs at the cost of a few ms per call.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from quodeq.core.scoring.params import ScoringParams
@@ -17,6 +17,12 @@ from quodeq.core.types.finding import Finding
 from quodeq.core.types.finding_type import FindingType
 from quodeq.data.fs.grade_formula_store import load_params
 from quodeq.data.fs.report_parser.finding_details import iter_readable_eval_reports
+from quodeq.data.projection.principle_from_req import (
+    PrincipleLookup,
+    default_standards_dirs,
+    make_principle_lookup,
+    warn_unmapped,
+)
 from quodeq.data.sqlite.row_mappers import row_to_finding
 from quodeq.data.sqlite.connection import open_evaluation_db
 from quodeq.data.sqlite.state_store import SQLiteStateStore
@@ -57,8 +63,8 @@ _SELECT_NON_DISMISSED = (
 )
 
 _SELECT_DISMISSED_COUNTS = (
-    "SELECT dimension, practice_id, COUNT(*) FROM findings "
-    "WHERE verdict = 'dismissed' GROUP BY dimension, practice_id"
+    "SELECT dimension, practice_id, requirement, COUNT(*) FROM findings "
+    "WHERE verdict = 'dismissed' GROUP BY dimension, practice_id, requirement"
 )
 
 
@@ -94,36 +100,73 @@ def _grade_all_principles(
 @dataclass(frozen=True, slots=True)
 class GradeInputs:
     """What the scorer reads from a run: active findings grouped by
-    (dimension, principle), dismissed counts, and the project size."""
+    (dimension, principle), dismissed counts, and the project size.
+
+    ``unmapped_by_dimension`` counts the findings left out because they carry
+    no principle and their requirement code places them under none.
+    """
 
     violations_by: dict[tuple[str, str], list[Finding]]
     compliance_by: dict[tuple[str, str], list[Finding]]
     dismissed_counts: dict[tuple[str, str], int]
     source_file_count: int
+    unmapped_by_dimension: dict[str, int] = field(default_factory=dict)
 
 
-def load_grade_inputs(run_dir: Path) -> GradeInputs:
+def _principle_of(
+    dimension: str, practice_id: str | None, req: str | None, lookup: PrincipleLookup,
+) -> str | None:
+    """The stored principle, else the one the requirement code belongs to."""
+    return practice_id or lookup(dimension, req)
+
+
+def load_grade_inputs(
+    run_dir: Path, *, compiled_dir: Path | None = None, evaluators_dir: Path | None = None,
+) -> GradeInputs:
     """Read the run's findings from SQL, so dismissals (verdict='dismissed')
-    are already applied, and group them for scoring."""
+    are already applied, and group them for scoring.
+
+    A finding stored without a principle is placed by its requirement code
+    through the dimension's standard (*compiled_dir* / *evaluators_dir*,
+    defaulting to this install's). One the standard cannot place is counted in
+    ``unmapped_by_dimension`` and left out, never graded as a principle.
+    """
+    if compiled_dir is None and evaluators_dir is None:
+        compiled_dir, evaluators_dir = default_standards_dirs()
+    lookup = make_principle_lookup(compiled_dir, evaluators_dir)
     with open_evaluation_db(run_dir) as conn:
         dismissed_raw = conn.execute(_SELECT_DISMISSED_COUNTS).fetchall()
         conn.row_factory = _dict_row
         rows = conn.execute(_SELECT_NON_DISMISSED).fetchall()
     violations_by: dict[tuple[str, str], list[Finding]] = {}
     compliance_by: dict[tuple[str, str], list[Finding]] = {}
+    unmapped: dict[str, int] = {}
     for f in (row_to_finding(r) for r in rows):
-        key = (f.dimension or "", f.practice_id or "")
+        dimension = f.dimension or ""
+        principle = _principle_of(dimension, f.practice_id, f.req, lookup)
+        if principle is None:
+            unmapped[dimension] = unmapped.get(dimension, 0) + 1
+            continue
         bucket = violations_by if f.verdict == FindingType.VIOLATION else compliance_by
-        bucket.setdefault(key, []).append(f)
+        bucket.setdefault((dimension, principle), []).append(f)
+    dismissed: dict[tuple[str, str], int] = {}
+    for dimension, practice_id, req, count in dismissed_raw:
+        principle = _principle_of(dimension or "", practice_id, req, lookup)
+        if principle is not None:
+            key = (dimension, principle)
+            dismissed[key] = dismissed.get(key, 0) + count
+    warn_unmapped(unmapped)
     return GradeInputs(
         violations_by=violations_by, compliance_by=compliance_by,
-        dismissed_counts={(r[0], r[1]): r[2] for r in dismissed_raw},
+        dismissed_counts=dismissed,
         source_file_count=_read_source_file_count(run_dir),
+        unmapped_by_dimension=unmapped,
     )
 
 
 def compute_run_grades(
     run_dir: Path, params: ScoringParams,
+    *, compiled_dir: Path | None = None, evaluators_dir: Path | None = None,
 ) -> tuple[list[tuple[str, dict]], list[dict]]:
     """Compute (principle_rows, dimension_rows) from findings. Pure: no writes.
 
@@ -133,7 +176,7 @@ def compute_run_grades(
     ``recompute_grades`` layers persistence on top; ``preview_scores`` uses
     the result directly.
     """
-    inputs = load_grade_inputs(run_dir)
+    inputs = load_grade_inputs(run_dir, compiled_dir=compiled_dir, evaluators_dir=evaluators_dir)
     principle_rows, principle_grades_by_dim = _grade_all_principles(
         inputs.violations_by, inputs.compliance_by, inputs.dismissed_counts,
         inputs.source_file_count, params,
