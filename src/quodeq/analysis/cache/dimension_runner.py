@@ -54,6 +54,10 @@ from quodeq.analysis.cache._replay import (
     write_dispatch_keys_sidecar,
     write_findings,
 )
+from quodeq.analysis.cache._replay_principle import (  # noqa: F401 -- re-exports
+    ReplayPolicy,
+    replay_principle_lookup,
+)
 from quodeq.analysis.cache.backend import CacheBackend
 from quodeq.analysis.subagents.runner import (
     DimensionCallbacks,
@@ -111,7 +115,9 @@ def _handle_all_hits(
     since a dim may run multiple times in the same run (e.g. V1's backfill
     phase); dedup after handles overlap from a same-run repeat."""
     from quodeq.analysis.subagents.jsonl_utils import deduplicate_jsonl
-    write_findings(cctx.jsonl, cctx.classify, append=True, trust_model=cctx.trust_model)
+    write_findings(
+        cctx.jsonl, cctx.classify, append=True, policy=ReplayPolicy(cctx.trust_model, replay_principle_lookup(config)),
+    )
     if cctx.jsonl.exists():
         deduplicate_jsonl(cctx.jsonl)
     return _parse_dim_jsonl(config, ctx, cctx)
@@ -124,7 +130,9 @@ def _prepare_miss_dispatch(config: RunConfig, dim_id: str, cctx: CacheContext) -
     miss_options = replace(config.options, incremental_file_filter=set(classify.misses))
     miss_config = replace(config, options=miss_options)
     if classify.cached_findings or classify.unconsolidated_findings:
-        write_findings(cctx.jsonl, classify, append=True, trust_model=cctx.trust_model)
+        write_findings(
+            cctx.jsonl, classify, append=True, policy=ReplayPolicy(cctx.trust_model, replay_principle_lookup(config)),
+        )
     write_dispatch_keys_sidecar(config, dim_id, classify.miss_keys)
     return miss_config
 
