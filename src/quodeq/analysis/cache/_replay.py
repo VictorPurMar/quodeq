@@ -18,6 +18,8 @@ from quodeq.analysis.cache.dimension_helpers import ClassifyResult, group_findin
 from quodeq.analysis.mcp.severity_gates import apply_severity_gates
 from quodeq.context.trust_model import TrustModel
 from quodeq.data.fs.stream_files import append_jsonl_strict
+from quodeq.analysis.cache._replay_principle import ReplayPolicy, with_principle
+from quodeq.data.projection.principle_from_req import PrincipleLookup, warn_unmapped
 from quodeq.data.ports.events import EventEmitter
 
 _logger = logging.getLogger(__name__)
@@ -113,6 +115,7 @@ def _events_log_path(jsonl: Path) -> Path:
 def emit_cached_findings(
     events_log: Path, findings: list[dict], *,
     writer_factory: Callable[[Path], EventEmitter] | None = None,
+    principle_lookup: PrincipleLookup | None = None,
 ) -> None:
     """Emit cached findings as JUDGMENT_CREATED events to the run's event log.
 
@@ -139,9 +142,14 @@ def emit_cached_findings(
         from quodeq.data.events.writer import EventLogWriter  # noqa: PLC0415
         writer_factory = EventLogWriter
     writer = writer_factory(events_log)
+    unplaced: dict[str, int] = {}
     for finding in findings:
         try:
-            payload = wire_dict_to_judgment(finding)
+            repaired = with_principle(finding, principle_lookup)
+            if principle_lookup is not None and not repaired.get("p"):
+                dimension = finding.get("d") or ""
+                unplaced[dimension] = unplaced.get(dimension, 0) + 1
+            payload = wire_dict_to_judgment(repaired)
             writer.emit(JudgmentCreatedEvent(payload=payload))
         except (OSError, TypeError, ValueError):
             _logger.warning(
@@ -149,6 +157,7 @@ def emit_cached_findings(
                 finding.get("p"), finding.get("file"), finding.get("line"),
                 exc_info=True,
             )
+    warn_unmapped(unplaced)
 
 
 def _regate_replayed_findings(
@@ -224,7 +233,7 @@ def _stamp_and_write_findings(
 def write_findings(
     jsonl: Path, classify: ClassifyResult, *, append: bool,
     emit_events: bool = True,
-    trust_model: TrustModel | None = None,
+    policy: ReplayPolicy = ReplayPolicy(),
     writer_factory: Callable[[Path], EventEmitter] | None = None,
 ) -> None:
     """Replay cached findings into this run's evidence JSONL.
@@ -243,11 +252,16 @@ def write_findings(
     Both groups are re-gated and both are mirrored to events.jsonl. Skipping
     the unconsolidated group in the event log would resurrect the UI-vs-CLI
     score disagreement that emit_cached_findings exists to prevent.
-    *writer_factory* is forwarded to :func:`emit_cached_findings`.
+    *writer_factory* and the policy's *principle_lookup* are forwarded to
+    :func:`emit_cached_findings`, which sets the principle on events whose
+    cached finding has none; the JSONL rows stay as cached.
     """
     findings = classify.cached_findings
     pending = list(classify.unconsolidated_findings)
-    _regate_replayed_findings(findings, pending, trust_model)
+    _regate_replayed_findings(findings, pending, policy.trust_model)
     stamped = _stamp_and_write_findings(jsonl, findings, pending, append=append)
     if emit_events:
-        emit_cached_findings(_events_log_path(jsonl), stamped, writer_factory=writer_factory)
+        emit_cached_findings(
+            _events_log_path(jsonl), stamped, writer_factory=writer_factory,
+            principle_lookup=policy.principle_lookup,
+        )
