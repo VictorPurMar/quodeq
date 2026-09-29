@@ -28,6 +28,7 @@ class StandardMeta:
     principle_count: int = 0
     requirement_count: int = 0
     subtype: str | None = None  # the family's edition: "25010" (ISO), "2.2" (WCAG)
+    version: str | None = None  # that edition's revision: "2023"; quodeq's own release for quodeq standards
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,3 +45,4 @@ class StandardDetail:
     origin_hash: str | None
     principles: list[dict] = field(default_factory=list)
     subtype: str | None = None  # the family's edition: "25010" (ISO), "2.2" (WCAG)
+    version: str | None = None  # that edition's revision: "2023"; quodeq's own release for quodeq standards

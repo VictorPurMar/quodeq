@@ -9,7 +9,6 @@ from quodeq.core.types.standard import StandardDetail, StandardMeta
 logger = logging.getLogger(__name__)
 
 TYPE_CUSTOM = "custom"
-_ISO_EDITION = "25010"
 _TYPE_BUILTIN = "builtin"
 
 
@@ -70,6 +69,7 @@ def _custom_fields(data: dict, sid: str, type_default: str) -> dict[str, object]
         "origin": data.get("origin"),
         "origin_hash": data.get("origin_hash"),
         "subtype": data.get("subtype"),
+        "version": data.get("version"),
     }
 
 
@@ -92,15 +92,9 @@ def _builtin_fields(
         "managed": True,
         "origin": None,
         "origin_hash": None,
-        "subtype": _builtin_subtype(data),
+        "subtype": data.get("subtype"),
+        "version": data.get("version"),
     }
-
-
-def _builtin_subtype(data: dict) -> str | None:
-    """The edition of a built-in's family; the ISO dimensions carry none in the files."""
-    if subtype := data.get("subtype"):
-        return subtype
-    return _ISO_EDITION if data.get("type", _TYPE_BUILTIN) == _TYPE_BUILTIN else None
 
 
 def build_detail(data: dict, *, type_default: str = TYPE_CUSTOM) -> StandardDetail:
@@ -134,7 +128,7 @@ def build_custom_meta(data: dict, p_count: int, r_count: int) -> StandardMeta:
 
 
 def build_builtin_meta(
-    dim: dict, p_count: int, r_count: int, description: str = "",
+    dim: dict, p_count: int, r_count: int, description: str = "", version: str | None = None,
 ) -> StandardMeta:
     """Build a StandardMeta for a built-in dimension.
 
@@ -145,9 +139,10 @@ def build_builtin_meta(
     did = _require_id(dim, "built-in dimension")
     final_description = description or f'{dim.get("source", "Built-in")} standard'
     return StandardMeta(
+        # The registry entry carries no version; it comes from the compiled file.
         **_builtin_fields(
-            dim, did, dim.get("iso_25010") or dim.get("name", did), final_description,
-            dim.get("weight", 1.0), dim.get("source", ""),
+            {**dim, "version": version}, did, dim.get("iso_25010") or dim.get("name", did),
+            final_description, dim.get("weight", 1.0), dim.get("source", ""),
         ),
         principle_count=p_count, requirement_count=r_count,
     )

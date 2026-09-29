@@ -2,10 +2,10 @@
   "id": "accessibility",
   "name": "Accessibility",
   "description": "Platform-neutral accessibility conformance for native mobile and web apps. Criteria follow WCAG 2.2 level A and AA as applied to software by EN 301 549 clause 11, plus EN 301 549 clauses 5, 7 and 11.5 to 11.7. Each requirement carries detection hints per platform; apply only the hint that matches the discipline under review. Six criteria that EN 301 549 voids for non-web software (2.4.1, 2.4.2, 2.4.5, 3.1.2, 3.2.3, 3.2.4) are out of scope until platform-specific standards exist, so a clean score is not full WCAG conformance for a website.",
-  "version": "2026.09.2",
-  "managed": true,
   "type": "wcag",
   "subtype": "2.2",
+  "version": "2023.10",
+  "managed": true,
   "weight": 1.0,
   "source": "WCAG 2.2 (W3C, 2023) and EN 301 549 v3.2.1 (ETSI, 2021)",
   "sources": [
