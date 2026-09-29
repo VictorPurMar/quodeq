@@ -20,7 +20,6 @@ from quodeq.shared.fault_isolation import run_isolated
 _logger = logging.getLogger(__name__)
 
 _FAILURE_BACKOFF_S = 60.0
-_WORKER_POLL_INTERVAL_S = 0.1  # how often the idle worker re-checks for shutdown
 _SHUTDOWN_JOIN_TIMEOUT_S = 10  # bound on reset_for_tests' wait for the worker to exit
 
 
@@ -146,6 +145,11 @@ class WarmupEngine:
             if getattr(entry, "summary_pending", False):
                 self.enqueue(entry.id)
 
+    def generation(self) -> int:
+        """How many projects the worker has finished; moves on every completion."""
+        with self._cond:
+            return self._done
+
     def snapshot(self) -> dict | None:
         """Return warm-up progress for the API, or None before ``start``."""
         with self._cond:
@@ -214,8 +218,10 @@ class WarmupEngine:
     def _worker(self) -> None:
         while True:
             with self._cond:
+                # enqueue and reset_for_tests notify under the lock, so an idle
+                # worker sleeps until there is work instead of polling.
                 while not self._pending and not self._shutdown.is_set():
-                    self._cond.wait(timeout=_WORKER_POLL_INTERVAL_S)
+                    self._cond.wait()
                 if self._shutdown.is_set():
                     break
                 project_id = self._pending.popleft()

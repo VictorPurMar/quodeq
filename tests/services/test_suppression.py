@@ -165,7 +165,7 @@ class TestParityWithTheDashboardParsePath:
 
     def test_tally_and_parse_agree_on_which_rows_survive(self, project, tmp_path):
         from quodeq.analysis.subagents.jsonl_utils import tally_unique_findings
-        from quodeq.services._violations_jsonl import _parse_jsonl_findings
+        from quodeq.services._violations_jsonl import _jsonl_parser
         from quodeq.services.deleted import deleted_keys
 
         rows = [
@@ -181,10 +181,9 @@ class TestParityWithTheDashboardParsePath:
         m = matcher_for(project, "reliability", evaluators_dir=tmp_path / "nope")
         tally = tally_unique_findings(jsonl, suppressed=m.is_suppressed)
 
-        parsed, compliance = _parse_jsonl_findings(
-            jsonl.read_text().splitlines(), "reliability",
-            keys=SuppressionKeys(frozenset(), deleted_keys(project)),
-        )
+        parsed, compliance = _jsonl_parser(
+            "reliability", None, None, SuppressionKeys(frozenset(), deleted_keys(project)),
+        )(jsonl.read_text().splitlines())
 
         assert tally.violations == len(parsed) == 1
         assert tally.compliance == len(compliance) == 1

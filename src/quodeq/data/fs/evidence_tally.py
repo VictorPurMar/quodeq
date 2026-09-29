@@ -16,6 +16,7 @@ from typing import Callable
 
 from quodeq.core.evidence.req_mapping import PrincipleResolver
 from quodeq.core.types.finding_type import FINDING_TYPES, FindingType
+from quodeq.shared.appended_lines import AppendedLines
 from quodeq.shared.utils import open_text
 
 _logger = logging.getLogger(__name__)
@@ -170,19 +171,14 @@ def _tally_of(counts: dict[str, int]) -> FindingTally:
     )
 
 
-_TAIL_GUARD = 512
-
-
 class IncrementalTally:
     """A ``tally_unique_findings`` that resumes where its last call stopped.
 
-    The evidence jsonl is append-only while a pool runs, so each call reads
-    the bytes appended since the previous one and folds them into the same
-    dedup set and counters. Only complete lines are consumed: a trailing
-    partial line (an agent mid-write) waits for the next call. The consumed
-    tail is remembered; when the file is shorter than the offset or the tail
-    no longer matches (the end-of-pool dedup pass rewrites the file in
-    place), everything is re-read from zero.
+    The evidence jsonl is append-only while a pool runs, so each call folds
+    the complete lines appended since the previous one (``AppendedLines``)
+    into the same dedup set and counters. A shrink or a rewritten tail (the
+    end-of-pool dedup pass rewrites the file in place) restarts the count
+    from zero.
     """
 
     def __init__(
@@ -195,17 +191,18 @@ class IncrementalTally:
         self._resolver = resolver
         self._reset()
 
+    @property
+    def offset(self) -> int:
+        """Bytes of the file consumed so far."""
+        return self._lines.offset
+
     def _reset(self) -> None:
-        self.offset = 0
-        self._tail = b""
+        self._lines = AppendedLines(self.path)
+        self._reset_counts()
+
+    def _reset_counts(self) -> None:
         self._seen: set[tuple] = set()
         self._counts = _zero_counts()
-
-    def _tail_matches(self, f) -> bool:
-        if not self._tail:
-            return True
-        f.seek(self.offset - len(self._tail))
-        return f.read(len(self._tail)) == self._tail
 
     def advance(self) -> FindingTally:
         """Fold in the bytes appended since the last call and return the running tally.
@@ -216,26 +213,13 @@ class IncrementalTally:
         if not self.path.is_file():
             self._reset()
             return self._tally()
-        try:
-            with open(self.path, "rb") as f:
-                size = f.seek(0, 2)
-                if size < self.offset or not self._tail_matches(f):
-                    self._reset()
-                f.seek(self.offset)
-                data = f.read()
-        except OSError as exc:
-            _logger.debug("evidence file unreadable during tally: %s", exc)
-            return self._tally()
-        end = data.rfind(b"\n")
-        if end < 0:
-            return self._tally()
-        complete = data[: end + 1]
-        for raw in complete.decode("utf-8", errors="replace").split("\n"):
+        restarted, lines = self._lines.read()
+        if restarted:
+            self._reset_counts()
+        for raw in lines:
             kind = _classify_finding_row(raw, self._seen, suppressed=self._suppressed, resolver=self._resolver)
             if kind in self._counts:
                 self._counts[kind] += 1
-        self.offset += len(complete)
-        self._tail = complete[-_TAIL_GUARD:]
         return self._tally()
 
     def _tally(self) -> FindingTally:

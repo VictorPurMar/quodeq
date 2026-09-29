@@ -149,20 +149,6 @@ def test_route_serializes_entities_to_camel_case(tmp_path):
     assert body["projects"][0]["latestRunId"] == "r2"
 
 
-def test_pending_summaries_keep_the_cache_cold(tmp_path):
-    """While any entry is summary-pending the TTL must not stamp: the UI polls
-    every few seconds for grades the warm-up engine is still computing."""
-    pending = ProjectEntry(id="p1", name="proj", runs_count=2, latest_run_id="r2", summary_pending=True)
-    with patch(
-        "quodeq.services._projects_cache.fs_projects.build_project_list",
-        return_value=[pending],
-    ) as spy:
-        cache = ProjectsCache()
-        cache.list(str(tmp_path))
-        cache.list(str(tmp_path))
-    assert spy.call_count == 2, "pending entries must bypass the TTL window"
-
-
 def test_settled_summaries_stamp_the_cache_again(tmp_path):
     done = ProjectEntry(id="p1", name="proj", runs_count=2, latest_run_id="r2", summary_pending=False)
     with patch(

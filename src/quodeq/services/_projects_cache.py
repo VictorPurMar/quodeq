@@ -25,16 +25,27 @@ from typing import Any
 
 from quodeq.core.types import ProjectEntry
 from quodeq.services import _fs_project_index, fs_projects
+from quodeq.services.warmup import engine as warmup_engine
 
 _DEFAULT_TTL_S = 5
 
+# (built_at, warm-up generation or None). A tier holding a pending summary is
+# also tied to the warm-up generation, so the UI's poll sees each filled grade
+# as soon as a project finishes warming, without rebuilding the list per poll.
+_Stamp = tuple[float, int | None]
+_COLD: _Stamp = (0.0, None)
 
-def _stamp_unless_pending(entries: list[ProjectEntry]) -> float:
-    """The freshness stamp for a just-built tier: now, or 0.0 (cold) while any
-    entry's summary is still pending, so the UI's poll sees each filled grade."""
-    if any(getattr(e, "summary_pending", False) for e in entries):
-        return 0.0
-    return time.monotonic()
+
+def _stamp_for(entries: list[ProjectEntry]) -> _Stamp:
+    pending = any(getattr(e, "summary_pending", False) for e in entries)
+    return (time.monotonic(), warmup_engine.generation() if pending else None)
+
+
+def _is_fresh(stamp: _Stamp, ttl_s: int) -> bool:
+    built_at, generation = stamp
+    if time.monotonic() - built_at >= ttl_s:
+        return False
+    return generation is None or generation == warmup_engine.generation()
 
 
 class ProjectsCache:
@@ -48,13 +59,13 @@ class ProjectsCache:
     def __init__(self, ttl_s: int = _DEFAULT_TTL_S) -> None:
         self._ttl_s = ttl_s
         self._payload: dict[str, Any] | None = None
-        self._stamp: float = 0.0
+        self._stamp: _Stamp = _COLD
         self._lock = threading.Lock()
         self._index: list[ProjectEntry] | None = None
         self._index_stamp: float = 0.0
         self._index_lock = threading.Lock()
         self._hydrated: dict[str, ProjectEntry] = {}
-        self._hydrated_stamp: float = 0.0
+        self._hydrated_stamp: _Stamp = _COLD
         self._hydrate_lock = threading.Lock()
 
     def list(self, reports_dir: str, *, offset: int = 0, limit: int = 0) -> dict[str, Any]:
@@ -78,10 +89,7 @@ class ProjectsCache:
             # The cached part is the expensive disk walk; camelCase mapping is
             # cheap and belongs at the boundary.
             self._payload = {"projects": projects}
-            # While any summary is still pending (warm-up in flight), leave the
-            # cache cold so the UI's poll sees each newly filled grade. The
-            # build is a pure cache read now, so re-running it is cheap.
-            self._stamp = _stamp_unless_pending(projects)
+            self._stamp = _stamp_for(projects)
             return self._payload
 
     def _list_page(self, reports_dir: str, offset: int, limit: int) -> dict[str, Any]:
@@ -138,21 +146,21 @@ class ProjectsCache:
         built = _fs_project_index.build_project_entries(Path(reports_dir), missing)
         for entry in built:
             self._hydrated[entry.id] = entry
-        # Same "stay cold while pending" rule as the full-payload tier: a
-        # still-pending summary must not be cached past the warm-up filling it.
-        self._hydrated_stamp = _stamp_unless_pending(built)
+        # Same rule as the full-payload tier: a still-pending summary must not
+        # be cached past the warm-up filling it.
+        self._hydrated_stamp = _stamp_for(built)
 
     def invalidate(self) -> None:
         """Drop all cached data; next ``list`` call re-reads from disk."""
         with self._lock:
             self._payload = None
-            self._stamp = 0.0
+            self._stamp = _COLD
         with self._index_lock:
             self._index = None
             self._index_stamp = 0.0
         with self._hydrate_lock:
             self._hydrated = {}
-            self._hydrated_stamp = 0.0
+            self._hydrated_stamp = _COLD
 
     def _fresh_payload(self) -> dict[str, Any] | None:
         """Return the cached payload if still fresh, else None.
@@ -164,7 +172,7 @@ class ProjectsCache:
         returned value always agree with each other.
         """
         payload, stamp = self._payload, self._stamp
-        if payload is not None and time.monotonic() - stamp < self._ttl_s:
+        if payload is not None and _is_fresh(stamp, self._ttl_s):
             return payload
         return None
 
@@ -176,4 +184,4 @@ class ProjectsCache:
         return None
 
     def _hydrated_fresh(self) -> bool:
-        return (time.monotonic() - self._hydrated_stamp) < self._ttl_s
+        return _is_fresh(self._hydrated_stamp, self._ttl_s)
