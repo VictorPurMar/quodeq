@@ -172,13 +172,14 @@ def test_rewording_a_requirement_does_not_re_project(tmp_path, standards) -> Non
     assert result.events_projected == 0 and not result.rebuilt
 
 
-def test_a_code_is_only_routed_to_a_dimension_the_run_evaluated(tmp_path, standards) -> None:
+def test_a_code_of_another_dimension_is_never_rerouted_by_projection(tmp_path, standards) -> None:
+    """The per-dimension CLI report quarantines it, so the dashboard must too."""
     (standards["compiled"] / "security.json").write_text(json.dumps({"id": "security", "principles": [
         {"name": "Confidentiality", "requirements": [{"id": "S-CON-1"}]},
     ]}), encoding="utf-8")
     run_dir = tmp_path / "project" / "run"
     run_dir.mkdir(parents=True)
-    (run_dir / "status.json").write_text(json.dumps({"state": "done", "dimensions": [DIM]}), encoding="utf-8")
+    (run_dir / "status.json").write_text(json.dumps({"state": "done", "dimensions": [DIM, "security"]}), encoding="utf-8")
     log = run_dir / "events.jsonl"
     EventLogWriter(log).emit(JudgmentCreatedEvent(payload=JudgmentPayload(
         practice_id="", verdict="violation", dimension=DIM, file="a.kt", line=1,

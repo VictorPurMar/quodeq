@@ -73,7 +73,7 @@ src/quodeq/services/scoring/_fetchers.py:3
 src/quodeq/services/scoring/_project_scores.py:3
 src/quodeq/services/scoring/_scores_raw.py:3
 src/quodeq/services/shared_listing.py:3
-src/quodeq/services/suppression.py:118
+src/quodeq/services/suppression.py:129
 src/quodeq/shared/_env_sanitize.py:3
 src/quodeq/shared/cmd_path_policy.py:4
 src/quodeq/ui/src/App.dismissWiring.test.jsx:11

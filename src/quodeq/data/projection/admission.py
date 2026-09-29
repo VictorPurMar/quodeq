@@ -17,7 +17,6 @@ from quodeq.core.admission import (
     Admitted, FindingFacts, StandardCatalog, Unmapped, UnmappedReason, admit,
 )
 from quodeq.core.events.models import Judgment
-from quodeq.data.fs.run_status_store import UnsupportedSchemaError, read_status
 from quodeq.data.fs.standard_index_loader import load_standard_catalog
 from quodeq.data.projection.standards_defaults import default_standards_dirs
 
@@ -70,34 +69,21 @@ def _facts(j: Judgment) -> FindingFacts:
     )
 
 
-def run_dimensions(run_dir: Path) -> list[str] | None:
-    """The dimensions a run evaluated, from its ``status.json``; None when not recorded."""
-    try:
-        status = read_status(run_dir)
-    except UnsupportedSchemaError:
-        return None
-    dims = status.get("dimensions") if status else None
-    if not isinstance(dims, list) or not all(isinstance(d, str) for d in dims):
-        return None
-    return dims or None
-
-
-def make_admitter(
-    catalog_fn: Callable[[], StandardCatalog] | None = None,
-    dimensions: list[str] | None = None,
-) -> Admitter:
+def make_admitter(catalog_fn: Callable[[], StandardCatalog] | None = None) -> Admitter:
     """An admitter reading the catalog on every call (it is memoized on the files).
 
     Without *catalog_fn* it reads ``installed_catalog`` from this module at
-    call time, so the test suite can swap the installed standards out. With
-    *dimensions*, a finding is only placed (or routed) within those, as the
-    live path only routes between the dimensions a scan covers.
+    call time, so the test suite can swap the installed standards out.
+
+    A finding is placed within the dimension its writer recorded and never
+    rerouted: writers route at write time where a scan covers several
+    dimensions, and the per-dimension report reads each dimension's own
+    evidence, so rerouting here would count a finding on the dashboard that
+    the CLI report quarantines.
     """
     def admit_judgment(j: Judgment) -> Admitted | Unmapped:
         catalog = catalog_fn() if catalog_fn is not None else installed_catalog()
-        if dimensions:
-            catalog = catalog.only(dimensions)
-        return admit(_facts(j), catalog, j.dimension or None)
+        return admit(_facts(j), catalog.only([j.dimension or ""]), j.dimension or None)
     return admit_judgment
 
 

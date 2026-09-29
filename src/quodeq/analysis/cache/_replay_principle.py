@@ -60,7 +60,10 @@ def readmit(findings: list[dict], catalog: StandardCatalog | None, *, log: LogSi
     for finding in findings:
         copy = dict(finding)
         if catalog is not None:
-            placed = admission_of(finding, catalog, finding.get("d"))
+            # Within the finding's own dimension, as projection does: the
+            # live path already routed it when the scan covered several.
+            own = catalog.only([finding.get("d") or ""])
+            placed = admission_of(finding, own, finding.get("d"))
             if not is_unplaceable(placed):
                 apply_admission(copy, finding, placed, finding.get("d"), log)
         out.append(copy)

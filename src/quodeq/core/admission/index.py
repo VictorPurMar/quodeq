@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
-from quodeq.core.evidence.req_mapping import id_shape, normalize_req_id
+from quodeq.core.admission.ids import id_shape, normalize_req_id
 
 _NEAREST_MAX = 5  # hint length sent back to a model that used an unknown code
 _FAR = 10**9  # sort key for ids with no comparable number
