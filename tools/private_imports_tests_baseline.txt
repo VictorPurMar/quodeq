@@ -310,7 +310,7 @@ tests/analysis/test_subprocess_coverage.py:9:private-name:quodeq.analysis.subpro
 tests/analysis/test_subprocess_coverage.py:9:private-name:quodeq.analysis.subprocess._run_cli_analysis
 tests/analysis/test_subprocess_coverage_api_bridge.py:10:private-name:quodeq.analysis.subprocess._run_api_analysis_bridge
 tests/analysis/test_subprocess_coverage_api_bridge.py:9:private-module:quodeq.analysis._config.AnalysisConfig
-tests/analysis/test_taxonomy_e2e.py:98:private-module:quodeq.analysis._api_schema.parse_findings
+tests/analysis/test_taxonomy_e2e.py:102:private-module:quodeq.analysis._api_schema.parse_findings
 tests/analysis/test_tier_routing.py:6:private-module:quodeq.analysis._dimension_steps.run_dimension_analysis
 tests/analysis/test_tier_routing.py:7:private-module:quodeq.analysis._config.AnalysisConfig
 tests/analysis/test_tier_routing.py:8:private-module:quodeq.analysis.subagents._pool_launcher.default_subagent_model

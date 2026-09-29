@@ -17,6 +17,10 @@ from quodeq.core.scoring.engine import score_evidence
 from tests._evidence_helpers import _evidence_line
 
 
+def _message_and_dup(receipt):
+    return receipt.message, receipt.is_duplicate
+
+
 def test_taxonomy_used_on_parse_then_score(tmp_path):
     jsonl = tmp_path / "evidence.jsonl"
     jsonl.write_text("\n".join([
@@ -70,7 +74,7 @@ def test_taxonomy_from_mcp_producer_to_score(tmp_path):
     with open(jsonl, "w") as fh:
         router = FindingsRouter(fh)
         for args in report_finding_args:
-            _message, is_dup = router.receive(args)
+            _message, is_dup = _message_and_dup(router.receive(args))
             assert is_dup is False
 
     evidence = parse_jsonl_to_evidence(

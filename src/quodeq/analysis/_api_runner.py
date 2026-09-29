@@ -26,6 +26,7 @@ from quodeq.analysis.errors import FatalProviderError
 from quodeq.analysis.mcp.precedent_signals import precedent_signals
 from quodeq.analysis.mcp.router import CompiledContext, FindingsRouter
 from quodeq.analysis.mcp.schemas import FileDoneStatus
+from quodeq.analysis.mcp.finding_admission import run_catalog
 from quodeq.context.project_shape import detect_shape
 from quodeq.context.trust_model import resolve_trust_model
 from quodeq.data.fs.standards_loader import load_compiled_refs, load_compiled_requirements
@@ -64,6 +65,7 @@ def _build_router_context(
         return None
     try:
         return CompiledContext(
+            catalog=run_catalog(compiled_dir, [dimension] if dimension else []),
             compiled_refs=load_compiled_refs(compiled_dir, dimension) or {},
             compiled_reqs=load_compiled_requirements(compiled_dir, dimension) or {},
             dimension=dimension,

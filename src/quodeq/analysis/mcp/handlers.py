@@ -83,8 +83,8 @@ def _text_reply(request_id: object, text: str, *, is_error: bool = False) -> dic
 
 def _handle_report_finding(request_id: object, args: dict, router: FindingsRouter) -> dict:
     """Handle a `report_finding` tool call."""
-    message, _is_dup = router.receive(args)
-    return _text_reply(request_id, message)
+    receipt = router.receive(args)
+    return _text_reply(request_id, receipt.message, is_error=receipt.is_error)
 
 
 def _handle_get_next_files(
