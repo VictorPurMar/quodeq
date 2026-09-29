@@ -161,3 +161,13 @@ describe('StandardsTable WCAG standard', () => {
     expect(screen.queryByLabelText(`${t('violations.delete')} Accessibility`)).not.toBeInTheDocument();
   });
 });
+
+describe('StandardsTable families', () => {
+  it('lists the ISO family alongside the others', () => {
+    const iso = { ...STANDARD, id: 'reliability', name: 'Reliability', type: 'iso', subtype: '25010' };
+    const grouped = { iso: [iso], wcag: [], quodeq: [], community: [], custom: [STANDARD] };
+    render(<StandardsTable grouped={grouped} actions={actions} customizedCounts={{}} />);
+    expect(screen.getByText('Reliability')).toBeInTheDocument();
+    expect(screen.getByText('My Standard')).toBeInTheDocument();
+  });
+});

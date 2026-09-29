@@ -198,7 +198,7 @@ function StandardRow({ standard, isVisible, onEdit, onDelete, onDuplicate, onTog
 export default function StandardsTable({ grouped, actions, customizedCounts }) {
   const { onEdit, onDelete, onDuplicate, isVisible, onToggleVisibility } = actions;
   const all = useMemo(
-    () => [...(grouped.builtin || []), ...(grouped.wcag || []), ...(grouped.quodeq || []), ...(grouped.community || []), ...(grouped.custom || []), ...(grouped[UNKNOWN_STANDARD_TYPE] || [])],
+    () => [...(grouped[STANDARD_TYPES.ISO] || []), ...(grouped[STANDARD_TYPES.WCAG] || []), ...(grouped[STANDARD_TYPES.QUODEQ] || []), ...(grouped[STANDARD_TYPES.COMMUNITY] || []), ...(grouped[STANDARD_TYPES.CUSTOM] || []), ...(grouped[UNKNOWN_STANDARD_TYPE] || [])],
     [grouped],
   );
 
