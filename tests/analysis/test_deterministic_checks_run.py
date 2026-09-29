@@ -84,8 +84,10 @@ class TestApplyToARun:
         _added, _evidence, jsonl = self._apply(project, compiled(STANDARD), tmp_path)
 
         wire = [json.loads(line) for line in jsonl.read_text(encoding="utf-8").splitlines()]
-        assert [(w["p"], w["t"]) for w in wire] == [
-            ("CLEA-DEP-06", "violation"), ("CLEA-FRM-01", "compliance"),
+        # The principle goes in p and the requirement in req, like any finding.
+        assert [(w["p"], w["req"], w["t"]) for w in wire] == [
+            ("Dependency Rule", "CLEA-DEP-06", "violation"),
+            ("Independence from Frameworks", "CLEA-FRM-01", "compliance"),
         ]
         assert wire[0]["file"] == "app/domain/order.py"
 
@@ -93,7 +95,9 @@ class TestApplyToARun:
         assert events.is_file(), "the SQL projection reads events.jsonl, not the dim JSONL"
         payloads = [json.loads(line)["payload"]
                     for line in events.read_text(encoding="utf-8").splitlines()]
-        assert [p["practice_id"] for p in payloads] == ["CLEA-DEP-06", "CLEA-FRM-01"]
+        assert [(p["practice_id"], p["req"]) for p in payloads] == [
+            ("Dependency Rule", "CLEA-DEP-06"), ("Independence from Frameworks", "CLEA-FRM-01"),
+        ]
 
     def test_the_wire_rows_round_trip_back_to_judgments(self, project, compiled, tmp_path):
         """Whatever we write must parse the way an LLM finding would."""
@@ -104,7 +108,7 @@ class TestApplyToARun:
         parsed = parse_jsonl_line(jsonl.read_text(encoding="utf-8").splitlines()[0])
         assert parsed is not None
         judgment, _refs = parsed
-        assert judgment.practice_id == "CLEA-DEP-06"
+        assert (judgment.practice_id, judgment.req) == ("Dependency Rule", "CLEA-DEP-06")
         assert judgment.severity == "major"
         assert judgment.file == "app/domain/order.py"
 

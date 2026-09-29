@@ -18,8 +18,9 @@ from quodeq.analysis.cache.dimension_helpers import ClassifyResult, group_findin
 from quodeq.analysis.mcp.severity_gates import apply_severity_gates
 from quodeq.context.trust_model import TrustModel
 from quodeq.data.fs.stream_files import append_jsonl_strict
-from quodeq.analysis.cache._replay_principle import ReplayPolicy, with_principle
-from quodeq.data.projection.principle_from_req import PrincipleLookup, warn_unmapped
+from quodeq.analysis.cache._replay_principle import ReplayPolicy, readmit
+from quodeq.analysis.mcp.finding_admission import ADMISSION_KEY, ADMISSION_UNMAPPED
+from quodeq.data.projection.standards_defaults import warn_unmapped
 from quodeq.data.ports.events import EventEmitter
 
 _logger = logging.getLogger(__name__)
@@ -115,7 +116,6 @@ def _events_log_path(jsonl: Path) -> Path:
 def emit_cached_findings(
     events_log: Path, findings: list[dict], *,
     writer_factory: Callable[[Path], EventEmitter] | None = None,
-    principle_lookup: PrincipleLookup | None = None,
 ) -> None:
     """Emit cached findings as JUDGMENT_CREATED events to the run's event log.
 
@@ -129,7 +129,8 @@ def emit_cached_findings(
 
     Exceptions are caught per finding and logged — the JSONL write
     already succeeded above, so an event-emit failure should not propagate
-    and roll back the cache restore.
+    and roll back the cache restore. An unmapped finding (see ``readmit``)
+    never becomes an event: it has no principle to be graded under.
     """
     if not findings:
         return
@@ -144,12 +145,12 @@ def emit_cached_findings(
     writer = writer_factory(events_log)
     unplaced: dict[str, int] = {}
     for finding in findings:
+        if finding.get(ADMISSION_KEY) == ADMISSION_UNMAPPED:
+            dimension = finding.get("d") or ""
+            unplaced[dimension] = unplaced.get(dimension, 0) + 1
+            continue
         try:
-            repaired = with_principle(finding, principle_lookup)
-            if principle_lookup is not None and not repaired.get("p"):
-                dimension = finding.get("d") or ""
-                unplaced[dimension] = unplaced.get(dimension, 0) + 1
-            payload = wire_dict_to_judgment(repaired)
+            payload = wire_dict_to_judgment(finding)
             writer.emit(JudgmentCreatedEvent(payload=payload))
         except (OSError, TypeError, ValueError):
             _logger.warning(
@@ -225,7 +226,7 @@ def _stamp_and_write_findings(
     function owns only the stamping rule.
     """
     stamped = [{**finding, "carried_forward": True} for finding in findings]
-    stamped += [dict(finding) for finding in pending]
+    stamped += list(pending)
     append_jsonl_strict(jsonl, stamped, append=append)
     return stamped
 
@@ -252,16 +253,16 @@ def write_findings(
     Both groups are re-gated and both are mirrored to events.jsonl. Skipping
     the unconsolidated group in the event log would resurrect the UI-vs-CLI
     score disagreement that emit_cached_findings exists to prevent.
-    *writer_factory* and the policy's *principle_lookup* are forwarded to
-    :func:`emit_cached_findings`, which sets the principle on events whose
-    cached finding has none; the JSONL rows stay as cached.
+    Both groups are re-admitted first (``readmit``) with the policy's
+    standards, so the JSONL row and the event carry the same derived fields.
     """
-    findings = classify.cached_findings
-    pending = list(classify.unconsolidated_findings)
+    groups = (classify.cached_findings, classify.unconsolidated_findings)
+    catalog = None
+    if policy.catalog_loader is not None:
+        catalog = policy.catalog_loader(f.get("d") for group in groups for f in group)
+    findings = readmit(classify.cached_findings, catalog)
+    pending = readmit(classify.unconsolidated_findings, catalog)
     _regate_replayed_findings(findings, pending, policy.trust_model)
     stamped = _stamp_and_write_findings(jsonl, findings, pending, append=append)
     if emit_events:
-        emit_cached_findings(
-            _events_log_path(jsonl), stamped, writer_factory=writer_factory,
-            principle_lookup=policy.principle_lookup,
-        )
+        emit_cached_findings(_events_log_path(jsonl), stamped, writer_factory=writer_factory)

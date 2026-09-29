@@ -128,6 +128,7 @@ testpaths = ["tests"]
 pythonpath = ["src", "benchmarks"]
 markers = [
     "integration: end-to-end tests that spawn real subprocesses or require external resources",
+    "real_standards: projection admits findings against the installed standards (off by default in tests)",
 ]
 # Hard per-test cap so a deadlocked socket/subprocess/signal test fails
 # fast with a traceback at the stuck line instead of hanging the suite.

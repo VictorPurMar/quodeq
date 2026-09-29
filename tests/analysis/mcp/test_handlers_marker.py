@@ -2,6 +2,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from quodeq.analysis.mcp.handlers import handle_tools_list, handle_tools_call
+from quodeq.analysis.mcp.receipt import Receipt, ReceiptStatus
 
 
 # ---------------------------------------------------------------------------
@@ -12,7 +13,7 @@ class TestToolsCallNullArguments:
     def test_null_arguments_for_report_finding_does_not_raise(self) -> None:
         """params.arguments = null must not crash handle_tools_call."""
         router = MagicMock()
-        router.receive.return_value = ("ok", False)
+        router.receive.return_value = Receipt("ok", ReceiptStatus.RECORDED)
         # Simulate a JSON-RPC caller that sends {"arguments": null}
         result = handle_tools_call(
             request_id=1,
@@ -25,7 +26,7 @@ class TestToolsCallNullArguments:
 
     def test_missing_arguments_key_still_works(self) -> None:
         router = MagicMock()
-        router.receive.return_value = ("ok", False)
+        router.receive.return_value = Receipt("ok", ReceiptStatus.RECORDED)
         result = handle_tools_call(
             request_id=2,
             params={"name": "report_finding"},

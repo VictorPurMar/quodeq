@@ -52,11 +52,6 @@ class TestFindingTypeAndSeverityConstantsSharedAcrossGates:
 
         assert precedent_downweight.FindingType is FindingType
 
-    def test_enricher_imports_the_shared_constant(self):
-        from quodeq.analysis.mcp import enricher
-
-        assert enricher.FindingType is FindingType
-
 
 class TestMarkFileDoneSchema:
     def test_name_is_stable(self):

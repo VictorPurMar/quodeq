@@ -189,3 +189,15 @@ class TestParityWithTheDashboardParsePath:
         assert tally.compliance == len(compliance) == 1
         assert tally.suppressed == 2
         assert tally.duplicates == 1
+
+
+def test_the_delete_key_folds_a_near_miss_requirement():
+    from quodeq.services.suppression import SuppressionMatcher
+
+    matcher = SuppressionMatcher(
+        dimension="accessibility",
+        deleted=frozenset({("accessibility", "Perceivable", "a.kt")}),
+        req_to_principle={"ACC-PER-01": "Perceivable"},
+    )
+
+    assert matcher.is_suppressed({"t": "violation", "req": "acc-per-1", "p": "Stale", "file": "a.kt"})

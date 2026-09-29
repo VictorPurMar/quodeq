@@ -58,7 +58,7 @@ def heartbeat_loop(
     """Emit periodic progress lines for the subagent pool.
 
     Each tick re-reads the dimension JSONL and deduplicates by
-    ``(p, file, line, t)`` in memory, so the violation/compliance counts
+    ``(requirement or principle, file, line, t)`` in memory, so the violation/compliance counts
     always match :mod:`quodeq.services.scan_progress` (which the UI consumes).
 
     ``ctx.suppressed`` nets out findings the user already dismissed or deleted

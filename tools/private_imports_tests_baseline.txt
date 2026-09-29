@@ -310,7 +310,7 @@ tests/analysis/test_subprocess_coverage.py:9:private-name:quodeq.analysis.subpro
 tests/analysis/test_subprocess_coverage.py:9:private-name:quodeq.analysis.subprocess._run_cli_analysis
 tests/analysis/test_subprocess_coverage_api_bridge.py:10:private-name:quodeq.analysis.subprocess._run_api_analysis_bridge
 tests/analysis/test_subprocess_coverage_api_bridge.py:9:private-module:quodeq.analysis._config.AnalysisConfig
-tests/analysis/test_taxonomy_e2e.py:98:private-module:quodeq.analysis._api_schema.parse_findings
+tests/analysis/test_taxonomy_e2e.py:102:private-module:quodeq.analysis._api_schema.parse_findings
 tests/analysis/test_tier_routing.py:6:private-module:quodeq.analysis._dimension_steps.run_dimension_analysis
 tests/analysis/test_tier_routing.py:7:private-module:quodeq.analysis._config.AnalysisConfig
 tests/analysis/test_tier_routing.py:8:private-module:quodeq.analysis.subagents._pool_launcher.default_subagent_model
@@ -764,8 +764,8 @@ tests/data/sqlite/test_migrations.py:4:private-module:quodeq.data.sqlite._migrat
 tests/data/sqlite/test_migrations.py:4:private-name:quodeq.data.sqlite._migrations._upgrade_v3_to_v4
 tests/data/sqlite/test_migrations.py:9:private-module:quodeq.data.sqlite._schema.EVALUATION_DDL
 tests/data/sqlite/test_migrations.py:9:private-module:quodeq.data.sqlite._schema.SCHEMA_VERSION
-tests/data/sqlite/test_migrations_columns.py:241:private-module:quodeq.data.sqlite._migrations_additive
-tests/data/sqlite/test_migrations_columns.py:254:private-module:quodeq.data.sqlite._migrations_additive.table_exists
+tests/data/sqlite/test_migrations_columns.py:242:private-module:quodeq.data.sqlite._migrations_additive
+tests/data/sqlite/test_migrations_columns.py:255:private-module:quodeq.data.sqlite._migrations_additive.table_exists
 tests/data/sqlite/test_migrations_columns.py:3:private-module:quodeq.data.sqlite._migrations.apply_evaluation_schema
 tests/data/sqlite/test_migrations_columns.py:4:private-module:quodeq.data.sqlite._schema.EVALUATION_DDL
 tests/data/sqlite/test_migrations_columns.py:4:private-module:quodeq.data.sqlite._schema.SCHEMA_VERSION
