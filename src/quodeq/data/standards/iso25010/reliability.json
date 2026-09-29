@@ -3,7 +3,7 @@
   "name": "Reliability",
   "description": "How dependably the system performs its required functions over time. Maturity, fault tolerance, and recoverability keep failures rare, contained, and easy to bounce back from when they happen.",
   "iso_25010": "Reliability",
-  "version": "2023",
+  "version": "2023.11",
   "sub_characteristics": [
     {
       "name": "Maturity",

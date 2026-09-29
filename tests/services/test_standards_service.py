@@ -69,7 +69,7 @@ def test_list_standards_empty(service):
     standards = service.list_standards()
     assert len(standards) == 1
     assert standards[0].id == "security"
-    assert standards[0].type == "builtin"
+    assert standards[0].type == "iso"
     assert standards[0].managed is True
 
 
@@ -98,7 +98,7 @@ def test_get_standard_builtin(service, compiled_dir):
     }))
     detail = service.get_standard("security")
     assert detail.id == "security"
-    assert detail.type == "builtin"
+    assert detail.type == "iso"
 
 
 def test_get_standard_not_found(service):

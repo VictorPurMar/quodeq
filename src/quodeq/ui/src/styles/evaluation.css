@@ -1026,10 +1026,11 @@ button.eval-provider-badge--clickable:focus-visible {
   box-shadow: none;
 }
 /* High-specificity overrides so the terminal variant beats the colour
-   pills (dimension-chip-type--builtin / --quodeq / --custom / --community)
+   pills (dimension-chip-type--iso / --quodeq / --custom / --community)
    which are defined later in the stylesheet. */
 .dimension-chip-btn--terminal .dimension-chip-type,
-.dimension-chip-btn--terminal .dimension-chip-type--builtin,
+.dimension-chip-btn--terminal .dimension-chip-type--iso,
+.dimension-chip-btn--terminal .dimension-chip-type--wcag,
 .dimension-chip-btn--terminal .dimension-chip-type--quodeq,
 .dimension-chip-btn--terminal .dimension-chip-type--custom,
 .dimension-chip-btn--terminal .dimension-chip-type--community {
@@ -2217,7 +2218,8 @@ button.eval-provider-badge--clickable:focus-visible {
   margin-left: 4px;
 }
 
-.dimension-chip-type--builtin {
+.dimension-chip-type--iso,
+.dimension-chip-type--wcag {
   background: color-mix(in srgb, var(--color-accent) 20%, transparent);
   color: var(--color-accent);
 }

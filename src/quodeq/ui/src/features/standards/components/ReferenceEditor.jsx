@@ -10,7 +10,7 @@ import { KEY } from '../../../vocab/keyboard.js';
 const REF_TYPE_CWE = 'cwe';
 
 const EDITABLE_REF_TYPES = [REF_TYPE_CWE, 'book', 'url', 'other'];
-const BUILTIN_REF_TYPES = [REF_TYPE_CWE, 'asvs', 'cert', 'cisq', 'wcag22'];
+const BUILTIN_REF_TYPES = [REF_TYPE_CWE, 'asvs', 'cert', 'cisq', 'wcag22', 'en301549'];
 
 const URL_TEMPLATES = {
   cwe: (id) => `https://cwe.mitre.org/data/definitions/${id}.html`,

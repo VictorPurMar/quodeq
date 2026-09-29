@@ -36,7 +36,7 @@ describe('useStandards', () => {
 
   it('fetches standards on mount and groups them by type', async () => {
     fakeApi.listStandards.mockResolvedValue([
-      { id: 'a', name: 'A', type: STANDARD_TYPES.BUILTIN },
+      { id: 'a', name: 'A', type: STANDARD_TYPES.ISO },
       { id: 'b', name: 'B', type: STANDARD_TYPES.CUSTOM },
       { id: 'c', name: 'C', type: STANDARD_TYPES.CUSTOM },
     ]);
@@ -44,7 +44,7 @@ describe('useStandards', () => {
     await waitFor(() => {
       expect(result.current.standards).toHaveLength(3);
     });
-    expect(result.current.grouped[STANDARD_TYPES.BUILTIN]).toHaveLength(1);
+    expect(result.current.grouped[STANDARD_TYPES.ISO]).toHaveLength(1);
     expect(result.current.grouped[STANDARD_TYPES.CUSTOM]).toHaveLength(2);
     expect(result.current.error).toBeNull();
   });
@@ -53,7 +53,7 @@ describe('useStandards', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       fakeApi.listStandards.mockResolvedValue([
-        { id: 'a', name: 'A', type: STANDARD_TYPES.BUILTIN },
+        { id: 'a', name: 'A', type: STANDARD_TYPES.ISO },
         { id: 'z', name: 'Z', type: 'mystery-type' },
       ]);
       const { result } = renderHook(() => useStandards(), { wrapper: makeWrapper() });
