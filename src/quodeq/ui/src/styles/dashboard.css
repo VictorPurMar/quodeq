@@ -20,42 +20,6 @@
   to { opacity: 1; }
 }
 
-/* ── Navigation pending bar ─────────────────────────────
-   Shown while a route transition's target page is still rendering
-   (useNavStack navPending). Sits at the top of the content column so a
-   heavy detail page (or a slow webview engine) never leaves a click
-   looking ignored. Fades in late: fast navigations never flash it. */
-.nav-pending-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  overflow: hidden;
-  z-index: 30;
-  pointer-events: none;
-  animation: nav-pending-appear 80ms ease-out 120ms both;
-}
-
-.nav-pending-bar::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  width: 40%;
-  background: var(--color-accent);
-  animation: nav-pending-slide 0.9s ease-in-out infinite;
-}
-
-@keyframes nav-pending-appear {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes nav-pending-slide {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(350%); }
-}
-
 /* ── Dashboard fade transitions ──────────────────────── */
 
 .dashboard-fade {
@@ -71,41 +35,11 @@
 }
 
 /* A section whose data is being refetched while it still shows the previous
-   values: a thin sweeping line along its top edge and muted text. Never an
-   opacity dim, so stacked pending states cannot compound into unreadable
-   content. Applied per section on the Overview; pages without sections put
-   it on their frame. */
+   values: muted text only. The one loading line lives on the top bar
+   (.topbar-pending), so stacked pending sections never pile up indicators
+   and never dim content below the readable floor. */
 .section-pending {
-  position: relative;
   --color-text: var(--color-text-muted);
-}
-
-.section-pending::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  pointer-events: none;
-  z-index: 1;
-  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
-  background-size: 40% 100%;
-  background-repeat: no-repeat;
-  animation: section-pending-sweep 1.1s ease-in-out infinite;
-}
-
-@keyframes section-pending-sweep {
-  from { background-position: -40% 0; }
-  to { background-position: 140% 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .section-pending::before {
-    animation: none;
-    background: var(--color-accent);
-    opacity: 0.7;
-  }
 }
 
 @keyframes dashboard-fadein {
@@ -469,7 +403,7 @@
 
 /* Scores for a newly-picked day are still in flight, so the cards below are
    still showing the previous selection's grades. The section carries the
-   section-pending line; this chip says why. */
+   top bar pending line; this chip says why. */
 .quality-dimensions__pending {
   color: var(--color-text-muted);
   font-size: 0.75rem;

@@ -8,6 +8,8 @@
  * the cluster is right-anchored so expansion pushes leftward and the primary
  * never moves. While a run is live a progress chip replaces the (dimmed)
  * Evaluate button and a hairline progress line runs along the bottom edge.
+ * While page data is pending the same edge carries a sweeping line instead;
+ * it is the app's only loading indicator, sections just mute their text.
  *
  * Mobile layout (left → right):
  *   [ ‹ back ]  [ current page title ]                                          [ burger ]
@@ -218,6 +220,7 @@ export default function TopBar({
   model,
   onEvaluate,
   evaluating = false,
+  pending = false,
   onProviderClick,
   onMenuToggle,
   onSelectProject,
@@ -251,7 +254,7 @@ export default function TopBar({
         onMenuToggle={onMenuToggle}
       />
 
-      <LiveProgressHairline evaluating={evaluating} />
+      <LiveProgressHairline pending={pending} evaluating={evaluating} />
     </header>
   );
 }

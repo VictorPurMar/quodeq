@@ -26,20 +26,13 @@ const OnboardingWizard = lazy(() => import('./features/onboarding/components/Onb
  *   startupLoader: JSX.Element|null, booting: boolean }} props
  * @returns {JSX.Element}
  */
-function AppShell({ sidebar, header, content, drawer, navPending, startupLoader, booting }) {
+function AppShell({ sidebar, header, content, drawer, startupLoader, booting }) {
   return (
     <div className={`app-shell${header ? ' app-shell--with-topbar' : ''}`}>
       {header && <div className="app-shell__topbar">{header}</div>}
       <div className="app-shell__body">
         {sidebar}
         <div className="app-shell__main-column" inert={booting || undefined}>
-          {/* Feedback while a navigation's target page renders (useNavStack
-              transition). Must live HERE, outside the scrolling <main>: the
-              .dashboard is position:relative, so an absolutely-positioned bar
-              inside it anchors to the top of the scrollable CONTENT and
-              scrolls out of view — exactly where every detail-page card
-              lives, so the one navigation that needed feedback never got it. */}
-          {navPending && <div className="nav-pending-bar" aria-hidden="true" />}
           <UpdateBanner />
           <main className="dashboard">
             {content}
@@ -101,6 +94,7 @@ function AppTopBar({ shell }) {
         projectsCount: state.projects?.length,
         onEvaluateClick: () => navTab(NAV_TAB.EVALUATE, { preselectDims: deriveEvaluatePreselect(activePage) }),
         evaluating: !!isEvaluating,
+        pending: state.navPending || state.isDataPending,
         navTab,
         setSidebarPinned,
         breadcrumb: (
@@ -187,7 +181,6 @@ export default function AppMain({ shell }) {
                     drops the stale score caches after the user leaves the page. */}
                 <RescoreTrackerProvider>
                   <AppShell
-                    navPending={state.navPending}
                     booting={shell.showStartupLoader}
                     drawer={<BottomDrawer uiState={assistantCtx.uiState} projectName={resolvedDisplayName}
                       onOpenSettings={() => navTab(NAV_TAB.SETTINGS)} />}

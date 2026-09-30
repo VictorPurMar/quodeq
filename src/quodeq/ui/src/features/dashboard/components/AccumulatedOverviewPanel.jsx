@@ -119,7 +119,7 @@ function AccumulatedOverviewSections({
 }) {
   const { onRunClick, onRunHover, onRunHoverEnd, onDimensionClick, onNavigate } = callbacks;
   // A run or date switch refetches the dashboard and the scores; every
-  // section shows the previous values under its own pending line meanwhile.
+  // section shows the previous values, muted, meanwhile.
   const pending = !!(data.scoresPending || data.refreshing);
   return (
     <>

@@ -50,8 +50,8 @@ export function renderDashboardBody(ctx) {
   const { contentReady, isLoading, showOverviewSkeleton, dashboardAppearClass } = pageState;
   // True while a *background* fetch is running but we're already showing
   // data (placeholderData kept the previous run on screen during a switch).
-  // Each section shows its own pending line (see section-pending in
-  // dashboard.css); the page itself never dims.
+  // Each section mutes its text (see section-pending in dashboard.css);
+  // the loading line itself lives on the top bar. The page never dims.
   const isRefreshing = isFetching && !!dashboard && !isLoading;
   // showOverviewSkeleton comes from useDashboardPageState (beside the appear
   // latch, which needs it too) -- from the user's perspective this covers both
