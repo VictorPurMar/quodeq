@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { hierarchy, pack } from 'd3-hierarchy';
-import { nodeSize } from '../core/mapColors.js';
+import { PACK_BASE_SIZE as BASE_SIZE } from '../core/packLayout.js';
+import { usePackLayout } from '../core/usePackLayout.js';
 import PackInfoPanel from './PackInfoPanel.jsx';
 import PackCircles from './PackCircles.jsx';
 import MapLegend from './MapLegend.jsx';
@@ -11,7 +11,6 @@ import { PERCENT } from '../../../../constants.js';
 import { isDrillableFolder } from '../core/fileTree.js';
 import MapTooltipSeverityRows from './MapTooltipSeverityRows.jsx';
 
-const BASE_SIZE = 600;
 const PAD = 20;
 const LABEL_RADIUS_THRESHOLD = 10;
 const LABEL_FONT_MAX = 11;
@@ -20,24 +19,9 @@ const LABEL_FONT_DIVISOR = 4;
 const TOOLTIP_OFFSET = 16;
 const TOOLTIP_MAX_MARGIN = 180;
 const TOOLTIP_MAX_MARGIN_Y = 160;
-// Gap d3-pack leaves between a circle and its parent, in layout units.
-const PACK_PADDING = 6;
 // Container size assumed while the element has not been measured yet, so
 // the tooltip still clamps to something sane on the first hover.
 const CONTAINER_FALLBACK_PX = 300;
-
-/* ---- usePackLayout: d3 pack layout computation ---- */
-function usePackLayout(node, viewMode) {
-  return useMemo(() => {
-    if (!node) return { root: null, circles: [] };
-    const r = hierarchy(node, (d) => d.children || [])
-      .sum((d) => (d.children?.length ? 0 : Math.max(1, nodeSize(d, viewMode))))
-      .sort((a, b) => (b.value || 0) - (a.value || 0));
-    if (!r.value) return { root: r, circles: [] };
-    pack().size([BASE_SIZE, BASE_SIZE]).padding(PACK_PADDING)(r);
-    return { root: r, circles: r.descendants().filter((c) => c.r > 0) };
-  }, [node, viewMode]);
-}
 
 function useFocusResetSync(resetKey, setFocus) {
   const prevResetKey = useRef(resetKey);

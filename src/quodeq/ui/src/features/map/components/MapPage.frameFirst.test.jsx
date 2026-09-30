@@ -8,11 +8,11 @@ import MapPage from './MapPage.jsx';
 // frame alone (header, controls, an empty slot), with the tree build and
 // the visualisation following in a later commit.
 
-vi.mock('../viz/index.js', async (importOriginal) => {
+vi.mock('../viz/core/fileTree.js', async (importOriginal) => {
   const mod = await importOriginal();
   return { ...mod, buildFileTree: vi.fn(mod.buildFileTree) };
 });
-import { buildFileTree } from '../viz/index.js';
+import { buildFileTree } from '../viz/core/fileTree.js';
 
 const DIMS = [{
   dimension: 'security',
