@@ -1474,6 +1474,7 @@
   "context.violationLineMarker": "Violation on this line:",
   "heatGrid.violationsCellAria": "{count} violations in {label}, open details",
   "topbar.runProgressAria": "Evaluation progress",
+  "topbar.pendingAria": "Loading",
   "explorer.violationsListAria": "Violations",
   "compare.sideScoreAria": "{project}: {score}",
   "compare.trendChartAria": "Score trend of {a} and {b} over time",

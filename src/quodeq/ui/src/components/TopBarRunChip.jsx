@@ -32,9 +32,14 @@ export function TopBarRunChip({ onEvaluate, evaluating, runProgress }) {
 
 /**
  * Run-aware chrome: a 2px hairline along the bar's bottom edge carries
- * overall progress, so a long run stays visible from any page.
+ * overall progress, so a long run stays visible from any page. While page
+ * data is pending (a refetch, a run switch, a navigation) the same slot
+ * shows an indeterminate sweep instead; progress comes back once settled.
  */
-export function TopBarProgressHairline({ evaluating, runProgress }) {
+export function TopBarProgressHairline({ pending = false, evaluating, runProgress }) {
+  if (pending) {
+    return <span className="topbar-pending" role="status" aria-label={t('topbar.pendingAria')} />;
+  }
   if (!evaluating || runProgress?.percent == null) return null;
   return (
     <span
@@ -59,6 +64,6 @@ export function LiveRunChip({ onEvaluate, evaluating }) {
   return <TopBarRunChip onEvaluate={onEvaluate} evaluating={evaluating} runProgress={useLiveProgress()} />;
 }
 
-export function LiveProgressHairline({ evaluating }) {
-  return <TopBarProgressHairline evaluating={evaluating} runProgress={useLiveProgress()} />;
+export function LiveProgressHairline({ pending, evaluating }) {
+  return <TopBarProgressHairline pending={pending} evaluating={evaluating} runProgress={useLiveProgress()} />;
 }

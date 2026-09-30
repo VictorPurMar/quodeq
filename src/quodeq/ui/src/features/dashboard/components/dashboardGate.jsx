@@ -24,7 +24,7 @@ function gateFrame(className, children) {
   );
 }
 
-// `pending` adds the section-pending line to the page itself: only for
+// `pending` mutes the page text (section-pending) itself: only for
 // gate states with no sections of their own to carry it.
 export function dashboardPageClassName({ appearClass = '', dimmed = false, pending = false }) {
   const state = dimmed ? 'dashboard-loading' : `dashboard-ready${appearClass}`;

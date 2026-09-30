@@ -34,7 +34,7 @@ export function buildSidebarProps({
 
 export function buildTopBarProps({
   resolvedDisplayName, serverConnected, sidebarProvider, sidebarModel, selectedSource,
-  projectsCount, onEvaluateClick, evaluating, navTab, setSidebarPinned,
+  projectsCount, onEvaluateClick, evaluating, pending, navTab, setSidebarPinned,
   breadcrumb, mobileTitle, navStackLength, navPop, effectiveDark, toggleTheme, serverUrl,
 }) {
   return {
@@ -46,6 +46,7 @@ export function buildTopBarProps({
     selectedSource,
     onEvaluate: shouldShowEvaluateButton(projectsCount, selectedSource) ? onEvaluateClick : null,
     evaluating,
+    pending,
     onProviderClick: () => navTab(NAV_TAB.SETTINGS),
     onMenuToggle: () => setSidebarPinned((v) => !v),
     onSelectProject: () => navTab(NAV_TAB.PROJECTS),

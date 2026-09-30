@@ -230,14 +230,17 @@ export function useAppState() {
   const dashboardState = useSelectedRunDashboard({ activePage, projectBundle, historySelectedRun, setHistorySelectedRun });
   const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, sharedProjectInfo, handleRunDeleted } = dashboardState;
   const { visibleDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useRunPeriods({ dashboardState, projectBundle, granularity });
-  const { overviewRunIndex, currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers } = useOverviewRunNavigation({ projectBundle, visibleDailyRuns, onNavigate: handleNavigate });
+  const { overviewRunIndex, currentOverviewRun, isRunSwitchPending, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers } = useOverviewRunNavigation({ projectBundle, visibleDailyRuns, onNavigate: handleNavigate });
   const { liveEvaluation, isEvaluating, evaluationDeps } = useAppEvaluation(nav);
   const { activeTab, showProjectHeader, showRunNav } = useAppChrome({ activePage, navStack, projectBundle, visibleDailyRuns });
+  // Any dashboard data in flight, first load or refetch, plus the render of
+  // a run switch. The top bar shows it as the app's one sweeping line.
+  const isDataPending = isFetching || isRunSwitchPending;
   return {
     serverConnected, setServerConnected, serverVersion, navStack, activePage, navPending, navPop, navGoTo, navSwapAt, navTab,
     projects, projectsLoaded, projectsLoadFailed, retryLoadProjects, selectedProject, selectedSource, selectedRun, loadProjects, handleProjectChange, handleNavigate, handleNavigateReplace,
     handleDeleteProject, handleExportProject, handleRelocateProject, handleImportProject,
-    dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, dailyRuns: visibleDailyRuns, overviewRunIndex, sharedProjectInfo,
+    dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, isDataPending, scoresPending, error, availableRuns, dailyRuns: visibleDailyRuns, overviewRunIndex, sharedProjectInfo,
     currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers,
     headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId,
     historySelectedRun, setHistorySelectedRun,
