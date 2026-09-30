@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// These tests exercise the polling path, which SSE_ENABLED (read once at
+// import) now turns off by default. Pin the flag before the hook is imported.
+vi.hoisted(() => { import.meta.env.VITE_USE_SSE_EVENTS = 'false'; });
+
 import { Profiler } from 'react';
 import { render, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

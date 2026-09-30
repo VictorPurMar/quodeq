@@ -4,13 +4,13 @@
  * Split out of useEvaluation.js (see that file's header for the hook's
  * overall data-flow doc). Kept logic-identical to the pre-split version.
  */
-import { ACTIVE_PROVIDER_KEY, providerKey, ENV_TRUE } from "../../../constants.js";
+import { ACTIVE_PROVIDER_KEY, providerKey, isSseEnabled } from "../../../constants.js";
 import { resolveProviderSettings } from "../../../utils/effectiveProviderSettings.js";
 import { t } from "../../../strings/index.js";
 import { JOB_STATUS } from "../../../vocab/jobStatus.js";
 import { STREAM_STATE } from "./runEventSourceRegistry.js";
 
-export const SSE_ENABLED = import.meta.env?.VITE_USE_SSE_EVENTS === ENV_TRUE;
+export const SSE_ENABLED = isSseEnabled();
 const DIM_POLL_MS = 2000;
 export const JOB_POLL_MS = 1500;
 // Under SSE the status query still refetches, slowly, as a safety net

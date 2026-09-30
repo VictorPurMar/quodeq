@@ -25,10 +25,8 @@ import { projectKeys } from '../api/queryKeys.js';
 import { pollIntervalForRuns } from '../utils/runPolling.js';
 import { RUN_STATE } from '../vocab/runState.js';
 import { PROJECT_SOURCE } from '../vocab/projectSource.js';
-import { ENV_TRUE } from '../constants.js';
+import { isSseEnabled } from '../constants.js';
 import { useVisibleInterval } from './useVisibleInterval.js';
-
-const SSE_ENABLED = () => import.meta.env?.VITE_USE_SSE_EVENTS === ENV_TRUE;
 
 // Dashboard invalidations use the view-less prefix so both the overview
 // entry (the root hook off run pages) and the full one (run views) go stale.
@@ -57,7 +55,7 @@ export function useRunningRunsRefresh({ selectedProject, selectedSource = PROJEC
   // Poll only while running runs exist AND SSE is off.
   // With SSE on, terminal-status events drive the running -> terminal flip
   // (see useRunEventStream); polling here would just double the request rate.
-  const polling = selectedProject && interval && !SSE_ENABLED();
+  const polling = selectedProject && interval && !isSseEnabled();
   useVisibleInterval(() => {
     invalidateHistoryScope(queryClient, selectedProject, availableRuns, selectedSource);
   }, polling ? interval : 0);

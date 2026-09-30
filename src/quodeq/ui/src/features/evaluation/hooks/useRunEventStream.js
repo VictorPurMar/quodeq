@@ -11,7 +11,7 @@
  * EventSource itself is shared per run via runEventSourceRegistry: any
  * number of subscribers to the same run hold one connection.
  *
- * Gated by VITE_USE_SSE_EVENTS (default off). When off, components fall
+ * Gated by VITE_USE_SSE_EVENTS (default on). When off, components fall
  * back to useQuery's refetchInterval polling.
  *
  * Each cache write is preceded by a fire-and-forget cancelQueries on
@@ -27,7 +27,7 @@ import { createViolation } from "../../../models/violation.js";
 import { applyStatusFrame } from "../../../models/job.js";
 import { JOB_FINISHED } from "../../../vocab/jobStatus.js";
 import { SSE_EVENT } from "../../../vocab/sseEvent.js";
-import { ENV_TRUE } from "../../../constants.js";
+import { isSseEnabled } from "../../../constants.js";
 import {
   acquireRunStream, getRunStreamState, subscribeRunStream,
 } from "./runEventSourceRegistry.js";
@@ -37,10 +37,6 @@ import {
 // renders aggregated counts and the most-recent slice; older entries are still
 // reachable through the scored evaluation/<dim>.json artifacts on disk.
 const MAX_FINDINGS_IN_CACHE = 5000;
-
-function isSseEnabled() {
-  return import.meta.env?.VITE_USE_SSE_EVENTS === ENV_TRUE;
-}
 
 function appendBoundedFinding(prev, data) {
   if (prev.length >= MAX_FINDINGS_IN_CACHE) {
