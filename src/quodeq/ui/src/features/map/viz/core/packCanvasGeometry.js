@@ -37,11 +37,12 @@ export function hitCircle(circles, screenCoords, x, y) {
   return best;
 }
 
-/** Whether a circle is worth drawing: at least half a pixel, and inside
- * the view box. Zoomed-in packs leave most circles offscreen or sub-pixel. */
-export function isDrawable(sc, viewport) {
-  const MIN_PX = 0.5;
-  if (sc.r * viewport.scale < MIN_PX) return false;
+/** Whether a circle is inside the view box. Zoomed-in packs leave most
+ * circles offscreen. Sub-pixel circles are kept: the 1px stroke still
+ * paints them, and that texture is what makes a zoomed-out folder read as
+ * full rather than empty (the SVG view gets the same from its
+ * non-scaling stroke). */
+export function isDrawable(sc) {
   return sc.cx + sc.r > -PACK_VIEW_PAD && sc.cx - sc.r < PACK_BASE_SIZE + PACK_VIEW_PAD
     && sc.cy + sc.r > -PACK_VIEW_PAD && sc.cy - sc.r < PACK_BASE_SIZE + PACK_VIEW_PAD;
 }
