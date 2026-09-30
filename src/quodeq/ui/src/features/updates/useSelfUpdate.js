@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useApi } from '../../api/ApiContext.jsx';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval.js';
 
 // The self-update flow's own phase vocabulary, not the run/job/dim
 // vocabulary -- kept local rather than forced into vocab/*.js.
@@ -34,13 +35,9 @@ export function useSelfUpdate(status, adoptStatus) {
     adoptStatus(next);
   }, [adoptStatus]);
 
-  useEffect(() => {
-    if (!active) return undefined;
-    const id = setInterval(() => {
-      getUpdateStatus().then(adopt).catch((e) => console.warn('self-update status poll failed:', e));
-    }, STATUS_POLL_MS);
-    return () => clearInterval(id);
-  }, [active, adopt, getUpdateStatus]);
+  useVisibleInterval(() => {
+    getUpdateStatus().then(adopt).catch((e) => console.warn('self-update status poll failed:', e));
+  }, active ? STATUS_POLL_MS : 0);
 
   const begin = useCallback(() => {
     setStarting(true);

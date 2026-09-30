@@ -57,6 +57,10 @@ from quodeq.dashboard._webview_window_help_menu import (  # noqa: F401 — re-ex
     non_macos_menu,
 )
 from quodeq.dashboard._webview_window_lifecycle import make_on_loaded
+from quodeq.dashboard._webview_window_visibility import (  # noqa: F401 — re-export
+    dispatch_visibility,
+    install_visibility_events,
+)
 from quodeq.dashboard._webview_window_native_ops import (  # noqa: F401 — re-export
     download_via_dialog,
     fetch_running_evaluation,
@@ -210,6 +214,7 @@ def _wire_window(url: str, sock_path: Path, api_pid: int) -> tuple[webview.Windo
     api.bind(window, api_pid=api_pid, instance=instance, base_url=url)
     window.events.loaded += make_on_loaded(window)
     window.events.closing += make_on_closing(api, window)
+    install_visibility_events(window)
     return window, instance
 
 

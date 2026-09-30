@@ -28,6 +28,7 @@ import { pollIntervalForRuns } from '../utils/runPolling.js';
 import { RUN_STATE } from '../vocab/runState.js';
 import { PROJECT_SOURCE } from '../vocab/projectSource.js';
 import { ENV_TRUE } from '../constants.js';
+import { useVisibleInterval } from './useVisibleInterval.js';
 
 const SSE_ENABLED = () => import.meta.env?.VITE_USE_SSE_EVENTS === ENV_TRUE;
 
@@ -68,12 +69,8 @@ export function useRunningRunsRefresh({ selectedProject, selectedSource = PROJEC
   // (2) Background polling: only while running runs exist AND SSE is off.
   // With SSE on, terminal-status events drive the running -> terminal flip
   // (see useRunEventStream); polling here would just double the request rate.
-  useEffect(() => {
-    if (!selectedProject || !interval) return undefined;
-    if (SSE_ENABLED()) return undefined;
-    const id = setInterval(() => {
-      invalidateHistoryScope(queryClient, selectedProject, availableRuns, selectedSource);
-    }, interval);
-    return () => clearInterval(id);
-  }, [queryClient, selectedProject, interval, availableRuns, selectedSource]);
+  const polling = selectedProject && interval && !SSE_ENABLED();
+  useVisibleInterval(() => {
+    invalidateHistoryScope(queryClient, selectedProject, availableRuns, selectedSource);
+  }, polling ? interval : 0);
 }

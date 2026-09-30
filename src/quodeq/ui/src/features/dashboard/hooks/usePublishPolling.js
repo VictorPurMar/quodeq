@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { sharedKeys } from '../../../api/queryKeys.js';
 import { apiErrorMessage } from '../../../strings/apiErrors.js';
+import { useVisibleInterval } from '../../../hooks/useVisibleInterval.js';
 import { PUBLISH_STATE } from '../dashboardVocab.js';
 
 const POLL_INTERVAL_MS = 2000;
@@ -10,7 +11,7 @@ const POLL_INTERVAL_MS = 2000;
 // usePublish.js -- publishingRef and mountedRef stay owned by usePublish.js
 // itself (they also guard the publish() trigger and the hook's own mount
 // lifecycle, which are outside this extraction; mountedRef is passed in so
-// checkStatus can still read it), but publishingProjectRef, pollTimerRef,
+// checkStatus can still read it), but publishingProjectRef, the poll flag,
 // stopPolling/startPolling, refreshListAfterCompletion, and checkStatus move
 // here as one unit since they only ever operate on each other.
 // Imperative and cache-key-targeted rather than a plain refetch of usePublish's
@@ -130,13 +131,8 @@ function usePublishJobState() {
 export function usePublishPolling({ queryClient, sharedListProjects, getSharedStatus, applyOptimisticPublish, mountedRef }) {
   const { publishState, publishingProject, publishError, publishErrorProject, controls } = usePublishJobState();
 
-  const pollTimerRef = useRef(null);
-  const stopPolling = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-  }, []);
+  const [polling, setPolling] = useState(false);
+  const stopPolling = useCallback(() => { setPolling(false); }, []);
 
   const refreshListAfterCompletion = useRefreshListAfterCompletion(queryClient, sharedListProjects);
   const completion = useMemo(
@@ -145,10 +141,8 @@ export function usePublishPolling({ queryClient, sharedListProjects, getSharedSt
   );
   const checkStatus = useCheckStatus({ getSharedStatus, mountedRef, stopPolling, controls, completion });
 
-  const startPolling = useCallback(() => {
-    stopPolling();
-    pollTimerRef.current = setInterval(checkStatus, POLL_INTERVAL_MS);
-  }, [stopPolling, checkStatus]);
+  const startPolling = useCallback(() => { setPolling(true); }, []);
+  useVisibleInterval(checkStatus, polling ? POLL_INTERVAL_MS : 0);
 
   return {
     publishState,

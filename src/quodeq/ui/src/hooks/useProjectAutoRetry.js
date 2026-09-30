@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { resolveInitialProject } from './projectStateStorage.js';
+import { useVisibleInterval } from './useVisibleInterval.js';
 
 // One retry attempt. Everything it needs beyond listProjects is read from
 // `latest` at call time, so a selection change between ticks is picked up
@@ -49,9 +50,8 @@ export function useProjectAutoRetry({
     selectedProject, selectedSource, handleProjectChange, onNoProjects, storage,
   };
 
-  useEffect(() => {
-    if (!projectsLoadFailed || projectsLoaded) return undefined;
-    const id = setInterval(() => runRetryTick(listProjects, latest), autoRetryMs);
-    return () => clearInterval(id);
-  }, [projectsLoadFailed, projectsLoaded, autoRetryMs, listProjects]);
+  useVisibleInterval(
+    () => runRetryTick(listProjects, latest),
+    projectsLoadFailed && !projectsLoaded ? autoRetryMs : 0,
+  );
 }
