@@ -8,9 +8,28 @@ import { ACTIVE_PROVIDER_KEY, providerKey, ENV_TRUE } from "../../../constants.j
 import { resolveProviderSettings } from "../../../utils/effectiveProviderSettings.js";
 import { t } from "../../../strings/index.js";
 import { JOB_STATUS } from "../../../vocab/jobStatus.js";
+import { STREAM_STATE } from "./runEventSourceRegistry.js";
 
 export const SSE_ENABLED = import.meta.env?.VITE_USE_SSE_EVENTS === ENV_TRUE;
 const DIM_POLL_MS = 2000;
+export const JOB_POLL_MS = 1500;
+// Under SSE the status query still refetches, slowly, as a safety net
+// against a frame the stream dropped or a server that never sent one.
+export const SSE_STATUS_SAFETY_NET_MS = 10_000;
+
+/**
+ * Poll interval for the job status query. Exported for tests.
+ *
+ * With SSE off it is the plain fast poll. With SSE on the stream feeds the
+ * cache, so the query only refetches on a slow safety net, except while the
+ * stream is in error: then the fast poll takes over until it reconnects,
+ * so a dropped connection never leaves the screen frozen on a stale job.
+ */
+export function statusRefetchInterval(streamState, sseEnabled = SSE_ENABLED) {
+  if (!sseEnabled) return JOB_POLL_MS;
+  if (streamState === STREAM_STATE.ERROR) return JOB_POLL_MS;
+  return SSE_STATUS_SAFETY_NET_MS;
+}
 
 /**
  * Poll interval for the live findings query. Exported for tests.

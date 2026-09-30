@@ -70,6 +70,27 @@ describe("findingsRefetchInterval", () => {
   });
 });
 
+describe("statusRefetchInterval", () => {
+  it("polls fast with SSE off", async () => {
+    const { statusRefetchInterval, JOB_POLL_MS } = await import("./useEvaluation.helpers.js");
+    const { STREAM_STATE } = await import("./runEventSourceRegistry.js");
+    expect(statusRefetchInterval(STREAM_STATE.OPEN, false)).toBe(JOB_POLL_MS);
+  });
+
+  it("under SSE only refetches on the slow safety net while the stream is up", async () => {
+    const { statusRefetchInterval, SSE_STATUS_SAFETY_NET_MS } = await import("./useEvaluation.helpers.js");
+    const { STREAM_STATE } = await import("./runEventSourceRegistry.js");
+    expect(statusRefetchInterval(STREAM_STATE.OPEN, true)).toBe(SSE_STATUS_SAFETY_NET_MS);
+    expect(statusRefetchInterval(STREAM_STATE.IDLE, true)).toBe(SSE_STATUS_SAFETY_NET_MS);
+  });
+
+  it("falls back to the fast poll while the stream is in error", async () => {
+    const { statusRefetchInterval, JOB_POLL_MS } = await import("./useEvaluation.helpers.js");
+    const { STREAM_STATE } = await import("./runEventSourceRegistry.js");
+    expect(statusRefetchInterval(STREAM_STATE.ERROR, true)).toBe(JOB_POLL_MS);
+  });
+});
+
 describe("cancel failure handling", () => {
   async function startJob(result) {
     fakeApi.startEvaluation.mockResolvedValue({ jobId: "j-c", status: "running", dimensions: [] });

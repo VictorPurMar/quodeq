@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRunEventStream } from "./useRunEventStream";
+import { STREAM_STATE } from "./runEventSourceRegistry.js";
 import { evaluationKeys, projectKeys } from "../../../api/queryKeys.js";
 import { withQueryClient } from "../../../test-utils/withQueryClient.jsx";
 import { MockEventSource } from "../../../test-utils/MockEventSource.js";
@@ -15,7 +16,7 @@ function renderStreamWithSpy(jobId) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   }
   const utils = renderHook(() => useRunEventStream(jobId), { wrapper: Wrapper });
-  return { ...utils, invalidateSpy };
+  return { ...utils, invalidateSpy, client };
 }
 
 function renderStreamAndQuery(jobId, key) {
@@ -37,6 +38,7 @@ describe("useRunEventStream (cache-writer)", () => {
   beforeEach(() => {
     vi.stubGlobal('EventSource', MockEventSource);
     MockEventSource.last = null;
+    MockEventSource.instances = [];
   });
 
   it("opens an EventSource against the events endpoint when SSE is enabled", () => {
@@ -45,14 +47,53 @@ describe("useRunEventStream (cache-writer)", () => {
     expect(MockEventSource.last.url).toBe("/api/evaluations/job-123/events");
   });
 
-  it("writes status events into evaluationKeys.status cache slot", async () => {
+  it("normalises a raw status frame into the Job shape in evaluationKeys.status", async () => {
+    // The frame is status.json verbatim: snake_case, and `state` is a
+    // RunState. Readers expect the REST Job (camelCase, `status`), so writing
+    // the frame raw left `job.status` undefined and the status pill fell
+    // through to "cancelled" on a running job.
     vi.stubEnv("VITE_USE_SSE_EVENTS", "true");
     const { result } = renderStreamAndQuery("job-1", evaluationKeys.status("job-1"));
     act(() => {
-      MockEventSource.last.emit("status", { state: "running", phase: "analyzing" });
+      MockEventSource.last.emit("status", {
+        state: "running", job_id: "job-1", phase: "analyzing",
+        current_dimension: "security", started_at: "2025-01-01T00:00:00Z",
+        dimensions: ["security"], time_limit_s: 600,
+      });
     });
-    await waitFor(() => {
-      expect(result.current.data).toEqual({ state: "running", phase: "analyzing" });
+    await waitFor(() => expect(result.current.data?.status).toBe("running"));
+    expect(result.current.data).toMatchObject({
+      jobId: "job-1", phase: "analyzing", currentDimension: "security",
+      startedAt: "2025-01-01T00:00:00Z", dimensions: ["security"], timeLimitS: 600,
+    });
+    expect(result.current.data.state).toBeUndefined();
+  });
+
+  it("maps the pending and finalizing run states onto a running job", async () => {
+    vi.stubEnv("VITE_USE_SSE_EVENTS", "true");
+    const { result } = renderStreamAndQuery("job-1", evaluationKeys.status("job-1"));
+    act(() => MockEventSource.last.emit("status", { state: "pending" }));
+    await waitFor(() => expect(result.current.data?.status).toBe("running"));
+    act(() => MockEventSource.last.emit("status", { state: "finalizing" }));
+    await waitFor(() => expect(result.current.data?.status).toBe("running"));
+  });
+
+  it("keeps REST-only job fields when a status frame lands on a cached job", async () => {
+    vi.stubEnv("VITE_USE_SSE_EVENTS", "true");
+    const { client } = renderStreamWithSpy("job-1");
+    // A previous REST fetch populated the slot with the full Job.
+    client.setQueryData(evaluationKeys.status("job-1"), {
+      jobId: "job-1", status: "running", currentDimension: "security",
+      outputProject: "proj", outputRunId: "run-1", source: "external",
+    });
+    act(() => {
+      MockEventSource.last.emit("status", { state: "done", current_dimension: null });
+    });
+    const job = client.getQueryData(evaluationKeys.status("job-1"));
+    // The frame wins for what it knows, including a field the run cleared.
+    expect(job).toMatchObject({
+      status: "done", currentDimension: null,
+      outputProject: "proj", outputRunId: "run-1", source: "external",
     });
   });
 
@@ -107,6 +148,53 @@ describe("useRunEventStream (cache-writer)", () => {
         security: { dimension: "security", score: 90 },
       });
     });
+  });
+
+  it("shares one EventSource between every subscriber to the same run", () => {
+    // Five History rows for one run used to hold five connections; browsers
+    // cap SSE connections per origin at six.
+    vi.stubEnv("VITE_USE_SSE_EVENTS", "true");
+    const wrapper = withQueryClient();
+    const rows = 5;
+    const { unmount } = renderHook(
+      () => { for (let i = 0; i < rows; i += 1) useRunEventStream("job-shared"); },
+      { wrapper },
+    );
+    expect(MockEventSource.instances).toHaveLength(1);
+    // Released once the last subscriber goes, not before.
+    unmount();
+    expect(MockEventSource.instances[0].closed).toBe(true);
+  });
+
+  it("keeps the stream open while any subscriber remains", () => {
+    vi.stubEnv("VITE_USE_SSE_EVENTS", "true");
+    const wrapper = withQueryClient();
+    const first = renderHook(() => useRunEventStream("job-shared"), { wrapper });
+    const source = MockEventSource.last;
+    first.unmount();
+    expect(source.closed).toBe(true);
+    // Different QueryClients are different registries: a fresh wrapper opens its own.
+    renderHook(() => useRunEventStream("job-shared"), { wrapper: withQueryClient() });
+    expect(MockEventSource.instances).toHaveLength(2);
+  });
+
+  it("reports the connection state so the poll policy can fall back", () => {
+    vi.stubEnv("VITE_USE_SSE_EVENTS", "true");
+    const wrapper = withQueryClient();
+    const { result } = renderHook(() => useRunEventStream("job-err"), { wrapper });
+    expect(result.current).toBe(STREAM_STATE.OPEN);
+    act(() => MockEventSource.last.fail());
+    expect(result.current).toBe(STREAM_STATE.ERROR);
+    act(() => MockEventSource.last.open());
+    expect(result.current).toBe(STREAM_STATE.OPEN);
+    act(() => MockEventSource.last.emit("done", {}));
+    expect(result.current).toBe(STREAM_STATE.IDLE);
+  });
+
+  it("reports IDLE when SSE is off or there is no job", () => {
+    vi.stubEnv("VITE_USE_SSE_EVENTS", "false");
+    const { result } = renderHook(() => useRunEventStream("job-1"), { wrapper: withQueryClient() });
+    expect(result.current).toBe(STREAM_STATE.IDLE);
   });
 
   it("closes the source on done event", async () => {

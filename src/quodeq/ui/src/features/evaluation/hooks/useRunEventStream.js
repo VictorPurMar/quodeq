@@ -6,7 +6,10 @@
  * the cached data via useQuery, agnostic to whether it arrived via
  * initial GET, refetchInterval poll, or this SSE handler.
  *
- * Returns nothing — this hook is a side-effect.
+ * Returns the stream's connection state (STREAM_STATE), so the polling
+ * policy can fall back to a fast poll while the stream is down. The
+ * EventSource itself is shared per run via runEventSourceRegistry: any
+ * number of subscribers to the same run hold one connection.
  *
  * Gated by VITE_USE_SSE_EVENTS (default off). When off, components fall
  * back to useQuery's refetchInterval polling.
@@ -17,20 +20,23 @@
  * value — a real race once a query is mounted in the same render as
  * the SSE handler.
  */
-import { useEffect } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { evaluationKeys, projectKeys } from "../../../api/queryKeys.js";
-import { runEventsUrl } from "../../../api/evaluations.js";
 import { createViolation } from "../../../models/violation.js";
-import { TERMINAL_RUN_STATES } from "../../../vocab/runState.js";
+import { applyStatusFrame } from "../../../models/job.js";
+import { JOB_FINISHED } from "../../../vocab/jobStatus.js";
+import { SSE_EVENT } from "../../../vocab/sseEvent.js";
 import { ENV_TRUE } from "../../../constants.js";
+import {
+  acquireRunStream, getRunStreamState, subscribeRunStream,
+} from "./runEventSourceRegistry.js";
 
 // Cap the per-job findings array so a long-running scan with tens of thousands
 // of findings does not grow the React Query cache without bound. The dashboard
 // renders aggregated counts and the most-recent slice; older entries are still
 // reachable through the scored evaluation/<dim>.json artifacts on disk.
 const MAX_FINDINGS_IN_CACHE = 5000;
-const TERMINAL_STATES = TERMINAL_RUN_STATES;
 
 function isSseEnabled() {
   return import.meta.env?.VITE_USE_SSE_EVENTS === ENV_TRUE;
@@ -45,12 +51,20 @@ function appendBoundedFinding(prev, data) {
   return [...prev, data];
 }
 
-function wireRunEventSource({ source, jobId, writeCache, queryClient }) {
-  source.addEventListener("status", (e) => {
+function wireRunEventSource({ source, finish, jobId, writeCache, queryClient }) {
+  source.addEventListener(SSE_EVENT.STATUS, (e) => {
     try {
-      const data = JSON.parse(e.data);
-      writeCache(evaluationKeys.status(jobId), data);
-      if (data && TERMINAL_STATES.has(data.state)) {
+      // The frame is the raw snake_case status.json, whose `state` is a
+      // RunState. Normalise onto the cached REST job so every reader sees
+      // one Job shape (EvaluationStatus used to render a raw frame as
+      // "cancelled" because `job.status` was undefined).
+      const frame = JSON.parse(e.data);
+      let job;
+      writeCache(evaluationKeys.status(jobId), (prev) => {
+        job = applyStatusFrame(prev, frame);
+        return job;
+      });
+      if (job && JOB_FINISHED.has(job.status)) {
         // Run just hit a terminal state -- the trend's view of this run is
         // about to flip from "in-progress / partial" to "terminal / final".
         // Invalidate the project subtree so the History row rerenders against
@@ -64,7 +78,7 @@ function wireRunEventSource({ source, jobId, writeCache, queryClient }) {
     }
   });
 
-  source.addEventListener("dimension-completed", (e) => {
+  source.addEventListener(SSE_EVENT.DIMENSION_COMPLETED, (e) => {
     try {
       const data = JSON.parse(e.data);
       writeCache(
@@ -76,7 +90,7 @@ function wireRunEventSource({ source, jobId, writeCache, queryClient }) {
     }
   });
 
-  source.addEventListener("finding", (e) => {
+  source.addEventListener(SSE_EVENT.FINDING, (e) => {
     try {
       // Normalised on the way in, so the cache holds one shape whichever
       // path filled it. The frame is snake_case straight off the payload
@@ -94,9 +108,7 @@ function wireRunEventSource({ source, jobId, writeCache, queryClient }) {
     }
   });
 
-  source.addEventListener("done", () => {
-    source.close();
-  });
+  source.addEventListener(SSE_EVENT.DONE, finish);
 }
 
 /**
@@ -105,8 +117,11 @@ function wireRunEventSource({ source, jobId, writeCache, queryClient }) {
  * without polling.
  *
  * No-op when the job id is absent or SSE is disabled (VITE_USE_SSE_EVENTS),
- * in which case the polling queries cover it. The stream is closed on unmount
- * and when the run finishes.
+ * in which case the polling queries cover it. The shared stream is released
+ * on unmount (closed once its last subscriber goes) and closed for good when
+ * the run finishes.
+ *
+ * @returns {string} the stream's STREAM_STATE
  */
 export function useRunEventStream(jobId) {
   const queryClient = useQueryClient();
@@ -125,9 +140,18 @@ export function useRunEventStream(jobId) {
       queryClient.setQueryData(key, updater);
     };
 
-    const source = new EventSource(runEventsUrl(jobId));
-    wireRunEventSource({ source, jobId, writeCache, queryClient });
-
-    return () => source.close();
+    return acquireRunStream(queryClient, jobId, (source, finish) => {
+      wireRunEventSource({ source, finish, jobId, writeCache, queryClient });
+    });
   }, [jobId, queryClient]);
+
+  const subscribe = useCallback(
+    (onChange) => subscribeRunStream(queryClient, jobId, onChange),
+    [queryClient, jobId],
+  );
+  const getSnapshot = useCallback(
+    () => getRunStreamState(queryClient, jobId),
+    [queryClient, jobId],
+  );
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

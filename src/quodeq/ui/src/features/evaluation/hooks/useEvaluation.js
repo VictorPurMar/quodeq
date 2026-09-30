@@ -123,10 +123,11 @@ export function useEvaluation() {
 
   // SSE side-effect — writes status/dimensions/findings into cache.
   // No-op when VITE_USE_SSE_EVENTS is off; refetchInterval below covers.
-  useRunEventStream(jobId);
+  // Its connection state drives the status query's poll interval.
+  const streamState = useRunEventStream(jobId);
   useResumeRunningJob(api, queryClient, setJobId, setJobError);
 
-  const { job, liveViolations } = useEvaluationQueries(api, jobId);
+  const { job, liveViolations } = useEvaluationQueries(api, jobId, streamState);
 
   const { startMutation, cancelMutation } = useEvaluationMutations({
     api, queryClient, jobId, setJobId, setJobError, setStartedProject,

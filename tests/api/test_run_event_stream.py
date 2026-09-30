@@ -215,6 +215,9 @@ def test_heartbeat_a_different_malformed_value_warns_again(monkeypatch):
 # 15s default.
 # ---------------------------------------------------------------------------
 
+HEARTBEAT = "event: heartbeat\ndata: {}\n\n"
+
+
 def _fake_clock(values):
     """A monotonic-like callable that returns *values* in order, then
     repeats the last one -- avoids StopIteration if something else in the
@@ -236,9 +239,25 @@ def test_heartbeat_env_override_applies_to_a_new_stream(tmp_path, monkeypatch):
     monkeypatch.delenv("QUODEQ_SSE_HEARTBEAT_S", raising=False)
     monkeypatch.setattr(rgen.time, "monotonic", _fake_clock([0.0, 0.0, 5.0]))
     default_frames = list(rgen.run_events_generator(tmp_path, tick_seconds=0.0))
-    assert default_frames.count(":keepalive\n\n") == 1  # 5s < 15s default -- no extra beat
+    assert default_frames.count(":keepalive\n\n") == 1
+    assert default_frames.count(HEARTBEAT) == 0  # 5s < 15s default -- no beat yet
 
     monkeypatch.setenv("QUODEQ_SSE_HEARTBEAT_S", "2.5")
     monkeypatch.setattr(rgen.time, "monotonic", _fake_clock([0.0, 0.0, 5.0, 5.0]))
     overridden_frames = list(rgen.run_events_generator(tmp_path, tick_seconds=0.0))
-    assert overridden_frames.count(":keepalive\n\n") == 2  # 5s >= 2.5s override -- extra beat
+    assert overridden_frames.count(HEARTBEAT) == 1  # 5s >= 2.5s override -- one beat
+
+
+def test_quiet_run_emits_data_heartbeat_within_the_interval(tmp_path, monkeypatch):
+    """A run with no status.json and no findings must still send a *data*
+    event (not just an SSE comment) once the heartbeat interval elapses,
+    otherwise the browser's inactivity timer never sees traffic."""
+    rgen = _run_event_stream_mod
+    monkeypatch.delenv("QUODEQ_SSE_HEARTBEAT_S", raising=False)
+    monkeypatch.setattr(rgen.time, "monotonic", _fake_clock([0.0, 0.0, 15.0, 15.0]))
+
+    frames = list(rgen.run_events_generator(tmp_path, tick_seconds=0.0))
+
+    data_frames = [f for f in frames if not f.startswith(":")]
+    assert data_frames[-1] == HEARTBEAT
+    assert HEARTBEAT.startswith("event: heartbeat\n")
