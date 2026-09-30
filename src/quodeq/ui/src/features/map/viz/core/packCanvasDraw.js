@@ -72,7 +72,7 @@ export function drawPack(ctx, { circles, screenCoords, viewport, viewMode, hover
   let drawn = 0;
   circles.forEach((c, i) => {
     const sc = screenCoords[i];
-    if (!isDrawable(sc, viewport)) return;
+    if (!isDrawable(sc)) return;
     drawCircle(ctx, sc, circleStyle(c, viewMode, hover === i, color), viewport);
     drawn++;
   });

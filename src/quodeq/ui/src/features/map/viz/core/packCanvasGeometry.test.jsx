@@ -36,9 +36,17 @@ describe('hitCircle', () => {
 
 describe('isDrawable', () => {
   const v = packViewport(SPAN, SPAN);
-  it('skips sub-pixel and offscreen circles', () => {
-    expect(isDrawable({ cx: 300, cy: 300, r: 0.2 }, v)).toBe(false);
+  it('skips offscreen circles', () => {
     expect(isDrawable({ cx: 5000, cy: 300, r: 10 }, v)).toBe(false);
     expect(isDrawable({ cx: 300, cy: 300, r: 10 }, v)).toBe(true);
+  });
+});
+
+// Sub-pixel circles still paint: the SVG view keeps them visible through
+// its non-scaling 1px stroke, and that texture is what makes a zoomed-out
+// folder read as full rather than empty.
+describe('isDrawable keeps sub-pixel circles', () => {
+  it('draws a circle far smaller than a pixel when it is inside the view', () => {
+    expect(isDrawable({ cx: 300, cy: 300, r: 0.05 })).toBe(true);
   });
 });

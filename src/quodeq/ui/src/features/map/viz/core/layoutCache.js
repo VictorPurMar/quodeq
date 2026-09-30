@@ -60,7 +60,10 @@ function layoutInWorker(node, viewMode, root) {
   const promise = reply
     .then((xyr) => finishLayout(node, viewMode, applyPositions(root, xyr)))
     .catch(() => finishLayout(node, viewMode, packInPlace(root)));
-  return { root, circles: [], pending: true, promise };
+  // No root until the positions land: the view derives its focus transform
+  // from the root's radius and memoises on the root's identity, so handing
+  // out the unpositioned root now would freeze NaN in that transform.
+  return { root: null, circles: [], pending: true, promise };
 }
 
 /** The pack layout for `node`: the cached result when there is one,

@@ -41,11 +41,11 @@ describe('drawPack', () => {
     expect(ctx.fillText.mock.calls[0][0]).toBe('src');
   });
 
-  it('culls circles that are sub-pixel or offscreen', () => {
+  it('culls offscreen circles but keeps sub-pixel ones', () => {
     const ctx = fakeCtx();
     const coords = [{ cx: 300, cy: 300, r: 300 }, { cx: -900, cy: 300, r: 150 }, { cx: 300, cy: 300, r: 0.1 }];
     const drawn = drawPack(ctx, { circles, screenCoords: coords, viewport, viewMode: 'violations', hover: null, focusNode: root, showLabels: false, style, width: 600, height: 600 });
-    expect(drawn).toBe(1);
+    expect(drawn).toBe(2);
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 });
