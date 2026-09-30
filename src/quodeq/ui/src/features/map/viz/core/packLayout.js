@@ -4,7 +4,7 @@ import { nodeSize } from './mapColors.js';
 // Layout units for the circle pack; the SVG viewBox scales them to the screen.
 export const PACK_BASE_SIZE = 600;
 // Gap d3-pack leaves between a top-level circle and the root, in layout units.
-export const PACK_PADDING = 6;
+export const PACK_PADDING = 8;
 // Trees at or above this many nodes lay out in the worker instead of the
 // render thread.
 export const PACK_WORKER_NODE_THRESHOLD = 2000;

@@ -76,4 +76,17 @@ describe('useTweenedTransform', () => {
     expect(result.current).toBe(A);
     expect(frames.hasFrame()).toBe(false);
   });
+
+  // The worker reply swaps the placeholder root for the real one; the focus
+  // transform is rebuilt with the same values. The canvas treats
+  // `shown === target` as "settled", so the new object must be adopted.
+  it('adopts an equal-valued target without animating', () => {
+    const frames = fakeFrames();
+    const skip = { current: false };
+    const { result, rerender } = renderHook(({ target }) => useTweenedTransform(target, skip), { initialProps: { target: A } });
+    const sameAsA = { ...A };
+    rerender({ target: sameAsA });
+    expect(result.current).toBe(sameAsA);
+    expect(frames.hasFrame()).toBe(false);
+  });
 });

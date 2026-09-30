@@ -12,6 +12,7 @@ import { KEY } from '../../../../vocab/keyboard.js';
 import { PERCENT } from '../../../../constants.js';
 import { isDrillableFolder } from '../core/fileTree.js';
 import MapTooltipSeverityRows from './MapTooltipSeverityRows.jsx';
+import FadeIn from '../../../../components/FadeIn.jsx';
 
 const LABEL_RADIUS_THRESHOLD = 10;
 const LABEL_FONT_MAX = 11;
@@ -124,6 +125,17 @@ function useCircleIndices(circles) {
   }, [circles]);
 }
 
+/** The node to focus in the current layout. `focus` may belong to an
+ * earlier hierarchy (the root is rebuilt on every view-mode switch and
+ * worker reply); then the same path is looked up in the new circles. */
+function useResolvedFocus(focus, root, circles) {
+  return useMemo(() => {
+    if (!focus) return root;
+    if (focus.ancestors().at(-1) === root) return focus;
+    return circles.find((c) => c.data.path === focus.data.path) || root;
+  }, [focus, root, circles]);
+}
+
 /* ---- useFocusManager: focus state and click handling ---- */
 function useFocusManager({ root, circles, resetKey, currentPath, onDrillDown, onFileClick }) {
   const [focus, setFocus] = useState(null);
@@ -138,7 +150,7 @@ function useFocusManager({ root, circles, resetKey, currentPath, onDrillDown, on
     requestAnimationFrame(() => { skipTransition.current = false; });
   }, []);
 
-  const focusNode = focus || root;
+  const focusNode = useResolvedFocus(focus, root, circles);
   const transform = useFocusTransform(focusNode);
   const { k, tx, ty } = transform;
   const screenCoords = useScreenCoords(circles, k, tx, ty);
@@ -261,14 +273,21 @@ export default function ZoomablePackView({ node, viewMode, onDrillDown, onFileCl
   const { root, circles } = usePackLayout(node, viewMode);
   const focus = useFocusManager({ root, circles, resetKey, currentPath, onDrillDown, onFileClick });
 
-  if (!node || !circles.length) return null;
+  if (!node) return null;
+  const ready = circles.length > 0;
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }} onMouseMove={(e) => { const r = containerRef.current?.getBoundingClientRect(); if (r) { mousePos.current = { x: e.clientX - r.left, y: e.clientY - r.top }; } }}>
-      <PackBody circles={circles} viewMode={viewMode} showLabels={showLabels} hover={hover} setHover={setHover} focus={focus} />
-      <PackTooltip circles={circles} hover={hover} mousePos={mousePos} containerRef={containerRef} />
-      <PackInfoPanel focusNode={focus.focusNode} root={root} onFileClick={onFileClick} />
-      <MapLegend />
+      {/* The layout can land after the page fade (worker reply, view-mode
+          switch), so the circles fade in on their own when a new root arrives.
+          The wrapper stays mounted while a layout is pending so the fade
+          restarts instead of resetting. */}
+      <FadeIn restartKey={root} className="pack-fade">
+        {ready && <PackBody circles={circles} viewMode={viewMode} showLabels={showLabels} hover={hover} setHover={setHover} focus={focus} />}
+      </FadeIn>
+      {ready && <PackTooltip circles={circles} hover={hover} mousePos={mousePos} containerRef={containerRef} />}
+      {ready && <PackInfoPanel focusNode={focus.focusNode} root={root} onFileClick={onFileClick} />}
+      {ready && <MapLegend />}
     </div>
   );
 }

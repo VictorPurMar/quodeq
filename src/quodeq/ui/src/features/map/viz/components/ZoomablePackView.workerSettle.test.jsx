@@ -54,4 +54,30 @@ describe('ZoomablePackView when the worker reply lands after first render', () =
       expect(Number.isFinite(call[1])).toBe(true);
     }
   });
+
+  it('fades the circles in when the layout lands and again on a view-mode switch', async () => {
+    const tree = bigTree();
+    const { container, rerender } = render(<ZoomablePackView node={tree} viewMode="health" />);
+    const fade = container.querySelector('.pack-fade');
+    expect(fade).toHaveAttribute('data-fade', 'a');
+    await act(async () => { resolveReply(packSlim(slimTree(buildPackRoot(tree, 'health')))); });
+    expect(container.querySelector('.pack-fade')).toBe(fade);
+    expect(fade).toHaveAttribute('data-fade', 'b');
+
+    rerender(<ZoomablePackView node={tree} viewMode="violations" />);
+    await act(async () => { resolveReply(packSlim(slimTree(buildPackRoot(tree, 'violations')))); });
+    expect(container.querySelector('.pack-fade')).toBe(fade);
+    expect(fade).toHaveAttribute('data-fade', 'a');
+  });
+
+  // The focus transform is rebuilt when the real root replaces the pending
+  // placeholder; its values do not change, so the canvas must still treat
+  // the zoom as settled and draw labels right away.
+  it('draws labels as soon as the layout lands', async () => {
+    const tree = bigTree();
+    render(<ZoomablePackView node={tree} viewMode="health" showLabels />);
+    ctx.fillText.mockClear();
+    await act(async () => { resolveReply(packSlim(slimTree(buildPackRoot(tree, 'health')))); });
+    expect(ctx.fillText).toHaveBeenCalled();
+  });
 });
