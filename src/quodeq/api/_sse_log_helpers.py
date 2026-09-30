@@ -8,6 +8,7 @@ from typing import Callable
 
 from flask import Response
 
+from quodeq.api.sse_frames import Heartbeat, SseEvent, sse_line
 from quodeq.shared.env import env_int
 from quodeq.shared.env_resolve import resolve_env
 
@@ -30,6 +31,7 @@ def _max_wait_s(env: Mapping[str, str] | None = None) -> int:
 # file. Keeps the EventSource from being torn down by intermediaries even
 # when the runner spends a long time in the "preparing" phase.
 _KEEPALIVE_MS = 2000
+
 
 # Per-read byte cap on a log tail (SSE tick or plain poll). Caps a runaway log
 # file from blowing out RAM in a single read; remaining bytes are served on
@@ -78,22 +80,6 @@ def event_stream_response(frames: Iterable[str]) -> Response:
     return resp
 
 
-def sse_line(data: str, event: str | None = None, event_id: int | None = None) -> str:
-    """Render one server-sent-event frame: optional id and event, then data.
-
-    The trailing blank line is what makes the browser dispatch the event, so
-    every frame this module writes goes through here rather than being
-    assembled at the call site.
-    """
-    parts = []
-    if event_id is not None:
-        parts.append(f"id: {event_id}\n")
-    if event is not None:
-        parts.append(f"event: {event}\n")
-    parts.append(f"data: {data}\n\n")
-    return "".join(parts)
-
-
 def _emit_done_frame(terminal_state, offset: int) -> str:
     """Build the ``event: done`` frame that ends a tail stream.
 
@@ -109,10 +95,10 @@ def _emit_done_frame(terminal_state, offset: int) -> str:
             state = terminal_state() or ""
         except (OSError, ValueError, AttributeError):
             state = ""
-    return sse_line(state, event="done", event_id=offset or None)
+    return sse_line(state, event=SseEvent.DONE, event_id=offset or None)
 
 
-def _wait_for_log_file(is_done, waited_ms: int, keepalive_ms: int):
+def _wait_for_log_file(is_done, waited_ms: int, keepalive_ms: int, heartbeat: Heartbeat):
     """One poll tick while the log file doesn't exist yet.
 
     Two regimes when the file is missing:
@@ -125,7 +111,7 @@ def _wait_for_log_file(is_done, waited_ms: int, keepalive_ms: int):
         the original "give up after _max_wait_s()" behaviour so a missing file
         doesn't hang the connection forever.
 
-    Yields keepalive/error SSE frames as needed. Returns
+    Yields keepalive/heartbeat/error SSE frames as needed. Returns
     ``(waited_ms, keepalive_ms, status)`` where status is ``"continue"``,
     ``"timeout"`` (error frame already yielded, caller should return), or
     ``"done"`` (is_done() returned True; caller emits the done frame).
@@ -143,13 +129,17 @@ def _wait_for_log_file(is_done, waited_ms: int, keepalive_ms: int):
         if keepalive_ms >= _KEEPALIVE_MS:
             yield ":keepalive\n\n"
             keepalive_ms = 0
+    beat = heartbeat.advance(poll_ms)
+    if beat is not None:
+        yield beat
     time.sleep(poll_ms / 1000)
     return waited_ms, keepalive_ms, _TICK_CONTINUE
 
 
-def _tail_new_lines(path: Path, offset: int, line_filter):
+def _tail_new_lines(path: Path, offset: int, line_filter, heartbeat: Heartbeat):
     """Read new bytes from *path* since *offset*, yield an SSE frame per
-    complete new line, and return ``(offset, status)``.
+    complete new line, and return ``(offset, status)``. Emitting a line
+    resets *heartbeat*.
 
     status is ``"continue"`` normally, or ``"error"`` if the open failed --
     in which case an ``event: error`` frame has already been yielded exactly
@@ -170,6 +160,7 @@ def _tail_new_lines(path: Path, offset: int, line_filter):
             for line in complete.splitlines():
                 offset += len(line.encode("utf-8")) + 1  # +1 for '\n'
                 if line_filter is None or line_filter(line):
+                    heartbeat.reset()
                     yield sse_line(line, event_id=offset)
     return offset, _TICK_CONTINUE
 
@@ -204,12 +195,13 @@ def sse_tail_generator(
     offset = initial_offset
     waited_ms = 0
     keepalive_ms = 0
+    heartbeat = Heartbeat()
     yield ":keepalive\n\n"
     while True:
         path = _resolve()
         if path is None or not path.exists():
             waited_ms, keepalive_ms, status = yield from _wait_for_log_file(
-                is_done, waited_ms, keepalive_ms,
+                is_done, waited_ms, keepalive_ms, heartbeat,
             )
             if status == _TICK_TIMEOUT:
                 return
@@ -217,10 +209,14 @@ def sse_tail_generator(
                 yield _emit_done_frame(terminal_state, offset)
                 return
             continue
-        offset, tail_status = yield from _tail_new_lines(path, offset, line_filter)
+        offset, tail_status = yield from _tail_new_lines(path, offset, line_filter, heartbeat)
         if tail_status == _TICK_ERROR:
             return
         if is_done is not None and is_done():
             yield _emit_done_frame(terminal_state, offset)
             return
-        time.sleep(_poll_ms() / 1000)
+        poll_ms = _poll_ms()
+        beat = heartbeat.advance(poll_ms)
+        if beat is not None:
+            yield beat
+        time.sleep(poll_ms / 1000)

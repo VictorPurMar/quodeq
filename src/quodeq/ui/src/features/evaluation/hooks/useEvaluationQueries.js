@@ -10,11 +10,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NO_JOB_ID, evaluationKeys } from "../../../api/queryKeys.js";
-import { SSE_ENABLED, findingsRefetchInterval } from "./useEvaluation.helpers.js";
+import {
+  SSE_ENABLED, findingsRefetchInterval, statusRefetchInterval,
+} from "./useEvaluation.helpers.js";
 import { createViolation } from "../../../models/violation.js";
 import { JOB_STATUS } from "../../../vocab/jobStatus.js";
-
-const JOB_POLL_MS = 1500;
 
 // Under SSE the cache is filled by useRunEventStream; this queryFn is a
 // no-op. Under polling, fetch every dimension's rows in one request
@@ -84,16 +84,17 @@ function groupFindingsByDimension(findings) {
  * subscribe; otherwise they poll. Either way a terminal job gets one final
  * findings refetch, so the last results are never missed.
  *
+ * @param {string} [streamState] the run's STREAM_STATE, from useRunEventStream
  * @returns {{job: object|null, liveViolations: Record<string, object[]>}}
  */
-export function useEvaluationQueries(api, jobId) {
+export function useEvaluationQueries(api, jobId, streamState) {
   // --- Status (the "job" object) ---------------------------------------
   const statusQuery = useQuery({
     queryKey: evaluationKeys.status(jobId || NO_JOB_ID),
     queryFn: () => api.getEvaluation(jobId),
     enabled: !!jobId,
     staleTime: SSE_ENABLED ? Infinity : 0,
-    refetchInterval: SSE_ENABLED ? false : JOB_POLL_MS,
+    refetchInterval: statusRefetchInterval(streamState),
   });
 
   const job = statusQuery.data || null;

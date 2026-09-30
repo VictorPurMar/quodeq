@@ -18,6 +18,7 @@ from quodeq.api._sse_log_helpers import (
     sse_tail_generator,
     tail_max_bytes,
 )
+from quodeq.api.sse_frames import HEARTBEAT_MS, Heartbeat, heartbeat_frame
 
 
 def _drain(gen):
@@ -33,7 +34,7 @@ def _drain(gen):
 class TestTailNewLinesRace:
     def test_missing_file_yields_error_frame_instead_of_raising(self, tmp_path: Path):
         missing = tmp_path / "gone.log"
-        gen = _tail_new_lines(missing, 5, None)
+        gen = _tail_new_lines(missing, 5, None, Heartbeat())
 
         frames, (new_offset, status) = _drain(gen)
 
@@ -47,7 +48,7 @@ class TestTailNewLinesRace:
     def test_existing_file_still_tails_normally(self, tmp_path: Path):
         path = tmp_path / "run.log"
         path.write_text("hello\n", encoding="utf-8")
-        gen = _tail_new_lines(path, 0, None)
+        gen = _tail_new_lines(path, 0, None, Heartbeat())
 
         frames, (new_offset, status) = _drain(gen)
 
@@ -84,6 +85,32 @@ class TestSseTailGeneratorErrorTermination:
         # guard covers this at the module level; assert it here too since the
         # frame content is exactly what regresses if the fix is reverted).
         assert "IsADirectoryError" not in error_frames[0]
+
+
+class TestQuietTailHeartbeat:
+    """A tailed file that stops growing must still produce a data event at the
+    heartbeat cadence: the browser's EventSource ignores SSE comments, so a
+    quiet run otherwise trips the client's inactivity timer."""
+
+    def test_quiet_tail_emits_heartbeat_event(self, tmp_path: Path, monkeypatch):
+        path = tmp_path / "run.log"
+        path.write_text("hello\n", encoding="utf-8")
+        poll_ms = HEARTBEAT_MS // 3
+        monkeypatch.setattr("quodeq.api._sse_log_helpers._poll_ms", lambda env=None: poll_ms)
+        monkeypatch.setattr("quodeq.api._sse_log_helpers.time.sleep", lambda _s: None)
+
+        gen = sse_tail_generator(path, initial_offset=0)
+        frames = [next(gen) for _ in range(3)]  # ":keepalive", "hello", heartbeat
+
+        assert frames[-1] == heartbeat_frame()
+        assert frames[-1].startswith("event: heartbeat\n")
+
+    def test_new_line_resets_the_heartbeat_timer(self):
+        beat = Heartbeat(interval_ms=100)
+        assert beat.advance(60) is None
+        beat.reset()
+        assert beat.advance(60) is None
+        assert beat.advance(40) == heartbeat_frame()
 
 
 class TestTailMaxBytes:

@@ -4,6 +4,7 @@ import { JOB_STATUS } from '../../../vocab/jobStatus.js';
 import { LOG_STREAM_STATUS } from '../../../vocab/logStreamStatus.js';
 import { EMPTY_LOG_BUFFER, LOG_BUFFER_MAX_LINES, appendLines, clearLines } from '../../../utils/logBuffer.js';
 import { STREAM_INACTIVITY_MS } from '../../../constants.js';
+import { SSE_EVENT } from '../../../vocab/sseEvent.js';
 
 // Timer fallback for the rAF batching below: browsers throttle rAF to 0 in
 // background tabs, so without this the queue would never drain there.
@@ -63,7 +64,10 @@ function wireEventSource({ es, append, resetInactivity, inactivityRef, setTermin
     resetInactivity();
     append(e.data);
   };
-  es.addEventListener('done', (e) => {
+  // A quiet run (no new log lines) is still alive: the server proves it with
+  // a heartbeat event, which must count as activity but is not a log line.
+  es.addEventListener(SSE_EVENT.HEARTBEAT, resetInactivity);
+  es.addEventListener(SSE_EVENT.DONE, (e) => {
     finishedBox.current = true;
     if (inactivityRef.current != null) {
       clearTimeout(inactivityRef.current);

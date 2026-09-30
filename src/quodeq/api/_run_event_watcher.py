@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from quodeq.api.sse_frames import SseEvent
 from quodeq.api._run_event_serializers import (
     serialize_dimension_event,
     serialize_finding_event,
@@ -70,14 +71,14 @@ def compute_tick(run_dir: Path, state: WatcherState) -> tuple[list[EventTuple], 
     # --- Status ---
     status, status_mtime = read_status(run_dir, log=_LOG)
     if status_mtime != state.last_status_mtime:
-        events.append(("status", serialize_status_event(status), None))
+        events.append((SseEvent.STATUS, serialize_status_event(status), None))
 
     # --- Dimensions ---
     completed = scan_completed_dimensions(run_dir)
     new_dims = sorted(completed - state.emitted_dimensions)
     for dim in new_dims:
         eval_data = read_dim_eval(run_dir, dim, log=_LOG)
-        events.append(("dimension-completed", serialize_dimension_event(
+        events.append((SseEvent.DIMENSION_COMPLETED, serialize_dimension_event(
             dimension=dim, eval_data=eval_data,
         ), None))
 
@@ -91,7 +92,7 @@ def compute_tick(run_dir: Path, state: WatcherState) -> tuple[list[EventTuple], 
         finding_events: list[EventTuple] = []
         for event_ts, counter, payload in new_findings:
             finding_dict = payload_as_sse_finding(payload, counter)
-            finding_events.append(("finding", serialize_finding_event(finding_dict), event_ts.isoformat()))
+            finding_events.append((SseEvent.FINDING, serialize_finding_event(finding_dict), event_ts.isoformat()))
             new_last_ts = event_ts
             new_counter = counter
     except (OSError, ValueError, TypeError) as exc:

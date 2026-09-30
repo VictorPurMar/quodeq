@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from quodeq.api.sse_frames import SseEvent
 from quodeq.core.run.dimensions import DimState
 from quodeq.core.run.exit_reason import ExitReason
 from quodeq.core.run.job_status import JobStatus
@@ -45,6 +46,7 @@ _MIRRORS = [
     ("vocab/projectSource.js", "PROJECT_SOURCE", ProjectSource),
     ("vocab/dashboardView.js", "DASHBOARD_VIEW", DashboardView),
     ("vocab/frameType.js", "FRAME_TYPE", FrameType),
+    ("vocab/sseEvent.js", "SSE_EVENT", SseEvent),
     ("vocab/scopeGateRule.js", "SCOPE_GATE_RULE", ScopeGateRule),
     ("vocab/rescoreState.js", "RESCORE_STATE", RescoreState),
     ("vocab/providerType.js", "PROVIDER_TYPE", ProviderType),
