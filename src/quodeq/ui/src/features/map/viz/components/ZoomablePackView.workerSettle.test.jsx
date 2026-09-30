@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { fakeCanvasContext } from '../../../../test-utils/fakeCanvasContext.js';
 import ZoomablePackView from './ZoomablePackView.jsx';
 import { PACK_WORKER_NODE_THRESHOLD, buildPackRoot, slimTree, packSlim } from '../core/packLayout.js';
 
@@ -25,10 +26,7 @@ function bigTree() {
   return { path: '', name: '/', isFile: false, violations: children.length, compliance: 0, severity: {}, children: [folder] };
 }
 
-const ctx = {
-  clearRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
-  fillText: vi.fn(), setTransform: vi.fn(),
-};
+const ctx = fakeCanvasContext();
 
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
@@ -47,11 +45,13 @@ describe('ZoomablePackView when the worker reply lands after first render', () =
     await act(async () => { resolveReply(xyr); });
 
     expect(container.querySelector('canvas')).toBeInTheDocument();
+    // Folders are arcs, files are translated icons; every placement is finite.
     expect(ctx.arc).toHaveBeenCalled();
-    for (const call of ctx.arc.mock.calls) {
+    expect(ctx.translate).toHaveBeenCalled();
+    const placements = [...ctx.arc.mock.calls, ...ctx.translate.mock.calls];
+    for (const call of placements) {
       expect(Number.isFinite(call[0])).toBe(true);
       expect(Number.isFinite(call[1])).toBe(true);
-      expect(Number.isFinite(call[2])).toBe(true);
     }
   });
 });

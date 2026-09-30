@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { PACK_BASE_SIZE as BASE_SIZE, PACK_WORKER_NODE_THRESHOLD as PACK_CANVAS_NODE_THRESHOLD } from '../core/packLayout.js';
-import { PACK_VIEW_PAD as PAD } from '../core/packCanvasGeometry.js';
+import { PACK_VIEW_PAD as PAD, screenCoordsFor } from '../core/packCanvasGeometry.js';
 import PackCanvas from './PackCanvas.jsx';
 import { usePackLayout } from '../core/usePackLayout.js';
 import PackInfoPanel from './PackInfoPanel.jsx';
@@ -66,13 +66,7 @@ function useFocusTransform(focusNode) {
 }
 
 function useScreenCoords(circles, k, tx, ty) {
-  return useMemo(() =>
-    circles.map(c => ({
-      cx: c.x * k + tx,
-      cy: c.y * k + ty,
-      r: c.r * k,
-    })),
-  [circles, k, tx, ty]);
+  return useMemo(() => screenCoordsFor(circles, { k, tx, ty }), [circles, k, tx, ty]);
 }
 
 /**
@@ -145,12 +139,13 @@ function useFocusManager({ root, circles, resetKey, currentPath, onDrillDown, on
   }, []);
 
   const focusNode = focus || root;
-  const { k, tx, ty } = useFocusTransform(focusNode);
+  const transform = useFocusTransform(focusNode);
+  const { k, tx, ty } = transform;
   const screenCoords = useScreenCoords(circles, k, tx, ty);
   const { handleClick, handleBgClick } = useFocusHandlers({ focusNode, setFocus, onFileClick, onDrillDown, prevPathRef });
   const { folderIndices, fileIndices } = useCircleIndices(circles);
 
-  return { focusNode, k, tx, ty, screenCoords, handleClick, handleBgClick, skipTransition, folderIndices, fileIndices };
+  return { focusNode, k, tx, ty, transform, screenCoords, handleClick, handleBgClick, skipTransition, folderIndices, fileIndices };
 }
 
 /* ---- PackLabels: label rendering ---- */
@@ -251,7 +246,7 @@ function PackBody({ circles, viewMode, showLabels, hover, setHover, focus }) {
   }
   return (
     <PackCanvas
-      circles={circles} screenCoords={focus.screenCoords} viewMode={viewMode} hover={hover} setHover={setHover}
+      circles={circles} transform={focus.transform} skipTransition={focus.skipTransition} viewMode={viewMode} hover={hover} setHover={setHover}
       focusNode={focus.focusNode} showLabels={showLabels} handleClick={focus.handleClick} handleBgClick={focus.handleBgClick}
     />
   );

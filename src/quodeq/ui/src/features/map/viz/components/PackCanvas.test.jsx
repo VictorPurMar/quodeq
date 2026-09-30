@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { fakeCanvasContext } from '../../../../test-utils/fakeCanvasContext.js';
 import ZoomablePackView from './ZoomablePackView.jsx';
 import { PACK_WORKER_NODE_THRESHOLD } from '../core/packLayout.js';
 
@@ -18,10 +19,7 @@ function bigTree(files = PACK_WORKER_NODE_THRESHOLD) {
   return { path: '', name: '/', isFile: false, violations: files, compliance: 0, severity: {}, children: [folder] };
 }
 
-const ctx = {
-  clearRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
-  fillText: vi.fn(), setTransform: vi.fn(),
-};
+const ctx = fakeCanvasContext();
 
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
