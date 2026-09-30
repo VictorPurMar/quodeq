@@ -1,6 +1,6 @@
 import VirtualList from './VirtualList.jsx';
-import DeferredMount from './DeferredMount.jsx';
-import CardListSkeleton from './CardListSkeleton.jsx';
+import DeferredMount from '../../../components/DeferredMount.jsx';
+import CardListSkeleton from '../../../components/CardListSkeleton.jsx';
 import { t } from '../../../strings/index.js';
 import { rowKeyGetter, rowSizeEstimator } from './findingListRows.js';
 

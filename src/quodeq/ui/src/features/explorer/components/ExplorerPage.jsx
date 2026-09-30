@@ -5,6 +5,8 @@ import { useExplorerData, buildEvalPrincipalFn } from './explorerDataHooks.js';
 import { useStandardDescriptions } from '../hooks/useStandardDescriptions.js';
 import { TermHeader, SectionLabel } from '../../../components/terminal/index.js';
 import LoadingScreen from '../../../components/LoadingScreen.jsx';
+import DeferredMount from '../../../components/DeferredMount.jsx';
+import CardListSkeleton from '../../../components/CardListSkeleton.jsx';
 import PrinciplesCardsRow from './PrinciplesCardsRow.jsx';
 import ExplorerStatsPanel from './ExplorerStatsPanel.jsx';
 import ExplorerRadialPanel from './ExplorerRadialPanel.jsx';
@@ -19,9 +21,18 @@ import { HELP_SECTION } from '../../../vocab/helpSection.js';
 import { buildHeadline, chipDeltas, dimensionHeadlineInput, sinceBaselineFor, sumSinceBaseline } from '../../dashboard/headlineStats.js';
 
 /** Empty/loading/error states, checked in order — extracted so the main
- * render stays a single happy-path return. */
-function explorerPageStatus(d) {
-  if (d.loading) return <LoadingScreen />;
+ * render stays a single happy-path return. The loading state keeps the
+ * page frame (header with the dimension name) and puts the loader inline,
+ * so the navigation paints as this page, not as a blank screen. */
+function explorerPageStatus(d, dimension) {
+  if (d.loading) {
+    return (
+      <div className="explorer-page">
+        <TermHeader name={String(dimension || '').toLowerCase()} />
+        <LoadingScreen variant="inline" />
+      </div>
+    );
+  }
   if (d.error) return <div className="inline-error">{t('explorer.loadFailed')}</div>;
   if (d.waiting) {
     // 202 from the backend: the run exists but this dimension's report
@@ -162,26 +173,30 @@ function ExplorerPageBody({
         activeRunId={activeRunId} radialPrinciples={radialPrinciples} onPrincipleClick={onPrincipleClick}
       />
 
-      <section className="qd-cards-panel" aria-label={t('explorer.principlesAria')}>
-        <div className="qd-cards-panel__head">
-          <SectionLabel>{t('explorer.principlesLabel')} · {radialPrinciples.length}</SectionLabel>
-        </div>
-        <PrinciplesCardsRow
-          principles={enrichedPrinciples}
-          onPrincipleClick={onPrincipleClick}
-        />
-      </section>
+      {/* Header and the top grid paint first; the card row and the files
+          table are the heavy part and follow in the next commit. */}
+      <DeferredMount fallback={<CardListSkeleton />}>
+        <section className="qd-cards-panel" aria-label={t('explorer.principlesAria')}>
+          <div className="qd-cards-panel__head">
+            <SectionLabel>{t('explorer.principlesLabel')} · {radialPrinciples.length}</SectionLabel>
+          </div>
+          <PrinciplesCardsRow
+            principles={enrichedPrinciples}
+            onPrincipleClick={onPrincipleClick}
+          />
+        </section>
 
-      <section className="qd-cards-panel offending-panel" aria-label={t('overview.violationsByFileAria')}>
-        <div className="qd-cards-panel__head">
-          <SectionLabel>{t('overview.violationsByFileLabel')} · {d.topFiles.length}</SectionLabel>
-          <span className="run-history-panel__stats">{t('overview.sortedBySeverity')}</span>
-        </div>
-        <TopOffendingFilesTable
-          files={d.topFiles}
-          onFileClick={(f) => onNavigate?.(NAV_TAB.FILE, { file: f, runId: activeRunId, dateLabel: activeDateLabel, sourceTab, fromProject: project })}
-        />
-      </section>
+        <section className="qd-cards-panel offending-panel" aria-label={t('overview.violationsByFileAria')}>
+          <div className="qd-cards-panel__head">
+            <SectionLabel>{t('overview.violationsByFileLabel')} · {d.topFiles.length}</SectionLabel>
+            <span className="run-history-panel__stats">{t('overview.sortedBySeverity')}</span>
+          </div>
+          <TopOffendingFilesTable
+            files={d.topFiles}
+            onFileClick={(f) => onNavigate?.(NAV_TAB.FILE, { file: f, runId: activeRunId, dateLabel: activeDateLabel, sourceTab, fromProject: project })}
+          />
+        </section>
+      </DeferredMount>
     </div>
   );
 }
@@ -228,7 +243,7 @@ export default function ExplorerPage({
     overallGrade: d.overallGrade, activeDateLabel, activeRunId,
   });
 
-  const status = explorerPageStatus(d);
+  const status = explorerPageStatus(d, dimension);
   if (status) return status;
 
   const { handleCardNavigate, onSeverityBadge } = buildExplorerCardNavigation({

@@ -5,7 +5,6 @@ import { useRunNavigator } from '../../../hooks/useRunNavigator.js';
 import { usePrefetchRun } from '../../dashboard/hooks/usePrefetchRun.js';
 import { readVisibleStandardIds } from '../../../utils/visibleStandards.js';
 import { filterRunsByVisibleStandards, filterTrendByVisibleStandards } from '../../../utils/scoreFiltering.js';
-import LoadingScreen from '../../../components/LoadingScreen.jsx';
 import { t } from '../../../strings/index.js';
 import { formatRunDateTime } from '../../../utils/formatters.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
@@ -88,7 +87,7 @@ function renderHistoryEmptyState({
   projectsLoaded, projects, selectedSource, selectedProject, onNavigate,
   availableRuns, trend, partialRuns, loading, error, isFetching, isRefreshing, projectInfo, onRetry,
 }) {
-  if (!projectsLoaded) return <LoadingScreen />;
+  if (!projectsLoaded) return <HistoryEmptyShell sub={t('overview.loading')}><LoadingEmptyContent /></HistoryEmptyShell>;
   // The LOCAL projects list can legitimately be empty while a teammate is
   // viewing a shared project (they may have never added a local project of
   // their own) -- gate this wall on the local list only for local selections,
