@@ -9,6 +9,7 @@
 - **Accessibility standard**: a built-in WCAG 2.2 standard covering levels A and AA as applied to software by EN 301 549 (35 requirements, including the new 2.2 criteria), with detection hints for Android, iOS and web. It is off by default like Clean Architecture and DDD; turn it on with the eye icon in Standards. Standards now show their family and edition (`iso-25010`, `wcag-2.2`), and the Evaluate chip reads WCAG.
 
 ### Improvements
+- **Request cost in view**: every API response carries a `Server-Timing` header (evaluation.db opens, report reads, build time, cache hit or miss), the same numbers end the request line in the server log window, and `GET /api/debug/metrics` (same machine only) reports process memory and CPU, each in-memory cache's entries and approximate size, and requests per route over the last minute.
 - **Numbers that only move with the code**: the `quodeq evaluate` summary line now reads `dim: SCORE (N major, T open types, D per 100 files, C% coverage)`; the raw violation count is no longer on it, and a critical finding counts as major. Run history rows carry violations, majors and open requirement types per dimension, and the dashboard payload carries a since-baseline block per dimension (the previous run it was compared with, majors delta, requirement types closed and opened, new and resolved findings in the files changed between the two commits, or in every file when a commit is unknown or the tree was dirty).
 
 ## [1.11.0] - 2026-09-22

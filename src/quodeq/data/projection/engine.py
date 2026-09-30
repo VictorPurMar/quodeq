@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 
 # Every run of a project folds the same actions.jsonl after a dismiss; fold it
 # once per change. DismissedKeys is frozen, so sharing it is safe.
-_FOLDS = StampCache(max_entries=256)  # a few entries per project
+_FOLDS = StampCache(max_entries=256, name="projection.folds")  # a few entries per project
 
 
 def _save_mapping_stamps(store: SQLiteStateStore) -> None:

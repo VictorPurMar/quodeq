@@ -14,6 +14,7 @@ from typing import Iterator
 from quodeq.data.sqlite._migrations import apply_evaluation_schema
 from quodeq.data.sqlite.constants import SQLITE_BUSY_TIMEOUT_MS
 from quodeq.data.sqlite.errors import SqliteStoreUnreadableError, as_store_error
+from quodeq.shared import request_metrics
 
 EVALUATION_DB_FILENAME = "evaluation.db"
 
@@ -38,6 +39,7 @@ def open_evaluation_db(run_dir: Path) -> Iterator[sqlite3.Connection]:
     conn: sqlite3.Connection | None = None
     try:
         try:
+            request_metrics.count("db_opens")
             conn = sqlite3.connect(path)
             _configure(conn)
             apply_evaluation_schema(conn)

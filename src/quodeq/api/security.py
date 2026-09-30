@@ -15,6 +15,8 @@ from werkzeug.exceptions import SecurityError
 from quodeq.api._constants import CODE_FORBIDDEN
 from quodeq.api._rate_limit import RateLimitStore
 from quodeq.api.helpers import json_error
+from quodeq.api.routes_common import is_local_request
+from quodeq.shared import request_metrics
 from quodeq.shared.env_resolve import resolve_env
 from quodeq.shared.constants import SECRET_SUFFIX_CHARS
 from quodeq.shared.dashboard_ports import alt_port_origins
@@ -34,7 +36,6 @@ _RATE_LIMIT_EXEMPT_PATHS = frozenset({
     "/api/findings/restore",
     "/api/findings/delete",
 })
-_LOCALHOST_ADDRS = {"127.0.0.1", "::1"}
 _SAFE_HTTP_METHODS = ("GET", "HEAD", "OPTIONS")  # never state-changing: skip CSRF + most rate limiting
 _BEARER_PREFIX = "Bearer "
 _MIN_BEARER_HEADER_LEN = len(_BEARER_PREFIX) + SECRET_SUFFIX_CHARS
@@ -108,7 +109,7 @@ def _is_trusted_webview(user_agent: str, env: Mapping[str, str] | None = None) -
 # directive. Rejects quotes, whitespace, and other characters that could
 # inject extra CSP directives or sources via a spoofed Host header.
 # The IPv6 branch matters here: ::1 is a first-class local address elsewhere
-# in this app (_LOCALHOST_ADDRS below, dashboard/_networking.py,
+# in this app (routes_common.LOCALHOST_ADDRS, dashboard/_networking.py,
 # dashboard/_webview_window_native_ops.py's reload allowlist), so a client
 # reaching this dashboard over IPv6 loopback is a real access path, not a
 # hypothetical.
@@ -151,8 +152,7 @@ def _check_auth(api_key: str | None) -> Response | tuple[Response, int] | None:
         if not auth.isascii() or not hmac.compare_digest(auth, f"{_BEARER_PREFIX}{api_key}"):
             return json_error("Unauthorized", HTTPStatus.UNAUTHORIZED, "UNAUTHORIZED")
     else:
-        remote = request.remote_addr or ""
-        if remote not in _LOCALHOST_ADDRS:
+        if not is_local_request():
             return jsonify({
                 "error": "Set QUODEQ_API_KEY to allow remote access",
                 "code": "UNAUTHORIZED",
@@ -271,7 +271,8 @@ def configure_security(
     @app.after_request
     def _add_security_headers(response: Response) -> Response:
         _logger.info(
-            "API: %s %s%s -> %d", request.method, request.path, _actor(api_key), response.status_code
+            "API: %s %s%s -> %d%s", request.method, request.path, _actor(api_key), response.status_code,
+            request_metrics.log_suffix(),
         )
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
