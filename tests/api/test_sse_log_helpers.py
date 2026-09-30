@@ -94,7 +94,7 @@ class TestQuietTailHeartbeat:
 
     def test_quiet_tail_emits_heartbeat_event(self, tmp_path: Path, monkeypatch):
         path = tmp_path / "run.log"
-        path.write_text("hello\n", encoding="utf-8")
+        path.write_bytes(b"hello\n")  # bytes: write_text would add \r on Windows
         poll_ms = HEARTBEAT_MS // 3
         monkeypatch.setattr("quodeq.api._sse_log_helpers._poll_ms", lambda env=None: poll_ms)
         monkeypatch.setattr("quodeq.api._sse_log_helpers.time.sleep", lambda _s: None)
@@ -104,6 +104,7 @@ class TestQuietTailHeartbeat:
 
         assert frames[-1] == heartbeat_frame()
         assert frames[-1].startswith("event: heartbeat\n")
+        assert frames[1].startswith("id: ")  # the log line came first
 
     def test_new_line_resets_the_heartbeat_timer(self):
         beat = Heartbeat(interval_ms=100)
