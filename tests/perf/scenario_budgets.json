@@ -1,0 +1,35 @@
+{
+  "agent_spawn": {
+    "evaluation_db_opens": 7,
+    "peak_kib": 3943,
+    "response_bytes": 0,
+    "standards_reads": 5
+  },
+  "compare_fleet_10": {
+    "eval_report_reads": 300,
+    "evaluation_db_opens": 930,
+    "get_project_scores": 10,
+    "peak_kib": 1087,
+    "response_bytes": 30460
+  },
+  "eval_poll_tick": {
+    "eval_report_reads": 3,
+    "evaluation_db_opens": 5,
+    "peak_kib": 465,
+    "response_bytes": 1784,
+    "standards_reads": 3
+  },
+  "scores_as_of_cold": {
+    "eval_report_reads": 19,
+    "evaluation_db_opens": 52,
+    "event_log_reads": 1,
+    "peak_kib": 233,
+    "response_bytes": 3894
+  },
+  "scores_as_of_warm": {
+    "eval_report_reads": 8,
+    "evaluation_db_opens": 10,
+    "peak_kib": 172,
+    "response_bytes": 3894
+  }
+}

@@ -33,9 +33,9 @@ def _violation(i: int) -> dict:
     )
 
 
-def seed_project(reports_root: Path) -> Path:
+def seed_project(reports_root: Path, name: str = PROJECT) -> Path:
     """RUNS finished runs of one project, each projected into its evaluation.db."""
-    project_dir = reports_root / PROJECT
+    project_dir = reports_root / name
     for n in range(RUNS):
         run_dir = project_dir / f"2026010{n}T000000"
         (run_dir / "evaluation").mkdir(parents=True)
@@ -71,6 +71,8 @@ def _kind(path: str) -> str | None:
         return "evidence_reads"
     if path.endswith("events.jsonl"):
         return "event_log_reads"
+    if "/standards/" in path and path.endswith(".json"):
+        return "standards_reads"
     return None
 
 
