@@ -102,6 +102,7 @@ describe('useHistoryRunLive', () => {
   });
 
   it('hasScoredDimension stays false while no dimension has finished', async () => {
+    vi.stubEnv('VITE_USE_SSE_EVENTS', 'false');
     getEvaluationProgress.mockResolvedValue({
       dimensions: [{ id: 'security', state: 'running' }],
     });
@@ -111,6 +112,19 @@ describe('useHistoryRunLive', () => {
       expect(getEvaluationProgress).toHaveBeenCalled();
     });
     expect(result.current.hasScoredDimension).toBe(false);
+  });
+
+  it('with SSE on, hasScoredDimension comes from the stream and nothing polls progress', async () => {
+    // The server replays every completed dimension on connect, so the
+    // per-row progress poll (3 s per running row) is redundant here.
+    const wrapper = withQueryClient();
+    const { result } = renderHook(() => useHistoryRunLive('run-stream'), { wrapper });
+    expect(result.current.hasScoredDimension).toBe(false);
+    act(() => {
+      MockEventSource.last.emit('dimension-completed', { dimension: 'security', score: 7 });
+    });
+    await waitFor(() => expect(result.current.hasScoredDimension).toBe(true));
+    expect(getEvaluationProgress).not.toHaveBeenCalled();
   });
 
   it('hasScoredDimension is false and no poll fires when runId is empty', () => {

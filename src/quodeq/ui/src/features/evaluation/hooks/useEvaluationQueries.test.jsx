@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
+
+// These tests exercise the polling path, which SSE_ENABLED (read once at
+// import) now turns off by default. Pin the flag before the hook is imported.
+vi.hoisted(() => { import.meta.env.VITE_USE_SSE_EVENTS = "false"; });
+
 import { useEvaluationQueries } from "./useEvaluationQueries.js";
 import { withQueryClient } from "../../../test-utils/withQueryClient.jsx";
 
-// The polling path is what the evaluation screen runs on by default
-// (VITE_USE_SSE_EVENTS off). It fetches each dimension's eval and hands the
+// The polling path (VITE_USE_SSE_EVENTS=false) fetches each dimension's eval and hands the
 // rows to the live feed, which reads `principle` — a field the backend has
 // never emitted. It emits `practiceId`, on the report path and on the live
 // evidence path alike, so a raw spread reached the feed with no rule to show.
