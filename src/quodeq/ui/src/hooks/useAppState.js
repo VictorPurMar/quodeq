@@ -9,7 +9,7 @@ import { useServerHealth } from './useServerHealth.js';
 import { useNavStack } from './useNavStack.js';
 import { useProjectState } from './useProjectState.js';
 import { useAppSettings } from './useAppSettings.js';
-import { useEvaluationLifecycle } from './useEvaluationLifecycle.js';
+import { useLiveEvaluationStore, useLiveEvaluationValue } from '../features/evaluation/EvaluationLiveContext.jsx';
 import { useProjectActions } from './useProjectActions.js';
 import { useSelectedRunDashboard, useRunPeriods, useOverviewRunNavigation } from './useAppRunState.js';
 import { LATEST_RUN_ID } from '../constants.js';
@@ -29,6 +29,8 @@ export const KNOWN_TABS = [
 // 'compare' is appended after these four on purpose (see comment above).
 const PROJECT_TAB_COUNT = 4;
 export const PROJECT_TABS = KNOWN_TABS.slice(0, PROJECT_TAB_COUNT);
+
+const selectIsEvaluating = (live) => live.isEvaluating;
 
 function useProjects({ onNoProjects }) {
   const projectState = useProjectState({ onNoProjects });
@@ -173,9 +175,20 @@ function useDisplaySettings() {
   return { settings, granularity, onGranularityChange };
 }
 
-function useAppEvaluationLifecycle({ navTab, navReset, projectBundle }) {
+// The evaluation lifecycle runs in EvaluationLiveProvider, below the root, so
+// its polls do not re-render the app. The root keeps the store identity (to
+// hand the provider), the dependencies the provider needs, and the one value
+// it renders from: whether a run is in flight.
+function useAppEvaluation({ navTab, navReset, projectBundle }) {
   const { loadProjects, setProjects, selectProjectAndRun, selectedProject } = projectBundle;
-  return useEvaluationLifecycle({ navigation: { navTab, navReset }, projects: { loadProjects, setProjects, selectProjectAndRun }, selectedProject });
+  const liveEvaluation = useLiveEvaluationStore();
+  const isEvaluating = useLiveEvaluationValue(liveEvaluation, selectIsEvaluating);
+  const evaluationDeps = {
+    navigation: { navTab, navReset },
+    projects: { loadProjects, setProjects, selectProjectAndRun },
+    selectedProject,
+  };
+  return { liveEvaluation, isEvaluating, evaluationDeps };
 }
 
 // The derived chrome flags, plus the Overview-return reconcile that keys off
@@ -192,13 +205,13 @@ function useAppChrome({ activePage, navStack, projectBundle, visibleDailyRuns })
 /**
  * The app shell's whole state in one object: navigation stack, project
  * selection, dashboard/score data for the selected project and run, run
- * navigation, evaluation lifecycle, theme settings and the derived chrome
- * flags (`activeTab`, `showProjectHeader`, `showRunNav`).
+ * navigation, the live-evaluation store handle, theme settings and the derived
+ * chrome flags (`activeTab`, `showProjectHeader`, `showRunNav`).
  *
  * Called once, at the root; every screen reads its slice from the result
  * rather than re-deriving it. Composes useAppNavigation, the display
  * settings, the selected run's dashboard and run navigation (useAppRunState.js),
- * the evaluation lifecycle and the chrome flags, so hook order here is the
+ * the evaluation store handle and the chrome flags, so hook order here is the
  * app's hook order.
  */
 export function useAppState() {
@@ -218,9 +231,8 @@ export function useAppState() {
   const { dashboard, accumulated, latestAccumulated, rescoreLookup, loading, isFetching, scoresPending, error, availableRuns, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, sharedProjectInfo, handleRunDeleted } = dashboardState;
   const { visibleDailyRuns, headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId } = useRunPeriods({ dashboardState, projectBundle, granularity });
   const { overviewRunIndex, currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers } = useOverviewRunNavigation({ projectBundle, visibleDailyRuns, onNavigate: handleNavigate });
-  const evalLifecycle = useAppEvaluationLifecycle(nav);
+  const { liveEvaluation, isEvaluating, evaluationDeps } = useAppEvaluation(nav);
   const { activeTab, showProjectHeader, showRunNav } = useAppChrome({ activePage, navStack, projectBundle, visibleDailyRuns });
-
   return {
     serverConnected, setServerConnected, serverVersion, navStack, activePage, navPending, navPop, navGoTo, navSwapAt, navTab,
     projects, projectsLoaded, projectsLoadFailed, retryLoadProjects, selectedProject, selectedSource, selectedRun, loadProjects, handleProjectChange, handleNavigate, handleNavigateReplace,
@@ -229,7 +241,8 @@ export function useAppState() {
     currentOverviewRun, handleRunPrev, handleRunNext, handleRunLatest, handleRunView, handleRunSelect, prefetchHandlers,
     headerMeta, selectedDisplayName, selectedProjectParent, selectedProjectParentId,
     historySelectedRun, setHistorySelectedRun,
-    evalLifecycle, settings, activeTab, showProjectHeader, showRunNav, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, handleRunDeleted,
+    liveEvaluation, isEvaluating, evaluationDeps,
+    settings, activeTab, showProjectHeader, showRunNav, refreshDashboard, refreshDashboardActive, scheduleDashboardReconcile, handleRunDeleted,
     granularity, onGranularityChange,
   };
 }

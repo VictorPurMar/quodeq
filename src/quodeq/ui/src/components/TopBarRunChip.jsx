@@ -1,5 +1,6 @@
 import { t } from '../strings/index.js';
 import { PERCENT } from '../constants.js';
+import { useLiveProgress } from '../features/evaluation/EvaluationLiveContext.jsx';
 
 /**
  * TopBar.jsx's live-run chip (replaces the dimmed Evaluate button while a
@@ -47,4 +48,17 @@ export function TopBarProgressHairline({ evaluating, runProgress }) {
       <span style={{ width: `${runProgress.percent}%` }} />
     </span>
   );
+}
+
+/**
+ * The chip and the hairline, each subscribed to the live progress value.
+ * Progress changes on every poll tick, so these two leaves take the re-render
+ * instead of the whole topbar.
+ */
+export function LiveRunChip({ onEvaluate, evaluating }) {
+  return <TopBarRunChip onEvaluate={onEvaluate} evaluating={evaluating} runProgress={useLiveProgress()} />;
+}
+
+export function LiveProgressHairline({ evaluating }) {
+  return <TopBarProgressHairline evaluating={evaluating} runProgress={useLiveProgress()} />;
 }

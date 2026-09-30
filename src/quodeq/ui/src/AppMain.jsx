@@ -17,7 +17,6 @@ import { LlamaCppLogProvider } from './features/settings/llamacpp-log/LlamaCppLo
 import { RescoreTrackerProvider } from './features/grade-formula/rescore/RescoreTrackerProvider.jsx';
 import { MainContent } from './routes/renderers.jsx';
 import { buildSidebarProps, buildTopBarProps } from './appShellProps.js';
-import { JOB_STATUS } from './vocab/jobStatus.js';
 import { NAV_TAB } from './vocab/navTab.js';
 
 const OnboardingWizard = lazy(() => import('./features/onboarding/components/OnboardingWizard.jsx'));
@@ -87,7 +86,7 @@ function AppSidebar({ shell }) {
 
 function AppTopBar({ shell }) {
   const {
-    state, activeTab, navTab, resolvedDisplayName, sidebarProvider, sidebarModel, topbarRunProgress,
+    state, activeTab, navTab, resolvedDisplayName, sidebarProvider, sidebarModel, isEvaluating,
     activePage, navStack, navGoTo, navPop, breadcrumbSiblingsFor, effectiveDark, toggleTheme, setSidebarPinned,
   } = shell;
   return (
@@ -101,8 +100,7 @@ function AppTopBar({ shell }) {
         selectedSource: state.selectedSource,
         projectsCount: state.projects?.length,
         onEvaluateClick: () => navTab(NAV_TAB.EVALUATE, { preselectDims: deriveEvaluatePreselect(activePage) }),
-        evaluating: state.evalLifecycle?.job?.status === JOB_STATUS.RUNNING,
-        topbarRunProgress,
+        evaluating: !!isEvaluating,
         navTab,
         setSidebarPinned,
         breadcrumb: (

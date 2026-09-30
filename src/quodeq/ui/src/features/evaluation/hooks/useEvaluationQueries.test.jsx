@@ -120,4 +120,14 @@ describe("useEvaluationQueries findings mapping", () => {
     await waitFor(() => expect(result.current.liveViolations.usability).toHaveLength(1));
     expect(Object.keys(result.current.liveViolations)).toEqual(["usability", "security"]);
   });
+
+  it("keeps one grouped object while the findings response is unchanged", async () => {
+    const api = makeApi([REPORT_ROW]);
+    const { result, rerender } = renderQueries(api);
+    await waitFor(() => expect(result.current.liveViolations.security).toHaveLength(1));
+    const grouped = result.current.liveViolations;
+    rerender();
+    // A new object every render would re-render every live subscriber.
+    expect(result.current.liveViolations).toBe(grouped);
+  });
 });

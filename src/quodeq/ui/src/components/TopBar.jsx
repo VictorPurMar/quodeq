@@ -20,7 +20,7 @@ import ServerStatusDot from './ServerStatusDot.jsx';
 import { AssistantLauncherButton } from './AssistantLauncherButton.jsx';
 import { TerminalLauncherButton } from './TerminalLauncherButton.jsx';
 import { TopBarProviderPill } from './TopBarProviderPill.jsx';
-import { TopBarRunChip, TopBarProgressHairline } from './TopBarRunChip.jsx';
+import { LiveRunChip, LiveProgressHairline } from './TopBarRunChip.jsx';
 import { t } from '../strings/index.js';
 
 function SidePaneSpecButton({ type, label, icon, modifier }) {
@@ -146,7 +146,7 @@ function EvaluateButton({ onEvaluate, evaluating }) {
 
 function TopBarActions({
   serverConnected, serverUrl, onToggleTheme, effectiveDark, provider, model, onProviderClick,
-  onEvaluate, evaluating, runProgress, onMenuToggle,
+  onEvaluate, evaluating, onMenuToggle,
 }) {
   return (
     <div className="topbar-actions">
@@ -165,7 +165,7 @@ function TopBarActions({
 
       <TopBarProviderPill provider={provider} model={model} onProviderClick={onProviderClick} />
 
-      <TopBarRunChip onEvaluate={onEvaluate} evaluating={evaluating} runProgress={runProgress} />
+      <LiveRunChip onEvaluate={onEvaluate} evaluating={evaluating} />
       <EvaluateButton onEvaluate={onEvaluate} evaluating={evaluating} />
 
       {/* Burger is mobile-only and lives on the right. Desktop hides it. */}
@@ -202,9 +202,9 @@ function CompactBackButton({ canGoBack, onBack }) {
 
 /**
  * @param {object} props
- * @param {{dimension: string, percent: number}} [props.runProgress] - While a
- *   run is live, feeds the run chip and the progress hairline along the bar's
- *   bottom edge. Either field may be null before the first progress poll lands.
+ * @param {boolean} [props.evaluating] - While a run is live, the run chip and
+ *   the progress hairline along the bar's bottom edge replace the Evaluate
+ *   button. Both read the run's progress from the live-evaluation store.
  * @param {boolean} [props.effectiveDark] - Theme toggle — parent owns the
  *   cycle (light <-> dark within the current family). Reflects what's
  *   actually showing (so "system" on a light OS still renders the moon icon
@@ -218,7 +218,6 @@ export default function TopBar({
   model,
   onEvaluate,
   evaluating = false,
-  runProgress = null,
   onProviderClick,
   onMenuToggle,
   onSelectProject,
@@ -249,11 +248,10 @@ export default function TopBar({
         onProviderClick={onProviderClick}
         onEvaluate={onEvaluate}
         evaluating={evaluating}
-        runProgress={runProgress}
         onMenuToggle={onMenuToggle}
       />
 
-      <TopBarProgressHairline evaluating={evaluating} runProgress={runProgress} />
+      <LiveProgressHairline evaluating={evaluating} />
     </header>
   );
 }

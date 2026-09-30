@@ -64,7 +64,7 @@ export function buildWizardHandlers({ state, setWizardEntry, navTab }) {
       if (provider?.model) payload.aiModel = provider.model;
       // != null keeps an explicit 0 ("Unlimited") — 0 is falsy but meaningful.
       if (totalTimeLimitS != null) payload.timeLimit = totalTimeLimitS;
-      state.evalLifecycle.handleStartEvaluation(payload);
+      state.liveEvaluation.actions.startEvaluation(payload);
       navTab(NAV_TAB.EVALUATE);
     },
   };

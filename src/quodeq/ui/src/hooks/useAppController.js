@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { applyMutationDelta } from '../api/applyMutationDelta.js';
 import {
-  computeIsEvaluating, useAppBootExtras, useAppWizardBounce, useAppDerived, useAppEvalProgress,
+  computeIsEvaluating, useAppBootExtras, useAppWizardBounce, useAppDerived,
   useSidebarProviderSelection, useAppStartupGate, useAppNavigationEffects, useSelectedProjectSyncEffects,
   useVisibleStandardsFiltered,
 } from './useAppShellHooks.js';
@@ -30,8 +30,8 @@ export function useAppDismissBridge(state) {
 }
 
 /**
- * Wizard lifecycle, sidebar/startup chrome, the derived view data and the
- * topbar run progress, in the order App has always called them.
+ * Wizard lifecycle, sidebar/startup chrome and the derived view data, in the
+ * order App has always called them.
  */
 export function useAppChrome({ state, sharedSignal }) {
   const selectedProjectInfo = findProject(state.projects, state.selectedProject);
@@ -44,6 +44,5 @@ export function useAppChrome({ state, sharedSignal }) {
   useSelectedProjectSyncEffects(state.selectedProject);
   const { filteredTrend, filteredAccumulated } = useVisibleStandardsFiltered(state);
   const derived = useAppDerived({ state, navTab, navSwapAt, activePage, filteredTrend, filteredAccumulated });
-  const topbarRunProgress = useAppEvalProgress({ state, isEvaluating });
-  return { selectedProjectInfo, isEvaluating, ...wizard, ...sidebar, ...startup, ...derived, topbarRunProgress };
+  return { selectedProjectInfo, isEvaluating, ...wizard, ...sidebar, ...startup, ...derived };
 }

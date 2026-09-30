@@ -68,7 +68,7 @@ function dashboardElement(props, runMode, callbacks = {}) {
 }
 
 /**
- * @param {{ serverHealth: Object, evaluation: Object, selectedProject: string, projects: Array, onGoToProjects: Function, onGoToSettings: Function, preselectDims: string[]|undefined }} props
+ * @param {{ serverHealth: Object, selectedProject: string, projects: Array, onGoToProjects: Function, onGoToSettings: Function, preselectDims: string[]|undefined }} props
  * @returns {JSX.Element}
  */
 // Exported for the same reason as buildEvalPrincipal — a unit-testable pin
@@ -133,7 +133,6 @@ export const ROUTE_RENDERERS = {
     }
     return (
       <EvaluateCase
-        evaluation={props.evaluation}
         selectedProject={props.navigation.selectedProject}
         projects={props.navigation.projects}
         preselectDims={params.preselectDims}
