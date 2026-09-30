@@ -7,7 +7,7 @@
  * additionally factored into named functions (still logic-identical) so
  * useEvaluationQueries itself clears the max-lines-per-function gate.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NO_JOB_ID, evaluationKeys } from "../../../api/queryKeys.js";
 import { SSE_ENABLED, findingsRefetchInterval } from "./useEvaluation.helpers.js";
@@ -110,7 +110,11 @@ export function useEvaluationQueries(api, jobId) {
   const isJobTerminal = !!job?.status && job.status !== JOB_STATUS.RUNNING;
   useTerminalFindingsRefetch(jobId, isJobTerminal, findingsQuery.refetch);
 
-  const liveViolations = groupFindingsByDimension(findingsQuery.data || []);
+  // Keyed on the query data, which React Query keeps by reference while the
+  // rows are unchanged. A fresh object on every render would defeat the memos
+  // in the stat strip and the live feed, which compare this by identity.
+  const findings = findingsQuery.data;
+  const liveViolations = useMemo(() => groupFindingsByDimension(findings || []), [findings]);
 
   return { job, liveViolations };
 }

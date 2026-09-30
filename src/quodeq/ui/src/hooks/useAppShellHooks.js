@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSharedContentSignal } from '../features/dashboard/hooks/useSharedProjects.js';
-import { useEvaluationProgress } from '../features/evaluation/hooks/useEvaluationProgress.js';
-import { computeOverallProgress } from '../features/evaluation/components/scanProgressTotals.js';
 import { readActiveProviderSelection, readActiveProviderModel } from '../utils/effectiveProviderSettings.js';
 import { formatDayLabel } from './useAppState.js';
 import { useNativeNavBridge } from './useNativeNavBridge.js';
@@ -21,14 +19,6 @@ import {
   useInitialLandingEffect, useProjectScrollResetEffect, useVisibleStandardsHydrationEffect,
 } from './useAppEffects.js';
 import { buildBreadcrumbSiblingsFor } from '../features/side-pane/breadcrumbSiblings.js';
-import { JOB_STATUS } from '../vocab/jobStatus.js';
-import { DIM_STATE } from '../vocab/dimState.js';
-
-// App.jsx's hook groups, extracted verbatim to keep App() itself under the
-// function-length cap without touching hook call order: each group below is
-// called unconditionally, once, in the same relative position App() used to
-// call its member hooks inline -- React only cares about that sequence, not
-// how many function frames it's nested inside.
 
 /**
  * Whether a run is in flight, which gates the wizard and any second start.
@@ -36,8 +26,9 @@ import { DIM_STATE } from '../vocab/dimState.js';
 export function computeIsEvaluating(state) {
   // While an evaluation is running we block any path that would open the
   // onboarding wizard or start a second evaluation — only one job may be in
-  // flight at a time.
-  return state.evalLifecycle?.job?.status === JOB_STATUS.RUNNING;
+  // flight at a time. The flag comes from the live-evaluation store, which
+  // updates it once per run rather than once per poll tick.
+  return !!state.isEvaluating;
 }
 
 /**
@@ -185,23 +176,4 @@ export function useAppDerived({ state, navTab, navSwapAt, activePage, filteredTr
     [state.selectedProject, navTab, navSwapAt, activePage, filteredAccumulated]
   );
   return { currentDayLabel, effectiveDark, toggleTheme, filteredTrend, filteredAccumulated, breadcrumbSiblingsFor };
-}
-
-/**
- * Live run progress for the topbar chrome (run chip + bottom hairline).
- * Shares the JobStatStrip/ScanProgress query cache entry, so this adds no
- * extra polling.
- */
-export function useAppEvalProgress({ state, isEvaluating }) {
-  const evalJob = state.evalLifecycle?.job;
-  const { data: evalProgress } = useEvaluationProgress(isEvaluating ? evalJob?.jobId : undefined, !isEvaluating);
-  return useMemo(() => {
-    if (!isEvaluating) return null;
-    const overall = computeOverallProgress(evalProgress);
-    const runningDim = (evalProgress?.dimensions || []).find((d) => d?.state === DIM_STATE.RUNNING);
-    return {
-      dimension: runningDim?.id ? String(runningDim.id).toLowerCase() : null,
-      percent: overall.totalFiles > 0 ? overall.overallPct : null,
-    };
-  }, [isEvaluating, evalProgress]);
 }

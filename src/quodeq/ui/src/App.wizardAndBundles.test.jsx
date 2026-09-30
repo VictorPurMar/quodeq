@@ -72,7 +72,7 @@ describe('buildWizardHandlers', () => {
     return {
       loadProjects: vi.fn(),
       refreshDashboard: vi.fn(),
-      evalLifecycle: { handleStartEvaluation: vi.fn() },
+      liveEvaluation: { actions: { startEvaluation: vi.fn() } },
     };
   }
 
@@ -105,7 +105,7 @@ describe('buildWizardHandlers', () => {
       provider: { id: 'claude', model: 'sonnet' }, standardIds: ['security'], totalTimeLimitS: 60,
     });
     expect(state.loadProjects).toHaveBeenCalled();
-    expect(state.evalLifecycle.handleStartEvaluation).toHaveBeenCalledWith(expect.objectContaining({
+    expect(state.liveEvaluation.actions.startEvaluation).toHaveBeenCalledWith(expect.objectContaining({
       repo: '/x/repo', dimensions: ['security'], aiCmd: 'claude', aiModel: 'sonnet', timeLimit: 60,
     }));
     expect(navTab).toHaveBeenCalledWith('evaluate');
@@ -115,7 +115,7 @@ describe('buildWizardHandlers', () => {
     const state = stubState();
     const { onLaunch } = buildWizardHandlers({ state, setWizardEntry: vi.fn(), navTab: vi.fn() });
     onLaunch({ projectId: 'proj-1', repo: null, provider: {}, standardIds: [] });
-    expect(state.evalLifecycle.handleStartEvaluation).toHaveBeenCalledWith(expect.objectContaining({ repo: 'proj-1' }));
+    expect(state.liveEvaluation.actions.startEvaluation).toHaveBeenCalledWith(expect.objectContaining({ repo: 'proj-1' }));
   });
 });
 

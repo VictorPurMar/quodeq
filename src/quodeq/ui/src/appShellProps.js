@@ -34,7 +34,7 @@ export function buildSidebarProps({
 
 export function buildTopBarProps({
   resolvedDisplayName, serverConnected, sidebarProvider, sidebarModel, selectedSource,
-  projectsCount, onEvaluateClick, evaluating, topbarRunProgress, navTab, setSidebarPinned,
+  projectsCount, onEvaluateClick, evaluating, navTab, setSidebarPinned,
   breadcrumb, mobileTitle, navStackLength, navPop, effectiveDark, toggleTheme, serverUrl,
 }) {
   return {
@@ -46,7 +46,6 @@ export function buildTopBarProps({
     selectedSource,
     onEvaluate: shouldShowEvaluateButton(projectsCount, selectedSource) ? onEvaluateClick : null,
     evaluating,
-    runProgress: topbarRunProgress,
     onProviderClick: () => navTab(NAV_TAB.SETTINGS),
     onMenuToggle: () => setSidebarPinned((v) => !v),
     onSelectProject: () => navTab(NAV_TAB.PROJECTS),
@@ -74,7 +73,6 @@ export function buildContentProps({
       isEvaluating, showToast, setWizardEntry,
       sharedHasContent: sharedSignal.hasContent,
     }),
-    evaluation: state.evalLifecycle,
     serverHealth: { connected: state.serverConnected, setConnected: state.setServerConnected },
     settings: state.settings,
     refreshDashboard: state.refreshDashboard,
@@ -107,7 +105,7 @@ export function buildContentProps({
 export function buildAppShell({
   state, sharedSignal, navTab, navStack, activeTab, activePage, isEvaluating, showToast, setWizardEntry,
   dismissFinding, applyDelta, bumpDismissRefresh, dismissRefreshKey, selectedProjectInfo, hasCurrentProjectRuns,
-  assistantCtx, APP_VERSION, sidebarPinned, setSidebarPinned, sidebarProvider, sidebarModel, topbarRunProgress,
+  assistantCtx, APP_VERSION, sidebarPinned, setSidebarPinned, sidebarProvider, sidebarModel,
   navGoTo, navPop, breadcrumbSiblingsFor, effectiveDark, toggleTheme, showStartupLoader, wizardEntry, wizardHandlers,
   filteredAccumulated, filteredTrend,
 }) {
@@ -133,9 +131,9 @@ export function buildAppShell({
   });
 
   return {
-    state, navTab, activeTab, activePage, hasCurrentProjectRuns, sharedSignal, assistantCtx,
+    state, navTab, activeTab, activePage, hasCurrentProjectRuns, sharedSignal, assistantCtx, isEvaluating,
     resolvedDisplayName, APP_VERSION, sidebarCounts, sidebarPinned, setSidebarPinned,
-    sidebarProvider, sidebarModel, topbarRunProgress, navStack, navGoTo, navPop,
+    sidebarProvider, sidebarModel, navStack, navGoTo, navPop,
     breadcrumbSiblingsFor, effectiveDark, toggleTheme, showStartupLoader, contentProps,
     wizardEntry, wizardHandlers,
   };
