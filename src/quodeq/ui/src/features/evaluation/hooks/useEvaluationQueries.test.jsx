@@ -5,7 +5,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 // import) now turns off by default. Pin the flag before the hook is imported.
 vi.hoisted(() => { import.meta.env.VITE_USE_SSE_EVENTS = "false"; });
 
-import { useEvaluationQueries } from "./useEvaluationQueries.js";
+import { mergeLiveFindings, useEvaluationQueries } from "./useEvaluationQueries.js";
 import { withQueryClient } from "../../../test-utils/withQueryClient.jsx";
 
 // The polling path (VITE_USE_SSE_EVENTS=false) fetches each dimension's eval and hands the
@@ -87,7 +87,7 @@ describe("useEvaluationQueries findings mapping", () => {
     const api = makeApi([REPORT_ROW], { usability: { state: "waiting", violations: [] } });
     const { result } = renderQueries(api);
     await waitFor(() => expect(result.current.liveViolations.security).toHaveLength(1));
-    expect(api.getLiveFindings).toHaveBeenCalledWith("proj", "run-1", ["security", "usability"]);
+    expect(api.getLiveFindings).toHaveBeenCalledWith("proj", "run-1", ["security", "usability"], {});
     expect(api.getLiveFindings.mock.calls.length).toBeLessThanOrEqual(2);
   });
 
@@ -133,5 +133,59 @@ describe("useEvaluationQueries findings mapping", () => {
     rerender();
     // A new object every render would re-render every live subscriber.
     expect(result.current.liveViolations).toBe(grouped);
+  });
+});
+
+describe("mergeLiveFindings", () => {
+  const job = { dimensions: ["security", "usability"] };
+  const held = [
+    { ...REPORT_ROW, line: 1, dimension: "security" },
+    { ...REPORT_ROW, line: 2, dimension: "security" },
+  ];
+
+  it("appends the rows past the echoed offset", () => {
+    const body = { dimensions: {
+      security: { state: "ready", since: 2, count: 3, violations: [{ ...REPORT_ROW, line: 3 }] },
+    } };
+    const merged = mergeLiveFindings(held, job, body);
+    expect(merged.map((r) => r.line)).toEqual([1, 2, 3]);
+    expect(merged[0]).toBe(held[0]);
+    expect(merged[2].principle).toBe("Authenticity");
+    expect(merged[2].dimension).toBe("security");
+  });
+
+  it("replaces the held rows when the server reset the offset", () => {
+    const body = { dimensions: {
+      security: { state: "ready", since: 0, count: 1, violations: [{ ...REPORT_ROW, line: 9 }] },
+    } };
+    expect(mergeLiveFindings(held, job, body).map((r) => r.line)).toEqual([9]);
+  });
+
+  it("keeps the held rows on an empty delta", () => {
+    const body = { dimensions: { security: { state: "ready", since: 2, count: 2, violations: [] } } };
+    expect(mergeLiveFindings(held, job, body)).toEqual(held);
+  });
+
+  it("treats a body without offsets as a full list", () => {
+    const body = { dimensions: { security: { state: "ready", violations: [{ ...REPORT_ROW, line: 7 }] } } };
+    expect(mergeLiveFindings(held, job, body).map((r) => r.line)).toEqual([7]);
+  });
+});
+
+describe("polling with since", () => {
+  it("asks for rows past what it holds on the next poll and appends them", async () => {
+    const api = makeApi([REPORT_ROW]);
+    api.getLiveFindings.mockResolvedValueOnce({ dimensions: {
+      security: { state: "ready", since: 0, count: 1, violations: [REPORT_ROW] },
+    } });
+    api.getLiveFindings.mockResolvedValue({ dimensions: {
+      security: { state: "ready", since: 1, count: 2, violations: [{ ...REPORT_ROW, line: 200 }] },
+    } });
+    const { result } = renderQueries(api);
+    await waitFor(() => expect(result.current.liveViolations.security).toHaveLength(1));
+    expect(api.getLiveFindings).toHaveBeenCalledWith("proj", "run-1", ["security"], {});
+    await waitFor(() => expect(result.current.liveViolations.security).toHaveLength(2), { timeout: 4000 });
+    expect(api.getLiveFindings).toHaveBeenLastCalledWith("proj", "run-1", ["security"], { security: 1 });
+    expect(result.current.liveViolations.security.map((r) => r.line)).toEqual([116, 200]);
   });
 });

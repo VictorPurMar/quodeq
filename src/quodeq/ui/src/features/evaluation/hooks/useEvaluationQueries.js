@@ -1,14 +1,12 @@
 /**
  * useEvaluation's status/findings queries.
  *
- * Split out of useEvaluation.js (see that file's header for the hook's
- * overall data-flow doc). Moved verbatim: the SSE_ENABLED branches here are
- * unchanged from the pre-split version. queryFn/effect/grouping bodies are
- * additionally factored into named functions (still logic-identical) so
- * useEvaluationQueries itself clears the max-lines-per-function gate.
+ * See useEvaluation.js's header for the hook's overall data-flow doc.
+ * Under polling, each findings fetch asks only for rows past what the cache
+ * already holds (the `since` offsets) and splices the answer onto it.
  */
 import { useEffect, useMemo, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NO_JOB_ID, evaluationKeys } from "../../../api/queryKeys.js";
 import {
   SSE_ENABLED, findingsRefetchInterval, statusRefetchInterval,
@@ -16,39 +14,74 @@ import {
 import { createViolation } from "../../../models/violation.js";
 import { JOB_STATUS } from "../../../vocab/jobStatus.js";
 
+// The rows the cache already holds, per dimension, in cache order.
+function groupFindingsByDimension(findings) {
+  const liveViolations = {};
+  for (const f of findings) {
+    const dim = f.dimension || "_";
+    (liveViolations[dim] ??= []).push(f);
+  }
+  return liveViolations;
+}
+
+const NO_OFFSET = 0;
+
+// Splice one dimension's response onto the rows already held. The server
+// echoes the offset it applied: the client's count when it appended, 0 when
+// the list shrank (a dismissed finding) and the whole list came back.
+function mergeDimensionRows(prevRows, entry, dimension) {
+  const offset = entry?.since ?? NO_OFFSET;
+  // Canonical fields merged ONTO the raw row, not substituted for it.
+  // The backend calls a finding's principle `practiceId` while every
+  // component reads `principle`, so the raw spread left the feed's rule
+  // column blank and collapsed the row key to
+  // `${dim}-${file}-undefined-${line}`. Merging rather than replacing
+  // keeps wire-only fields the model does not model (confidence, and
+  // the SSE frame's id/verdict) available to other readers.
+  const fresh = (entry?.violations || []).map((v) => ({ ...v, ...createViolation(v), dimension }));
+  return prevRows.slice(0, offset).concat(fresh);
+}
+
+/**
+ * The flat findings list after one poll: rows held before the poll, spliced
+ * per dimension with the body's rows. Exported for its tests.
+ */
+export function mergeLiveFindings(prev, job, body) {
+  // Iterate the job's own dimension order: the server's JSON keys come
+  // back sorted, and the feed's tie order before any activity is this one.
+  const prevByDim = groupFindingsByDimension(prev || []);
+  const byDim = body?.dimensions || {};
+  return job.dimensions.flatMap((d) => mergeDimensionRows(prevByDim[d] || [], byDim[d], d));
+}
+
+function heldCounts(prev) {
+  return Object.fromEntries(
+    Object.entries(groupFindingsByDimension(prev || [])).map(([d, rows]) => [d, rows.length]),
+  );
+}
+
 // Under SSE the cache is filled by useRunEventStream; this queryFn is a
-// no-op. Under polling, fetch every dimension's rows in one request
-// and flatten them. One request instead of one per dimension: the
-// per-dimension eval carries the whole report (principles, compliance,
-// snippets) and on a 7-dimension run the poll held every browser
-// connection and most of the API process for the whole 2 s tick.
-async function fetchFindings(api, job) {
+// no-op. Under polling, fetch every dimension's new rows in one request
+// and splice them onto the held list. One request instead of one per
+// dimension: the per-dimension eval carries the whole report (principles,
+// compliance, snippets) and on a 7-dimension run the poll held every
+// browser connection and most of the API process for the whole 2 s tick.
+// Only rows past `since` travel, so a quiet tick costs a few bytes.
+async function fetchFindings(api, job, prev) {
   if (SSE_ENABLED) return [];
   if (!job?.outputProject || !job?.outputRunId || !job?.dimensions?.length) {
     return [];
   }
   let body;
   try {
-    body = await api.getLiveFindings(job.outputProject, job.outputRunId, job.dimensions);
+    body = await api.getLiveFindings(job.outputProject, job.outputRunId, job.dimensions, heldCounts(prev));
   } catch (err) {
     // Tolerate a run whose files are not there yet during live polling,
     // but leave a diagnostic so a real fetch failure is visible.
     console.warn("Failed to fetch live findings:", err);
-    return [];
+    return prev || [];
   }
-  // Iterate the job's own dimension order: the server's JSON keys come
-  // back sorted, and the feed's tie order before any activity is this one.
-  const byDim = body?.dimensions || {};
-  return job.dimensions.flatMap((d) =>
-    // Canonical fields merged ONTO the raw row, not substituted for it.
-    // The backend calls a finding's principle `practiceId` while every
-    // component reads `principle`, so the raw spread left the feed's rule
-    // column blank and collapsed the row key to
-    // `${dim}-${file}-undefined-${line}`. Merging rather than replacing
-    // keeps wire-only fields the model does not model (confidence, and
-    // the SSE frame's id/verdict) available to other readers.
-    (byDim[d]?.violations || []).map((v) => ({ ...v, ...createViolation(v), dimension: d })),
-  );
+  return mergeLiveFindings(prev, job, body);
 }
 
 // One final fetch on the running->terminal edge: the last dimension's
@@ -67,16 +100,6 @@ function useTerminalFindingsRefetch(jobId, isJobTerminal, refetchFindings) {
   }, [jobId, isJobTerminal, refetchFindings]);
 }
 
-// Group findings into the legacy { [dim]: [violations] } shape.
-function groupFindingsByDimension(findings) {
-  const liveViolations = {};
-  for (const f of findings) {
-    const dim = f.dimension || "_";
-    (liveViolations[dim] ??= []).push(f);
-  }
-  return liveViolations;
-}
-
 /**
  * The job status and its findings, grouped by dimension.
  *
@@ -88,6 +111,7 @@ function groupFindingsByDimension(findings) {
  * @returns {{job: object|null, liveViolations: Record<string, object[]>}}
  */
 export function useEvaluationQueries(api, jobId, streamState) {
+  const queryClient = useQueryClient();
   // --- Status (the "job" object) ---------------------------------------
   const statusQuery = useQuery({
     queryKey: evaluationKeys.status(jobId || NO_JOB_ID),
@@ -100,9 +124,10 @@ export function useEvaluationQueries(api, jobId, streamState) {
   const job = statusQuery.data || null;
 
   // --- Findings (a flat list, then grouped into liveViolations) --------
+  const findingsKey = evaluationKeys.findings(jobId || NO_JOB_ID);
   const findingsQuery = useQuery({
-    queryKey: evaluationKeys.findings(jobId || NO_JOB_ID),
-    queryFn: () => fetchFindings(api, job),
+    queryKey: findingsKey,
+    queryFn: () => fetchFindings(api, job, queryClient.getQueryData(findingsKey)),
     enabled: !!jobId && (SSE_ENABLED || !!job?.outputProject),
     staleTime: SSE_ENABLED ? Infinity : 0,
     refetchInterval: findingsRefetchInterval(job),

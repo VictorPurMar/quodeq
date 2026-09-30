@@ -188,3 +188,26 @@ class TestLiveFindingsRoute:
         client._provider.get_live_findings.return_value = None
         resp = client.get(f"{self.URL}?dimensions=security")
         assert resp.status_code == 404
+
+
+class TestLiveFindingsSince:
+    URL = "/api/projects/p/runs/r/live-findings?dimensions=security"
+
+    def _rows(self, client, n):
+        client._provider.get_live_findings.return_value = {
+            "project": "p", "runId": "r",
+            "dimensions": {"security": {"state": "ready", "violations": [{"line": i} for i in range(n)]}},
+        }
+
+    def test_since_param_slices_rows(self, client):
+        self._rows(client, 4)
+        resp = client.get(f"{self.URL}&since=security:2")
+        entry = resp.get_json()["dimensions"]["security"]
+        assert entry["violations"] == [{"line": 2}, {"line": 3}]
+        assert entry["count"] == 4 and entry["since"] == 2
+
+    def test_malformed_since_is_400(self, client):
+        self._rows(client, 1)
+        resp = client.get(f"{self.URL}&since=security")
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "INVALID_INPUT"
