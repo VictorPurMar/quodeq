@@ -6,6 +6,7 @@ import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { useRunningRunsRefresh } from '../hooks/useRunningRunsRefresh.js';
 import { useViolationsTabKeyReset } from '../features/violations/hooks/useViolationsPageState.js';
 import { createPageStateCache } from '../utils/pageStateCache.js';
+import { countFetches } from '../test-utils/budgets.jsx';
 
 // Switching Overview -> History -> Violations -> Overview with fresh data
 // must fire no request. Each tab mounts the hook that used to invalidate on
@@ -54,6 +55,7 @@ describe('tab switches with fresh data', () => {
   it('fire no request and leave no query invalidated', async () => {
     const fetchSpy = vi.fn(async () => ({ fetched: true }));
     const client = makeClient(fetchSpy);
+    const fetches = countFetches(client);
     const cache = createPageStateCache();
     const wrap = (page) => <QueryClientProvider client={client}>{page}</QueryClientProvider>;
 
@@ -63,7 +65,9 @@ describe('tab switches with fresh data', () => {
       await act(async () => { await vi.runAllTimersAsync(); });
     }
 
+    expect(fetches.byKey()).toEqual({});
     expect(fetchSpy).not.toHaveBeenCalled();
+    fetches.stop();
     for (const key of Object.values(KEYS)) {
       expect(client.getQueryState(key).isInvalidated).toBe(false);
       expect(client.getQueryState(key).data).toEqual({ seeded: true });
