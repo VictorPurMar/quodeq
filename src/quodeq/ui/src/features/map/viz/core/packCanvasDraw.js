@@ -2,11 +2,13 @@ import { nodeColor, nodeBorderColor } from './mapColors.js';
 import { isDrillableFolder } from './fileTree.js';
 import { isDrawable } from './packCanvasGeometry.js';
 import { TAU } from './galaxyCore.js';
+import { drawFileIcon } from './packCanvasFile.js';
 
 const FOLDER_FILL_ALPHA = 0.2;
 const FOLDER_FILL_ALPHA_HOVER = 0.3;
-const FILE_FILL_ALPHA = 0.85;
 const STROKE_PX = 1;
+// Blur radius of the hover glow, in pixels; stands in for the SVG #glow filter.
+const GLOW_PX = 6;
 const LABEL_MIN_R = 10;
 const LABEL_FONT_MAX = 11;
 const LABEL_FONT_MIN = 8;
@@ -36,16 +38,27 @@ function circleStyle(c, viewMode, hovered, color) {
   if (c.depth === 0) return { fill: color('var(--color-surface-alt)'), stroke: color('var(--color-border)'), alpha: 1 };
   const fill = color(nodeColor(d, viewMode));
   const stroke = color(nodeBorderColor(d, viewMode));
-  if (isDrillableFolder(d)) return { fill, stroke, alpha: hovered ? FOLDER_FILL_ALPHA_HOVER : FOLDER_FILL_ALPHA };
-  return { fill, stroke, alpha: FILE_FILL_ALPHA };
+  if (isDrillableFolder(d)) return { fill, stroke, alpha: hovered ? FOLDER_FILL_ALPHA_HOVER : FOLDER_FILL_ALPHA, glow: hovered ? GLOW_PX : 0 };
+  // Anything that is not a drillable folder draws as a file, like the SVG path.
+  return { fill, stroke, glow: hovered ? GLOW_PX : 0, file: true };
 }
 
-function drawCircle(ctx, sc, style, viewport) {
+function drawNode(ctx, sc, style, viewport) {
+  const px = viewport.ox + sc.cx * viewport.scale;
+  const py = viewport.oy + sc.cy * viewport.scale;
+  const rPx = sc.r * viewport.scale;
+  if (style.file) {
+    drawFileIcon(ctx, { px, py, rPx, fill: style.fill, stroke: style.stroke, glow: style.glow });
+    return;
+  }
   ctx.beginPath();
-  ctx.arc(viewport.ox + sc.cx * viewport.scale, viewport.oy + sc.cy * viewport.scale, sc.r * viewport.scale, 0, TAU);
+  ctx.arc(px, py, rPx, 0, TAU);
   ctx.globalAlpha = style.alpha;
   ctx.fillStyle = style.fill;
+  ctx.shadowColor = style.stroke;
+  ctx.shadowBlur = style.glow;
   ctx.fill();
+  ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
   ctx.lineWidth = STROKE_PX;
   ctx.strokeStyle = style.stroke;
@@ -73,7 +86,7 @@ export function drawPack(ctx, { circles, screenCoords, viewport, viewMode, hover
   circles.forEach((c, i) => {
     const sc = screenCoords[i];
     if (!isDrawable(sc)) return;
-    drawCircle(ctx, sc, circleStyle(c, viewMode, hover === i, color), viewport);
+    drawNode(ctx, sc, circleStyle(c, viewMode, hover === i, color), viewport);
     drawn++;
   });
   if (!showLabels) return drawn;

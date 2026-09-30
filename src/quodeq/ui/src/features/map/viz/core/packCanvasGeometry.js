@@ -18,6 +18,11 @@ export function packViewport(width, height) {
   };
 }
 
+/** Circles after the focus transform, in layout units. */
+export function screenCoordsFor(circles, { k, tx, ty }) {
+  return circles.map((c) => ({ cx: c.x * k + tx, cy: c.y * k + ty, r: c.r * k }));
+}
+
 /** Container pixel to layout units. */
 export function toLayoutPoint(px, py, viewport) {
   return { x: (px - viewport.ox) / viewport.scale, y: (py - viewport.oy) / viewport.scale };

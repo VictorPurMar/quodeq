@@ -1,14 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
+import { fakeCanvasContext } from '../../../../test-utils/fakeCanvasContext.js';
 import { drawPack, makeColorResolver } from './packCanvasDraw.js';
 import { packViewport } from './packCanvasGeometry.js';
 import { PACK_BASE_SIZE } from './packLayout.js';
 
-function fakeCtx() {
-  return {
-    clearRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(), fillText: vi.fn(),
-    fillStyle: '', strokeStyle: '', globalAlpha: 1, lineWidth: 1, font: '', textAlign: '', textBaseline: '',
-  };
-}
 
 const style = { getPropertyValue: (name) => ({ '--color-sev-major-text': '#f80', '--color-border': '#333' }[name] || '') };
 
@@ -32,17 +27,18 @@ describe('drawPack', () => {
   const viewport = packViewport(PACK_BASE_SIZE, PACK_BASE_SIZE);
 
   it('draws every visible circle and labels the focused level', () => {
-    const ctx = fakeCtx();
+    const ctx = fakeCanvasContext();
     const coords = [{ cx: 300, cy: 300, r: 300 }, { cx: 300, cy: 300, r: 150 }, { cx: 300, cy: 300, r: 50 }];
     const drawn = drawPack(ctx, { circles, screenCoords: coords, viewport, viewMode: 'violations', hover: null, focusNode: root, showLabels: true, style, width: 600, height: 600 });
     expect(drawn).toBe(3);
-    expect(ctx.arc).toHaveBeenCalledTimes(3);
+    expect(ctx.arc).toHaveBeenCalledTimes(2);
+    expect(ctx.quadraticCurveTo).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalledTimes(1);
     expect(ctx.fillText.mock.calls[0][0]).toBe('src');
   });
 
   it('culls offscreen circles but keeps sub-pixel ones', () => {
-    const ctx = fakeCtx();
+    const ctx = fakeCanvasContext();
     const coords = [{ cx: 300, cy: 300, r: 300 }, { cx: -900, cy: 300, r: 150 }, { cx: 300, cy: 300, r: 0.1 }];
     const drawn = drawPack(ctx, { circles, screenCoords: coords, viewport, viewMode: 'violations', hover: null, focusNode: root, showLabels: false, style, width: 600, height: 600 });
     expect(drawn).toBe(2);

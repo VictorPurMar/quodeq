@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import ChartKeyboardControls from '../../../../components/ChartKeyboardControls.jsx';
 import { useCanvasSize } from './galaxyCanvasSize.js';
 import { drawPack } from '../core/packCanvasDraw.js';
-import { packViewport, toLayoutPoint, hitCircle } from '../core/packCanvasGeometry.js';
+import { packViewport, toLayoutPoint, hitCircle, screenCoordsFor } from '../core/packCanvasGeometry.js';
+import { useTweenedTransform } from '../core/packTween.js';
 import { nodeStateText } from '../core/mapColors.js';
 import { t } from '../../../../strings/index.js';
 import { KEY } from '../../../../vocab/keyboard.js';
@@ -41,16 +42,21 @@ function useDrawPack(canvasRef, size, frame) {
 }
 
 /**
- * Canvas renderer for packs too large to hold as SVG nodes. Hover and click
+ * Canvas renderer for packs too large to hold as SVG nodes. `transform` is
+ * the focus target; the canvas tweens toward it. Hover and click
  * hit-test the cursor against the same circles the SVG path draws; keyboard
  * users get a focusable button per visible child (ChartKeyboardControls).
  */
-export default function PackCanvas({ circles, screenCoords, viewMode, hover, setHover, focusNode, showLabels, handleClick, handleBgClick }) {
+export default function PackCanvas({ circles, transform, skipTransition, viewMode, hover, setHover, focusNode, showLabels, handleClick, handleBgClick }) {
   const canvasRef = useRef(null);
   const size = useCanvasSize(canvasRef);
   const viewport = useMemo(() => packViewport(size.w, size.h), [size.w, size.h]);
+  // Zoom eases like the SVG view; hit tests use what is on screen right now.
+  const shown = useTweenedTransform(transform, skipTransition);
+  const screenCoords = useMemo(() => screenCoordsFor(circles, shown), [circles, shown]);
+  const settled = shown === transform;
 
-  useDrawPack(canvasRef, size, { circles, screenCoords, viewport, viewMode, hover, focusNode, showLabels });
+  useDrawPack(canvasRef, size, { circles, screenCoords, viewport, viewMode, hover, focusNode, showLabels: showLabels && settled });
 
   const hitAt = (e) => {
     const r = canvasRef.current.getBoundingClientRect();
