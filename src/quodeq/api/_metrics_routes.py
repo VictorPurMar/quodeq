@@ -9,10 +9,14 @@ here patches the interpreter.
 from __future__ import annotations
 
 import os
-import resource
 import sys
 import threading
 from http import HTTPStatus
+
+try:
+    import resource
+except ImportError:  # Windows has no ``resource`` module.
+    resource = None
 
 from flask import Flask, Response, g, jsonify, request
 
@@ -53,12 +57,13 @@ def configure_request_metrics(app: Flask) -> None:
 
 
 def _process_stats() -> dict[str, object]:
-    usage = resource.getrusage(resource.RUSAGE_SELF)
+    times = os.times()
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * _RSS_UNIT if resource else None
     return {
         "pid": os.getpid(),
-        "rss_bytes": usage.ru_maxrss * _RSS_UNIT,
-        "cpu_user_s": round(usage.ru_utime, 3),
-        "cpu_system_s": round(usage.ru_stime, 3),
+        "rss_bytes": rss,
+        "cpu_user_s": round(times.user, 3),
+        "cpu_system_s": round(times.system, 3),
         "threads": threading.active_count(),
     }
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import sys
 
 import pytest
 
@@ -61,7 +62,8 @@ class TestDebugMetrics:
         client = app.test_client()
         client.get(f"/api/projects/{PROJECT}/scores")
         body = client.get("/api/debug/metrics").get_json()
-        assert body["process"]["rss_bytes"] > 0
+        rss = body["process"]["rss_bytes"]
+        assert rss is None if sys.platform == "win32" else rss > 0
         assert body["process"]["cpu_user_s"] >= 0
         names = {cache["name"] for cache in body["caches"]}
         assert {"scores.wire", "project_scores.payloads", "default"} <= names
