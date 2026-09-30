@@ -93,10 +93,21 @@ function buildRunKbdItems(data, onBarClick) {
   }));
 }
 
-export default function RunHistoryPanel({ trend = [], selectedRunId = null, onBarClick, granularity = 'day', onGranularityChange }) {
-  const [hoveredIndex, setHoveredIndex] = useState(null);
+/** Hover setter that also reports the hovered run to the prefetcher: a bar
+ * warms its run, leaving the chart cancels the pending warm-up. */
+export function hoverWithPrefetch(setHoveredIndex, data, onBarHover, onBarHoverEnd) {
+  return (index) => {
+    setHoveredIndex(index);
+    if (index === null) onBarHoverEnd?.();
+    else if (data[index]?.runId) onBarHover?.(data[index].runId);
+  };
+}
+
+export default function RunHistoryPanel({ trend = [], selectedRunId = null, onBarClick, onBarHover, onBarHoverEnd, granularity = 'day', onGranularityChange }) {
+  const [hoveredIndex, setHoveredIndexState] = useState(null);
   // Hooks must run in the same order every render, so compute before any early return.
   const data = useMemo(() => buildTrendData(trend, granularity), [trend, granularity]);
+  const setHoveredIndex = hoverWithPrefetch(setHoveredIndexState, data, onBarHover, onBarHoverEnd);
 
   // The parent only mounts this panel when there are ≥2 days of data, so an
   // empty trend shouldn't happen — but guard the truly-empty case. A single

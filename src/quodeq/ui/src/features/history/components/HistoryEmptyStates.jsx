@@ -10,7 +10,7 @@ import { NAV_TAB } from '../../../vocab/navTab.js';
  */
 export function HistoryEmptyShell({ sub, children, refreshing }) {
   return (
-    <div className={`history-page history-page--terminal${refreshing ? ' dashboard-refreshing' : ''}`}>
+    <div className={`history-page history-page--terminal${refreshing ? ' section-pending' : ''}`}>
       <TermHeader name={t('history.termName')} sub={sub} />
       {children}
     </div>

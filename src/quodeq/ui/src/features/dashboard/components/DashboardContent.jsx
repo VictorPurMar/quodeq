@@ -56,19 +56,19 @@ function DimensionFocusPanel({ focusedDimension, focusedDimensionData, setFocuse
 }
 
 function AccumulatedContent({ data, callbacks }) {
-  const { dashboard, accumulated, accumulatedDimensions, availableRuns, dailyRuns, overviewRunIndex, selectedRunId, selectedProject, projectInfo, granularity, selectedSource, scoresPending, customFormula } = data;
-  const { onRunSelect, onAccumulatedDimensionClick, onNavigate, onGranularityChange } = callbacks;
+  const { dashboard, accumulated, accumulatedDimensions, availableRuns, dailyRuns, overviewRunIndex, selectedRunId, selectedProject, projectInfo, granularity, selectedSource, scoresPending, customFormula, refreshing } = data;
+  const { onRunSelect, onRunHover, onRunHoverEnd, onAccumulatedDimensionClick, onNavigate, onGranularityChange } = callbacks;
   return (
     <AccumulatedOverviewPanel
       data={{
         accumulated: accumulated ? { ...accumulated, dimensions: accumulatedDimensions } : accumulated,
         accumulatedDimensions, availableRuns, dailyRuns, overviewRunIndex,
         trend: dashboard?.trend || [], selectedRunId, selectedProject, projectInfo, granularity, selectedSource,
-        scoresPending, customFormula,
+        scoresPending, customFormula, refreshing,
         sinceBaseline: dashboard?.sinceBaseline || {}, selectedRun: dashboard?.selectedRun,
       }}
       callbacks={{
-        onRunClick: onRunSelect, onDimensionClick: onAccumulatedDimensionClick, onNavigate, onGranularityChange,
+        onRunClick: onRunSelect, onRunHover, onRunHoverEnd, onDimensionClick: onAccumulatedDimensionClick, onNavigate, onGranularityChange,
       }}
     />
   );
@@ -91,6 +91,7 @@ export default function DashboardContent({ runMode, data, focus, callbacks }) {
     return (
       <RunOverviewPanel
         dashboard={data.dashboard}
+        refreshing={data.refreshing}
         selectedRunId={data.selectedRunId}
         selectedProject={selectedProject}
         selectedSource={selectedSource}

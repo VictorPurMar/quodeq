@@ -56,7 +56,7 @@ export default function ByTypeView({ dimensions, diffsByRun, standardsByDim, loa
   const grouped = useMemo(() => groupRows(rows), [rows]);
   if (rows.length === 0 && !loading) return <p className="empty-state">{t('violations.noTypesFound')}</p>;
   return (
-    <div className={`heat-grid-wrap heat-grid-wrap--flat${loading ? ' dashboard-refreshing' : ''}`}>
+    <div className={`heat-grid-wrap heat-grid-wrap--flat${loading ? ' section-pending' : ''}`}>
       <table className="heat-grid heat-grid--flat heat-grid--types">
         <thead>
           <tr>{COLUMN_KEYS.map((key, i) => <th key={key} className={i === 0 ? 'left' : undefined}>{t(key)}</th>)}</tr>

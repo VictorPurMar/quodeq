@@ -94,6 +94,8 @@ function gradeFormulaScope(params, props) {
 export const ROUTE_RENDERERS = {
   overview: (params, props) => dashboardElement(props, false, {
     onRunSelect: props.navigation.handleRunSelect,
+    onRunHover: props.navigation.prefetchHandlers?.onRunHover,
+    onRunHoverEnd: props.navigation.prefetchHandlers?.onRunHoverEnd,
     onProjectsReload: props.navigation.loadProjects,
     onProjectsRetry: props.dashboardData.onProjectsRetry,
   }),

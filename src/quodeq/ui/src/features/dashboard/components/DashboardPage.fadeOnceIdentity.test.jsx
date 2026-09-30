@@ -105,7 +105,8 @@ describe('DashboardPage frame stability and fade-once across branch transitions 
       );
       page = container.querySelector('.dashboard-page');
       expect(page.className).toContain('dashboard-ready');
-      expect(page.className).toContain('dashboard-refreshing');
+      expect(page.className).not.toContain('section-pending');
+      expect(container.querySelector('.section-pending')).not.toBeNull();
       expect(page.className).toContain('dashboard-appear');
 
       // Once the animation window has passed, the class releases -- and a

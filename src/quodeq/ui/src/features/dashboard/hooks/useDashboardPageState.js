@@ -80,7 +80,7 @@ function useContentReadiness(runMode, dashboard, accumulated, loading, keepSkele
 // error settling, the no-runs sticky state handing off to real content).
 // The animation itself lives on a separate `dashboard-appear` class (kept
 // apart from the `dashboard-ready` state class) so re-adding `dashboard-ready`
-// alone -- e.g. dropping `dashboard-refreshing` -- never replays it. The ref
+// alone -- e.g. dropping `section-pending` -- never replays it. The ref
 // is only written from an effect (post-commit), never during render:
 // mutating it inline would make the appear decision depend on how many times
 // React happens to invoke this render (StrictMode double-invokes it in dev).

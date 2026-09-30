@@ -48,7 +48,7 @@ export default function TypesTab({ rows, loading, dimensionFilter, setDimensionF
   const grouped = useMemo(() => groupRows(shown), [shown]);
   if (noRun) return <p className="settings-description">{t('gradeFormula.typesNoRun')}</p>;
   return (
-    <div className={`gf-types${loading ? ' dashboard-refreshing' : ''}`}>
+    <div className={`gf-types${loading ? ' section-pending' : ''}`}>
       <DimensionFilter dimensions={dimensions} value={dimensionFilter} onChange={setDimensionFilter} />
       {shown.length === 0 && !loading ? <p className="settings-description">{t('gradeFormula.typesEmpty')}</p> : (
         <div className="heat-grid-wrap heat-grid-wrap--flat">

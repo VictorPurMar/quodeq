@@ -10,7 +10,7 @@ import { NAV_TAB } from '../../../vocab/navTab.js';
 
 export function MapEmpty({ sub, children, refreshing }) {
   return (
-    <div className={`map-page map-page--terminal${refreshing ? ' dashboard-refreshing' : ''}`}>
+    <div className={`map-page map-page--terminal${refreshing ? ' section-pending' : ''}`}>
       <TermHeader name="map" sub={sub} />
       {children}
     </div>

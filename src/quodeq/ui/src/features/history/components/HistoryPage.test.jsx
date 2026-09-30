@@ -177,7 +177,7 @@ describe('HistoryPage — scenario 9: loader gate, containment, refresh dim', ()
 
   it('applies the refresh dim class to the empty state during a background refetch', () => {
     renderHistoryPageWithData({ loading: false, isFetching: true });
-    expect(document.querySelector('.history-page--terminal').className).toContain('dashboard-refreshing');
+    expect(document.querySelector('.history-page--terminal').className).toContain('section-pending');
   });
 
   it('applies the refresh dim class to real content during a background refetch', () => {
@@ -185,7 +185,7 @@ describe('HistoryPage — scenario 9: loader gate, containment, refresh dim', ()
       trend, availableRuns, selection: { selectedRunId: 'r1' },
       loading: false, isFetching: true,
     });
-    expect(document.querySelector('.history-page--terminal').className).toContain('dashboard-refreshing');
+    expect(document.querySelector('.history-page--terminal').className).toContain('section-pending');
   });
 });
 

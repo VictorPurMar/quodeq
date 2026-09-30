@@ -193,7 +193,7 @@ export default function ViolationsPage({ data, callbacks, tabKey = 0, subTab = V
   const isRefreshing = isFetching && !loading;
 
   return (
-    <div className={`violations-page violations-page--terminal${isRefreshing ? ' dashboard-refreshing' : ''}`}>
+    <div className={`violations-page violations-page--terminal${isRefreshing ? ' section-pending' : ''}`}>
       {restoreError && <div className="error-banner" role="alert">{restoreError}</div>}
       <ViolationsHeader
         summary={summary} visibleDimensions={visibleDimensions} topFilesCount={topFilesCount} uniquePrinciples={uniquePrinciples}

@@ -57,7 +57,7 @@ function buildSharedProjectInfoQueryConfig({ projectKey, selectedSource, sharedG
 // run deletion), and every one of those invalidates the project query
 // subtree — which forces a refetch regardless of staleTime. Freezing the
 // query here removes the routine time-based background refetch (and the
-// dashboard-refreshing dim flash) on re-entering a run view. The rule
+// section-pending flash) on re-entering a run view. The rule
 // itself (including why an unknown run counts as frozen) lives in
 // models/runRules.js.
 // Run pages render the worst-files table, the report and the fix plan from

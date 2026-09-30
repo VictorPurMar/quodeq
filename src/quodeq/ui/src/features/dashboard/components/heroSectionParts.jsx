@@ -5,6 +5,7 @@
  * the same panel, and differ only in the score hint, the violations note and
  * the header above them. What is common lives here.
  */
+import { withPending } from '../../../utils/pendingClass.js';
 import { StatStrip, Stat } from '../../../components/terminal/index.js';
 import { scoreColorClass, complianceRatio } from '../../../utils/formatters.js';
 import { t } from '../../../strings/index.js';
@@ -13,9 +14,9 @@ import { HERO_CARD_KIND } from '../dashboardVocab.js';
 /**
  * The hero panel: the section, its header row and the stat strip inside it.
  */
-export function HeroPanel({ header, children }) {
+export function HeroPanel({ header, children, pending = false }) {
   return (
-    <section className="acc-eval-panel acc-eval-panel--terminal">
+    <section className={withPending('acc-eval-panel acc-eval-panel--terminal', pending)} aria-busy={pending || undefined}>
       <div className="acc-eval-panel__top">{header}</div>
       <StatStrip cards>{children}</StatStrip>
     </section>
