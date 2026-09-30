@@ -3,7 +3,7 @@ import { nodeSize } from './mapColors.js';
 
 // Layout units for the circle pack; the SVG viewBox scales them to the screen.
 export const PACK_BASE_SIZE = 600;
-// Gap d3-pack leaves between a circle and its parent, in layout units.
+// Gap d3-pack leaves between a top-level circle and the root, in layout units.
 export const PACK_PADDING = 6;
 // Trees at or above this many nodes lay out in the worker instead of the
 // render thread.
@@ -18,9 +18,16 @@ export function buildPackRoot(node, viewMode) {
     .sort((a, b) => (b.value || 0) - (a.value || 0));
 }
 
+/** Padding around a folder's children, shrinking with depth. d3 scales the
+ * padding by the unpadded root radius, so on deep source trees a flat value
+ * dwarfs the file circles and leaves every deep folder mostly empty. */
+export function packPadding(node) {
+  return PACK_PADDING / (1 + node.depth);
+}
+
 /** Run the pack on a hierarchy in place. */
 export function packInPlace(root) {
-  pack().size([PACK_BASE_SIZE, PACK_BASE_SIZE]).padding(PACK_PADDING)(root);
+  pack().size([PACK_BASE_SIZE, PACK_BASE_SIZE]).padding(packPadding)(root);
   return root;
 }
 
