@@ -10,7 +10,7 @@ from quodeq.api._constants import CODE_INVALID_INPUT, CODE_NOT_FOUND
 from quodeq.api.dimension_eval_wire import dimension_eval_response
 from quodeq.api.helpers import json_error
 from quodeq.core.types.dashboard_view import DashboardView
-from quodeq.api.live_findings_wire import live_findings_response
+from quodeq.api.live_findings_wire import SINCE_PARAM, live_findings_response, parse_since
 from quodeq.api.routes_common import reports_dir
 from quodeq.shared.serialization import to_camel_dict
 from quodeq.services.base import ActionProvider
@@ -121,7 +121,14 @@ def register_project_data_routes(app: Flask, provider: ActionProvider) -> None:
         dimensions = _parse_dimensions(request.args.get(DIMENSIONS_PARAM))
         if not isinstance(dimensions, list):
             return dimensions
-        return live_findings_response(provider.get_live_findings(reports_dir(), project, run_id, dimensions))
+        since = parse_since(request.args.get(SINCE_PARAM))
+        if since is None:
+            return json_error(
+                f"{SINCE_PARAM} must be dim:count pairs", HTTPStatus.BAD_REQUEST, CODE_INVALID_INPUT,
+            )
+        return live_findings_response(
+            provider.get_live_findings(reports_dir(), project, run_id, dimensions), since,
+        )
 
     @app.get("/api/projects/<project>/runs/<run_id>/violations")
     def run_violations(project: str, run_id: str) -> Response | tuple[Response, int]:

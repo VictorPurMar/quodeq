@@ -1,4 +1,4 @@
-"""Wire shaping for GET .../runs/<run>/live-findings: camelCase, slim rows."""
+"""Wire shaping for GET .../runs/<run>/live-findings: camelCase rows, since offsets."""
 from __future__ import annotations
 
 from http import HTTPStatus
@@ -22,10 +22,10 @@ LIVE_ROW = Finding(
 )
 
 
-def _body(payload):
+def _body(payload, since=None):
     app = Flask(__name__)
     with app.app_context():
-        result = live_findings_response(payload)
+        result = live_findings_response(payload, since)
         if isinstance(result, tuple):
             resp, status = result
         else:
@@ -74,8 +74,8 @@ def test_waiting_and_missing_pass_through() -> None:
         "made-up": {"state": LiveFindingState.MISSING, "violations": []},
     }})
     assert body["project"] == "p" and body["runId"] == "r"
-    assert body["dimensions"]["usability"] == {"state": "waiting", "violations": []}
-    assert body["dimensions"]["made-up"] == {"state": "missing", "violations": []}
+    assert body["dimensions"]["usability"] == {"state": "waiting", "violations": [], "count": 0, "since": 0}
+    assert body["dimensions"]["made-up"] == {"state": "missing", "violations": [], "count": 0, "since": 0}
 
 
 def test_error_state_passes_through() -> None:
@@ -83,4 +83,69 @@ def test_error_state_passes_through() -> None:
         "security": {"state": LiveFindingState.ERROR, "violations": []},
     }})
     assert status == HTTPStatus.OK
-    assert body["dimensions"]["security"] == {"state": "error", "violations": []}
+    assert body["dimensions"]["security"] == {"state": "error", "violations": [], "count": 0, "since": 0}
+
+
+def _dims_with(rows):
+    return {"project": "p", "runId": "r", "dimensions": {
+        "security": {"state": LiveFindingState.READY, "violations": rows},
+    }}
+
+
+def _rows(n):
+    return [{**STORED_ROW, "line": i} for i in range(n)]
+
+
+class TestSinceOffsets:
+    def test_no_since_returns_every_row_with_count(self) -> None:
+        body, _ = _body(_dims_with(_rows(3)))
+        entry = body["dimensions"]["security"]
+        assert entry["count"] == 3 and entry["since"] == 0
+        assert [r["line"] for r in entry["violations"]] == [0, 1, 2]
+
+    def test_second_call_returns_only_rows_after_since(self) -> None:
+        first, _ = _body(_dims_with(_rows(3)))
+        second, _ = _body(_dims_with(_rows(5)), {"security": first["dimensions"]["security"]["count"]})
+        entry = second["dimensions"]["security"]
+        assert entry["count"] == 5 and entry["since"] == 3
+        first_lines = {r["line"] for r in first["dimensions"]["security"]["violations"]}
+        second_lines = {r["line"] for r in entry["violations"]}
+        assert second_lines == {3, 4} and not (first_lines & second_lines)
+
+    def test_second_call_bytes_scale_with_new_rows_not_total(self) -> None:
+        import json
+        full, _ = _body(_dims_with(_rows(50)))
+        delta, _ = _body(_dims_with(_rows(52)), {"security": 50})
+        assert len(json.dumps(delta)) * 10 < len(json.dumps(full))
+
+    def test_since_equal_to_count_returns_no_rows(self) -> None:
+        body, _ = _body(_dims_with(_rows(3)), {"security": 3})
+        entry = body["dimensions"]["security"]
+        assert entry["violations"] == [] and entry["count"] == 3 and entry["since"] == 3
+
+    def test_since_past_count_resets_to_full_list(self) -> None:
+        # Rows can shrink (a dismissed finding); the client cannot splice a
+        # delta onto a list it no longer holds, so the server starts over.
+        body, _ = _body(_dims_with(_rows(2)), {"security": 5})
+        entry = body["dimensions"]["security"]
+        assert entry["since"] == 0 and len(entry["violations"]) == 2
+
+    def test_since_for_unknown_dimension_is_ignored(self) -> None:
+        body, _ = _body(_dims_with(_rows(2)), {"other": 9})
+        assert len(body["dimensions"]["security"]["violations"]) == 2
+
+
+class TestParseSince:
+    def test_absent_is_empty(self) -> None:
+        from quodeq.api.live_findings_wire import parse_since
+        assert parse_since(None) == {} and parse_since("") == {}
+
+    def test_pairs_are_parsed(self) -> None:
+        from quodeq.api.live_findings_wire import parse_since
+        assert parse_since("security:3, usability:0 ,") == {"security": 3, "usability": 0}
+
+    def test_malformed_is_none(self) -> None:
+        from quodeq.api.live_findings_wire import parse_since
+        assert parse_since("security") is None
+        assert parse_since("security:x") is None
+        assert parse_since("security:-1") is None

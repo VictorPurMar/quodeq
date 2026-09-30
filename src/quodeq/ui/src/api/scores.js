@@ -103,13 +103,25 @@ export async function getDimensionEval(projectId, runId, dimension) {
   return createDimensionEval(data);
 }
 
+const SINCE_PAIR_SEP = ',';
+const SINCE_KV_SEP = ':';
+
 /**
- * The slim live-feed rows for every dimension of a run in one request.
- * The body is passed through: `{ project, runId, dimensions: { [dim]: { state, violations } } }`.
+ * The live-feed rows for every dimension of a run in one request.
+ * `since` is `{ [dim]: rowsAlreadyHeld }`; the server returns only the rows
+ * after that offset for each dimension, plus its total `count` and the
+ * effective `since` (0 when the list shrank and the whole list came back).
+ * The body is passed through:
+ * `{ project, runId, dimensions: { [dim]: { state, violations, count, since } } }`.
  */
-export function getLiveFindings(projectId, runId, dimensions) {
+export function getLiveFindings(projectId, runId, dimensions, since = {}) {
   const query = encodeURIComponent(dimensions.join(','));
+  const pairs = Object.entries(since)
+    .filter(([, n]) => n > 0)
+    .map(([dim, n]) => `${dim}${SINCE_KV_SEP}${n}`)
+    .join(SINCE_PAIR_SEP);
+  const sinceQuery = pairs ? `&since=${encodeURIComponent(pairs)}` : '';
   return request(
-    `${projectPath(projectId)}/runs/${encodeURIComponent(runId)}/live-findings?dimensions=${query}`
+    `${projectPath(projectId)}/runs/${encodeURIComponent(runId)}/live-findings?dimensions=${query}${sinceQuery}`
   );
 }
