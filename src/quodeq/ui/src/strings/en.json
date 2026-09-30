@@ -1501,6 +1501,7 @@
   "map.riskBubbleAria": "{file}: {count} violations",
   "map.riskBubbleAriaOne": "{file}: 1 violation",
   "map.galaxyKbdLabel": "Contents of this folder",
+  "map.packKbdLabel": "Folders and files at this level",
   "map.galaxyKbdFolderItem": "Folder {name}",
   "violations.sortByAria": "Sort by {column}",
   "heatGrid.severityCellAria": "{severity}: {count} violations in {label}",

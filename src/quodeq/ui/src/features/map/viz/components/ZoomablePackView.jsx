@@ -1,5 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { PACK_BASE_SIZE as BASE_SIZE } from '../core/packLayout.js';
+import { PACK_BASE_SIZE as BASE_SIZE, PACK_WORKER_NODE_THRESHOLD as PACK_CANVAS_NODE_THRESHOLD } from '../core/packLayout.js';
+import { PACK_VIEW_PAD as PAD } from '../core/packCanvasGeometry.js';
+import PackCanvas from './PackCanvas.jsx';
 import { usePackLayout } from '../core/usePackLayout.js';
 import PackInfoPanel from './PackInfoPanel.jsx';
 import PackCircles from './PackCircles.jsx';
@@ -11,7 +13,6 @@ import { PERCENT } from '../../../../constants.js';
 import { isDrillableFolder } from '../core/fileTree.js';
 import MapTooltipSeverityRows from './MapTooltipSeverityRows.jsx';
 
-const PAD = 20;
 const LABEL_RADIUS_THRESHOLD = 10;
 const LABEL_FONT_MAX = 11;
 const LABEL_FONT_MIN = 8;
@@ -213,6 +214,49 @@ function PackTooltip({ circles, hover, mousePos, containerRef }) {
   );
 }
 
+/* ---- PackSvg: the SVG body, one node per circle ---- */
+function PackSvg({ circles, viewMode, showLabels, hover, setHover, focus }) {
+  const { focusNode, k, tx, ty, screenCoords, handleClick, handleBgClick, skipTransition, folderIndices, fileIndices } = focus;
+  const transitionStyle = skipTransition.current ? 'none' : 'transform 0.5s ease';
+  return (
+    <svg
+      className="viz-focusable"
+      viewBox={`${-PAD} ${-PAD} ${BASE_SIZE + PAD * 2} ${BASE_SIZE + PAD * 2}`}
+      style={{ width: '100%', height: '100%', overflow: 'hidden' }}
+      tabIndex={0}
+      onClick={handleBgClick}
+      onKeyDown={(e) => { if (e.key === KEY.ESCAPE) { e.preventDefault(); handleBgClick(); } }}
+      aria-label={t('map.zoomablePackAria')}
+    >
+      <defs>
+        <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <g style={{ transform: `translate(${tx}px,${ty}px) scale(${k})`, transition: transitionStyle, willChange: 'transform', transformOrigin: '0 0' }}>
+        <PackCircles circles={circles} folderIndices={folderIndices} fileIndices={fileIndices} hover={hover} setHover={setHover} viewMode={viewMode} k={k} handleClick={handleClick} />
+      </g>
+      {showLabels && <PackLabels circles={circles} screenCoords={screenCoords} focusNode={focusNode} skipTransition={skipTransition} />}
+    </svg>
+  );
+}
+
+/** Large packs draw on canvas: one SVG node per circle is what makes the
+ * tab heavy, so past the layout-worker threshold the same circles paint in
+ * a single element and keyboard users get a button per visible child. */
+function PackBody({ circles, viewMode, showLabels, hover, setHover, focus }) {
+  if (circles.length < PACK_CANVAS_NODE_THRESHOLD) {
+    return <PackSvg circles={circles} viewMode={viewMode} showLabels={showLabels} hover={hover} setHover={setHover} focus={focus} />;
+  }
+  return (
+    <PackCanvas
+      circles={circles} screenCoords={focus.screenCoords} viewMode={viewMode} hover={hover} setHover={setHover}
+      focusNode={focus.focusNode} showLabels={showLabels} handleClick={focus.handleClick} handleBgClick={focus.handleBgClick}
+    />
+  );
+}
+
 /* ---- Main orchestrator ---- */
 export default function ZoomablePackView({ node, viewMode, onDrillDown, onFileClick, showLabels = true, resetKey = 0, currentPath = '' }) {
   const [hover, setHover] = useState(null);
@@ -220,36 +264,15 @@ export default function ZoomablePackView({ node, viewMode, onDrillDown, onFileCl
   const containerRef = useRef(null);
 
   const { root, circles } = usePackLayout(node, viewMode);
-  const { focusNode, k, tx, ty, screenCoords, handleClick, handleBgClick, skipTransition, folderIndices, fileIndices } = useFocusManager({ root, circles, resetKey, currentPath, onDrillDown, onFileClick });
+  const focus = useFocusManager({ root, circles, resetKey, currentPath, onDrillDown, onFileClick });
 
   if (!node || !circles.length) return null;
 
-  const transitionStyle = skipTransition.current ? 'none' : 'transform 0.5s ease';
-
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }} onMouseMove={(e) => { const r = containerRef.current?.getBoundingClientRect(); if (r) { mousePos.current = { x: e.clientX - r.left, y: e.clientY - r.top }; } }}>
-      <svg
-        className="viz-focusable"
-        viewBox={`${-PAD} ${-PAD} ${BASE_SIZE + PAD * 2} ${BASE_SIZE + PAD * 2}`}
-        style={{ width: '100%', height: '100%', overflow: 'hidden' }}
-        tabIndex={0}
-        onClick={handleBgClick}
-        onKeyDown={(e) => { if (e.key === KEY.ESCAPE) { e.preventDefault(); handleBgClick(); } }}
-        aria-label={t('map.zoomablePackAria')}
-      >
-        <defs>
-          <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <g style={{ transform: `translate(${tx}px,${ty}px) scale(${k})`, transition: transitionStyle, willChange: 'transform', transformOrigin: '0 0' }}>
-          <PackCircles circles={circles} folderIndices={folderIndices} fileIndices={fileIndices} hover={hover} setHover={setHover} viewMode={viewMode} k={k} handleClick={handleClick} />
-        </g>
-        {showLabels && <PackLabels circles={circles} screenCoords={screenCoords} focusNode={focusNode} skipTransition={skipTransition} />}
-      </svg>
+      <PackBody circles={circles} viewMode={viewMode} showLabels={showLabels} hover={hover} setHover={setHover} focus={focus} />
       <PackTooltip circles={circles} hover={hover} mousePos={mousePos} containerRef={containerRef} />
-      <PackInfoPanel focusNode={focusNode} root={root} onFileClick={onFileClick} />
+      <PackInfoPanel focusNode={focus.focusNode} root={root} onFileClick={onFileClick} />
       <MapLegend />
     </div>
   );
