@@ -4,6 +4,7 @@ import { projectKeys } from './queryKeys.js';
 import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { LATEST_RUN_ID } from '../constants.js';
 import { installDashboardCacheCap, MAX_CACHED_FULL_RUNS } from './dashboardCacheCap.js';
+import { cacheEntries } from '../test-utils/budgets.jsx';
 
 // A full historical run is 10-34 MB and frozen, so without a cap a session
 // that walks through History holds every run it visited for the whole run of
@@ -30,7 +31,7 @@ async function openRun(queryClient, key) {
 }
 
 function cachedRuns(queryClient, view) {
-  return queryClient.getQueryCache().getAll()
+  return cacheEntries(queryClient, projectKeys.project(PROJECT))
     .filter((q) => q.queryKey[3] === 'dashboard' && q.queryKey.at(-1) === view)
     .map((q) => q.queryKey.at(-2));
 }
@@ -101,7 +102,7 @@ describe('dashboard cache cap', () => {
       await queryClient.fetchQuery({ queryKey: projectKeys.scores(PROJECT, `r${i}`), queryFn });
     }
 
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(10);
+    expect(cacheEntries(queryClient)).toHaveLength(10);
     unsubscribe();
   });
 });

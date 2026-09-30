@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // import) now turns off by default. Pin the flag before the hook is imported.
 vi.hoisted(() => { import.meta.env.VITE_USE_SSE_EVENTS = 'false'; });
 
-import { Profiler } from 'react';
 import { render, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -16,6 +15,7 @@ import { getEvaluationProgress } from '../../api/index.js';
 import { ApiProvider } from '../../api/ApiContext.jsx';
 import { EvaluationLiveProvider, useLiveJob, useLiveFindings, useEvaluationActions } from './EvaluationLiveContext.jsx';
 import { createLiveEvaluationStore } from './liveEvaluationStore.js';
+import { countCommits } from '../../test-utils/budgets.jsx';
 
 // A poll tick must not reach the page the user is on. The live values are
 // published to a store, so only the components that read them re-render; a
@@ -71,15 +71,14 @@ function LiveStrip() {
   return <div data-testid="strip">{`${job?.status || 'idle'}:${findings.length}`}</div>;
 }
 
-function renderShell(store, commits) {
+function renderShell(store, page, strip) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const count = (id) => () => { commits[id] += 1; };
   return render(
     <QueryClientProvider client={client}>
       <ApiProvider value={makeFakeApi()}>
         <EvaluationLiveProvider store={store} {...makeEvaluationDeps()}>
-          <Profiler id="page" onRender={count('page')}><PageWithoutLiveState /></Profiler>
-          <Profiler id="strip" onRender={count('strip')}><LiveStrip /></Profiler>
+          <page.Counted />
+          <strip.Counted />
         </EvaluationLiveProvider>
       </ApiProvider>
     </QueryClientProvider>
@@ -95,11 +94,12 @@ describe('live evaluation render budget', () => {
 
   it('a poll tick re-renders the live strip and never the page', async () => {
     const store = createLiveEvaluationStore();
-    const commits = { page: 0, strip: 0 };
+    const page = countCommits(PageWithoutLiveState);
+    const strip = countCommits(LiveStrip);
     // Fake timers before the render: React Query's poll timers are armed on
     // mount, and a real timer armed first would never be advanced here.
     vi.useFakeTimers();
-    const view = renderShell(store, commits);
+    const view = renderShell(store, page, strip);
 
     // The run is adopted on mount, the way a CLI-started job is; the first
     // findings land a tick later, once the job's project is known.
@@ -110,15 +110,15 @@ describe('live evaluation render budget', () => {
     expect(store.getState().job?.status).toBe('running');
     expect(view.getByTestId('strip').textContent).toMatch(/^running:[1-9]/);
 
-    commits.page = 0;
-    commits.strip = 0;
+    page.reset();
+    strip.reset();
     for (let i = 0; i < TICKS; i += 1) {
       // eslint-disable-next-line no-await-in-loop -- ticks are sequential by design
       await act(async () => { await vi.advanceTimersByTimeAsync(POLL_TICK_MS); });
     }
 
-    expect(commits.page).toBe(0);
+    expect(page.commits()).toBe(0);
     // One commit per tick, and only in the component that reads the values.
-    expect(commits.strip).toBe(TICKS);
+    expect(strip.commits()).toBe(TICKS);
   });
 });
