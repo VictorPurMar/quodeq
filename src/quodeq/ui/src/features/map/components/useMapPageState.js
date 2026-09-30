@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { treeNodeToFileObj } from '../viz/index.js';
 import { hasBodies } from '../../../models/dimension.js';
 import { useTabScopedPageState } from '../../../hooks/useTabScopedPageState.js';
@@ -87,18 +86,15 @@ function buildMapPageResult({
   };
 }
 
-// Per-mount plumbing: the tab-scoped state cache, the viewport lock, the
-// refresh on mount / tab re-click, and the standard types for constellations.
-function useMapPageLifecycle({ selectedProject, tabKey, callbacks, cache }) {
+// Per-mount plumbing: the tab-scoped state cache, the viewport lock, and the
+// standard types for constellations. No data refresh on mount: the map reads
+// the same dashboard payload as every other tab, and marking it stale here
+// forced a refetch on the next tab the user opened.
+function useMapPageLifecycle({ selectedProject, tabKey, cache }) {
   const cached = useMapTabCache(selectedProject, tabKey, cache);
 
   // Lock parent to viewport height while map is active.
   useDashboardFullHeight();
-
-  // Refresh data on mount and on tab re-click
-  useEffect(() => {
-    callbacks?.onRefresh?.();
-  }, [tabKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Standard types for galaxy constellation grouping.
   const { standardTypes } = useStandardTypes();
@@ -119,7 +115,7 @@ export default function useMapPageState({ data, callbacks, nav, tabKey = 0, cach
     currentPath, vizStyle, viewMode, galaxyMode,
     setCurrentPath, setVizStyle, setViewMode, setGalaxyMode,
   } = useMapNavParams(nav);
-  const { cached, standardTypes } = useMapPageLifecycle({ selectedProject, tabKey, callbacks, cache });
+  const { cached, standardTypes } = useMapPageLifecycle({ selectedProject, tabKey, cache });
 
   // A slim (overview) dashboard has no bodies to place: wait for accumulated
   // rather than drawing an empty tree from it.

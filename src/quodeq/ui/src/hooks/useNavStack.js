@@ -108,7 +108,7 @@ function makeNavTab(setNavStack, navStackRef, history, rememberEntry, startNavTr
     // clobbered by a caller-supplied params key.
     const entry = { ...params, page, _tabKey: prevKey + 1 };
     // Same transition rationale as navPush: tab targets (Violations on a
-    // large project, the keyed tab-fade remount) render heavy too.
+    // large project, a page mounting for the first time) render heavy too.
     startNavTransition(() => {
       setNavStack([entry]);
     });

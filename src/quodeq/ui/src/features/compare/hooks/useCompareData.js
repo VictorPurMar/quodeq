@@ -65,8 +65,9 @@ export function useCompareData(projects) {
 
   return useMemo(() => {
     // Read at memo time, not module time: the Standards screen rewrites the
-    // set, and returning to Compare remounts this hook (tab subtrees are
-    // keyed by tab), so a toggle is always picked up by the next visit.
+    // set, and returning to Compare remounts this hook (another tab's page
+    // took its place meanwhile), so a toggle is always picked up by the
+    // next visit.
     const visibleIds = readVisibleStandardIds();
     const summariesById = {};
     const errorsById = {};

@@ -1,0 +1,72 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { projectKeys } from '../api/queryKeys.js';
+import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
+import { useRunningRunsRefresh } from '../hooks/useRunningRunsRefresh.js';
+import { useViolationsTabKeyReset } from '../features/violations/hooks/useViolationsPageState.js';
+import { createPageStateCache } from '../utils/pageStateCache.js';
+
+// Switching Overview -> History -> Violations -> Overview with fresh data
+// must fire no request. Each tab mounts the hook that used to invalidate on
+// mount, plus an observer on the query that tab reads; the seeded cache is
+// fresh, so the only way a fetch can happen is a mount-time invalidation.
+
+const PROJECT = 'p1';
+const SOURCE = 'local';
+const RUNS = [{ runId: 'r1', status: 'done' }];
+const KEYS = {
+  overview: projectKeys.dashboard(PROJECT, null, SOURCE, DASHBOARD_VIEW.OVERVIEW),
+  full: projectKeys.dashboard(PROJECT, null, SOURCE, DASHBOARD_VIEW.FULL),
+  scores: projectKeys.scores(PROJECT, null, SOURCE),
+};
+
+function makeClient(fetchSpy) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity, queryFn: fetchSpy } },
+  });
+  for (const key of Object.values(KEYS)) client.setQueryData(key, { seeded: true });
+  return client;
+}
+
+function Overview() {
+  useQuery({ queryKey: KEYS.overview });
+  useQuery({ queryKey: KEYS.scores });
+  return null;
+}
+
+function History() {
+  useRunningRunsRefresh({ selectedProject: PROJECT, selectedSource: SOURCE, availableRuns: RUNS });
+  useQuery({ queryKey: KEYS.scores });
+  return null;
+}
+
+function Violations({ cache }) {
+  useViolationsTabKeyReset({ tabKey: 1, selectedProject: PROJECT, cache });
+  useQuery({ queryKey: KEYS.full });
+  return null;
+}
+
+describe('tab switches with fresh data', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('fire no request and leave no query invalidated', async () => {
+    const fetchSpy = vi.fn(async () => ({ fetched: true }));
+    const client = makeClient(fetchSpy);
+    const cache = createPageStateCache();
+    const wrap = (page) => <QueryClientProvider client={client}>{page}</QueryClientProvider>;
+
+    const { rerender } = render(wrap(<Overview />));
+    for (const page of [<History key="h" />, <Violations key="v" cache={cache} />, <Overview key="o" />]) {
+      rerender(wrap(page));
+      await act(async () => { await vi.runAllTimersAsync(); });
+    }
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    for (const key of Object.values(KEYS)) {
+      expect(client.getQueryState(key).isInvalidated).toBe(false);
+      expect(client.getQueryState(key).data).toEqual({ seeded: true });
+    }
+  });
+});

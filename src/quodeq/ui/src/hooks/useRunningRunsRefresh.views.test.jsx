@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRunningRunsRefresh } from './useRunningRunsRefresh.js';
 import { projectKeys } from '../api/queryKeys.js';
+import { IN_PROGRESS_POLL_MS } from '../utils/runPolling.js';
 import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 
 // The refresh must reach whichever dashboard shape is mounted: the root
@@ -10,6 +11,8 @@ import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 // Asserted on real query state, not on the keys passed to invalidateQueries:
 // an exact full key is not a prefix of the overview key, and a key-equality
 // test would pass either way.
+
+const TICK_SLACK_MS = 50;
 
 function makeClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
@@ -38,6 +41,11 @@ describe('useRunningRunsRefresh across dashboard views', () => {
       }),
       { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> },
     );
+    // Nothing on mount; the first poll tick does the work.
+    expect(client.getQueryState(overviewLatest).isInvalidated).toBe(false);
+    act(() => {
+      vi.advanceTimersByTime(IN_PROGRESS_POLL_MS + TICK_SLACK_MS);
+    });
     expect(client.getQueryState(overviewLatest).isInvalidated).toBe(true);
     expect(client.getQueryState(fullLatest).isInvalidated).toBe(true);
     expect(client.getQueryState(liveOverview).isInvalidated).toBe(true);

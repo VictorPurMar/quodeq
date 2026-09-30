@@ -55,7 +55,7 @@ export function mapRoute(params, props) {
       isFetching: props.dashboardData.isFetching,
       error: props.dashboardData.error,
     }}
-    callbacks={{ onNavigate: props.navigation.handleNavigate, onRefresh: props.refreshDashboard, onRetry: props.dashboardData.onRetry }}
+    callbacks={{ onNavigate: props.navigation.handleNavigate, onRetry: props.dashboardData.onRetry }}
     nav={{
       path: params.path || '',
       vizStyle: params.vizStyle,
