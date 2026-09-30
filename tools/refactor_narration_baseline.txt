@@ -120,7 +120,7 @@ src/quodeq/ui/src/features/dashboard/hooks/useDashboard.frozenIdentity.test.jsx:
 src/quodeq/ui/src/features/dashboard/hooks/usePublish.completionAndErrors.test.jsx:31
 src/quodeq/ui/src/features/dashboard/hooks/usePublish.doubleClickAndPoll.test.jsx:41
 src/quodeq/ui/src/features/dashboard/hooks/usePublish.reconcileAndLifecycle.test.jsx:35
-src/quodeq/ui/src/features/dashboard/hooks/usePublishPolling.js:9
+src/quodeq/ui/src/features/dashboard/hooks/usePublishPolling.js:10
 src/quodeq/ui/src/features/dashboard/hooks/useSharedActions.js:14
 src/quodeq/ui/src/features/dashboard/hooks/useSharedProjects.contentSignal.test.jsx:42
 src/quodeq/ui/src/features/dashboard/hooks/useSharedProjects.loadAndConnect.test.jsx:32
@@ -152,7 +152,7 @@ src/quodeq/ui/src/features/history/components/historyRowAssembly.js:3
 src/quodeq/ui/src/features/map/viz/components/galaxyPrincipleStars.js:5
 src/quodeq/ui/src/features/onboarding/components/OnboardingStepSwitch.jsx:9
 src/quodeq/ui/src/features/onboarding/components/steps/RepoScanSummary.jsx:9
-src/quodeq/ui/src/features/onboarding/hooks/useActiveProviderState.js:41
+src/quodeq/ui/src/features/onboarding/hooks/useActiveProviderState.js:42
 src/quodeq/ui/src/features/settings/components/SharedRepoSection.connect.test.jsx:7
 src/quodeq/ui/src/features/settings/components/SharedRepoSection.disconnect.test.jsx:11
 src/quodeq/ui/src/features/settings/components/_sharedRepoSection.fixtures.jsx:10
@@ -177,7 +177,6 @@ src/quodeq/ui/src/hooks/useJobCompletionEffect.js:10
 src/quodeq/ui/src/hooks/useNavStack.historyState.test.jsx:22
 src/quodeq/ui/src/hooks/useNavStack.purity.test.jsx:22
 src/quodeq/ui/src/hooks/useNavStack.replace.test.jsx:22
-src/quodeq/ui/src/hooks/useProjectWarmupPoll.js:7
 src/quodeq/ui/src/hooks/useSidebarPin.js:6
 src/quodeq/ui/src/utils/_dailyGrouping.fixtures.js:4
 src/quodeq/ui/src/utils/dailyGrouping.collapse.test.js:10

@@ -9,8 +9,19 @@
  *
  * Per-query overrides live at each useQuery call site (refetchInterval
  * for polling-driven sources; staleTime: Infinity when SSE owns updates).
+ *
+ * focusManager is driven by utils/appVisibility.js rather than the library's
+ * own listener. No query sets refetchIntervalInBackground, so reporting the
+ * window as unfocused is what stops every refetchInterval while the app is
+ * hidden — including the health poll, which resumes on its next tick.
  */
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, focusManager } from "@tanstack/react-query";
+import { isHidden, subscribeVisibility } from "../utils/appVisibility.js";
+
+focusManager.setEventListener((handleFocus) => {
+  handleFocus(!isHidden());
+  return subscribeVisibility(() => handleFocus(!isHidden()));
+});
 
 // gcTime: 5min (library default) — kept long enough for screen-back
 // navigation (see docstring above).

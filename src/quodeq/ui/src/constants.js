@@ -152,6 +152,11 @@ export const MOBILE_BREAKPOINT_QUERY = `(max-width: ${MOBILE_BREAKPOINT_PX}px)`;
 // Third-party contract: pywebview dispatches this on window once its JS
 // bridge is injected. Never rename.
 export const PYWEBVIEW_READY_EVENT = 'pywebviewready';
+// The native shell dispatches this on window when it minimises, hides or
+// restores, carrying `{ detail: { hidden: boolean } }`. pywebview never
+// changes document.visibilityState, so this is the only hidden signal the
+// desktop app gets. Mirrored in dashboard/_webview_window_visibility.py.
+export const APP_VISIBILITY_EVENT = 'quodeq:visibility';
 
 // HTTP status codes the UI branches on by name (a 409 collision, a 404
 // gone-missing). Not a full status enum, only the codes callers compare

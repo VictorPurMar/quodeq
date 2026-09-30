@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getProviderConfigs } from '../../../api/index.js';
 import { ACTIVE_PROVIDER_KEY, providerKey, PROVIDER_SETTING_KEY } from '../../../constants.js';
 import { readString } from '../../../adapters/storage.js';
+import { useVisibleInterval } from '../../../hooks/useVisibleInterval.js';
 
 // Poll interval for mirroring localStorage: ProviderTabs and its children
 // write directly and the `storage` event only fires cross-tab. Short enough
@@ -51,10 +52,11 @@ export function useActiveProviderState() {
 
   useEffect(() => {
     const tick = () => setActiveProvider(readActiveProviderState());
-    const interval = setInterval(tick, ACTIVE_PROVIDER_POLL_MS);
     window.addEventListener('storage', tick);
-    return () => { clearInterval(interval); window.removeEventListener('storage', tick); };
+    return () => window.removeEventListener('storage', tick);
   }, []);
+
+  useVisibleInterval(() => setActiveProvider(readActiveProviderState()), ACTIVE_PROVIDER_POLL_MS);
 
   return { providerConfigs, activeProvider };
 }
