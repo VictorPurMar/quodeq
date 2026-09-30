@@ -37,16 +37,23 @@ describe('hitCircle', () => {
 describe('isDrawable', () => {
   const v = packViewport(SPAN, SPAN);
   it('skips offscreen circles', () => {
-    expect(isDrawable({ cx: 5000, cy: 300, r: 10 }, v)).toBe(false);
-    expect(isDrawable({ cx: 300, cy: 300, r: 10 }, v)).toBe(true);
+    expect(isDrawable({ cx: 5000, cy: 300, r: 10 }, v, SPAN, SPAN)).toBe(false);
+    expect(isDrawable({ cx: 300, cy: 300, r: 10 }, v, SPAN, SPAN)).toBe(true);
   });
-});
 
-// Sub-pixel circles still paint: the SVG view keeps them visible through
-// its non-scaling 1px stroke, and that texture is what makes a zoomed-out
-// folder read as full rather than empty.
-describe('isDrawable keeps sub-pixel circles', () => {
-  it('draws a circle far smaller than a pixel when it is inside the view', () => {
-    expect(isDrawable({ cx: 300, cy: 300, r: 0.05 })).toBe(true);
+  // Sub-pixel circles still paint: the SVG view keeps them visible through
+  // its non-scaling 1px stroke, and that texture is what makes a zoomed-out
+  // folder read as full rather than empty.
+  it('draws a circle far smaller than a pixel when it is on the canvas', () => {
+    expect(isDrawable({ cx: 300, cy: 300, r: 0.05 }, v, SPAN, SPAN)).toBe(true);
+  });
+
+  // Zoomed in, the focused folder fills the view box and its siblings sit
+  // in the letterbox of a wide canvas: on screen, outside the box.
+  it('keeps circles in the letterbox beside the view box', () => {
+    const wide = packViewport(SPAN * 2, SPAN);
+    const beyondBox = { cx: PACK_BASE_SIZE + PACK_VIEW_PAD + 200, cy: 300, r: 5 };
+    expect(isDrawable(beyondBox, wide, SPAN * 2, SPAN)).toBe(true);
+    expect(isDrawable(beyondBox, v, SPAN, SPAN)).toBe(false);
   });
 });
