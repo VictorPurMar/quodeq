@@ -10,6 +10,8 @@ import SharedReadOnlyBadge from '../../../components/SharedReadOnlyBadge.jsx';
 import { t } from '../../../strings/index.js';
 import { walkTree } from '../../../utils/treeWalk.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
+import DeferredMount from '../../../components/DeferredMount.jsx';
+import CardListSkeleton from '../../../components/CardListSkeleton.jsx';
 import { VIOLATIONS_SUB_TAB } from '../violationsVocab.js';
 import { pluralKey } from '../../../utils/plural.js';
 
@@ -197,13 +199,17 @@ export default function ViolationsPage({ data, callbacks, tabKey = 0, subTab = V
         summary={summary} visibleDimensions={visibleDimensions} topFilesCount={topFilesCount} uniquePrinciples={uniquePrinciples}
         selectedSource={selectedSource} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} dismissed={dismissed}
       />
-      <ViolationsSubTabContent
-        activeSubTab={activeSubTab} visibleDimensions={visibleDimensions} dismissed={dismissed}
-        callbacks={callbacks} fileCurrentPath={fileCurrentPath} setFileCurrentPath={setFileCurrentPath}
-        handleRestore={handleRestore} handleRestoreAll={handleRestoreAll}
-        handleDelete={handleDelete} handleDeleteAll={handleDeleteAll}
-        selectedSource={selectedSource} selectedProject={selectedProject}
-      />
+      {/* The header paints on the click; the sub-tab body (heat grid, file
+          tree, type rows over every finding) follows in the next commit. */}
+      <DeferredMount fallback={<CardListSkeleton />}>
+        <ViolationsSubTabContent
+          activeSubTab={activeSubTab} visibleDimensions={visibleDimensions} dismissed={dismissed}
+          callbacks={callbacks} fileCurrentPath={fileCurrentPath} setFileCurrentPath={setFileCurrentPath}
+          handleRestore={handleRestore} handleRestoreAll={handleRestoreAll}
+          handleDelete={handleDelete} handleDeleteAll={handleDeleteAll}
+          selectedSource={selectedSource} selectedProject={selectedProject}
+        />
+      </DeferredMount>
     </div>
   );
 }

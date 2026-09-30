@@ -6,8 +6,8 @@ import {
 import { complianceRatio } from '../../../utils/formatters.js';
 import useMapPageState from './useMapPageState.js';
 import { TermHeader } from '../../../components/terminal/index.js';
-import EmptyState from '../../../components/EmptyState.jsx';
-import LoadingScreen from '../../../components/LoadingScreen.jsx';
+import { useDeferredReady } from '../../../components/DeferredMount.jsx';
+import { MapLoadingState, MapNoDimensionsState, MapNoProjectsState, MapNoProjectSelectedState } from './MapPageStates.jsx';
 import SharedReadOnlyBadge from '../../../components/SharedReadOnlyBadge.jsx';
 import { useThemeIsDark } from '../../../hooks/useThemeIsDark.js';
 import { t } from '../../../strings/index.js';
@@ -15,7 +15,6 @@ import { DATA_THEME_ATTR } from '../../../constants.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
 import { VIEW_MODES, VIZ_STYLE, GALAXY_MODE } from '../mapVocab.js';
 import { THEME_FAMILY } from '../../../vocab/theme.js';
-import { NAV_TAB } from '../../../vocab/navTab.js';
 
 // data-theme attr for forcing the viz dark while the app is light: keep the
 // active theme family, swap the mode suffix. Attribute values: absent =
@@ -155,103 +154,20 @@ function MapVizContainer({ vizState, treeState, dimensions, callbacks, display }
   );
 }
 
-function MapEmpty({ sub, children, refreshing }) {
-  return (
-    <div className={`map-page map-page--terminal${refreshing ? ' dashboard-refreshing' : ''}`}>
-      <TermHeader name="map" sub={sub} />
-      {children}
-    </div>
-  );
+// Holds the visualisation's slot (same class, so the same flex sizing) on
+// the commit that paints the page frame, before the tree and layout run.
+function MapVizSkeleton() {
+  return <div className="map-viz-container map-viz-container--skeleton" aria-busy="true" aria-hidden="true" />;
 }
 
-function MapLoadingState() {
-  return (
-    <MapEmpty sub="loading…">
-      <LoadingScreen variant="inline" />
-    </MapEmpty>
-  );
+function nodeSummary(node) {
+  const viol = node.violations;
+  return `${viol} violation${viol !== 1 ? 's' : ''} · ratio ${complianceRatio(viol, node.compliance)}`;
 }
 
-function MapErrorState({ error, onRetry }) {
-  return (
-    <MapEmpty sub="error">
-      <EmptyState
-        title={t('map.projectLoadFailed')}
-        description={error}
-        actionLabel="Retry"
-        onAction={() => onRetry?.()}
-      />
-    </MapEmpty>
-  );
-}
-
-function MapNoEvaluationsState({ selectedSource, selectedProject, projectName, isRefreshing, onNavigate }) {
-  // Shared projects are read-only in the app -- evaluations only ever run
-  // locally, so "Start evaluation" has nowhere useful to send a
-  // shared-project viewer (see DashboardPage's NoCompletedEvalPanel, the
-  // precedent this mirrors).
-  if (selectedSource === PROJECT_SOURCE.SHARED) {
-    return (
-      <MapEmpty sub={t('map.subNoEvaluations')} refreshing={isRefreshing}>
-        <EmptyState
-          title={t('map.noCompletedEvaluation')}
-          description={t('map.noCompletedRemote')}
-        />
-      </MapEmpty>
-    );
-  }
-  return (
-    <MapEmpty sub={t('map.subNoEvaluations')} refreshing={isRefreshing}>
-      <EmptyState
-        title={t('map.noEvaluationsYet')}
-        description={t('map.runEvaluationDesc', { project: projectName || selectedProject })}
-        actionLabel={t('map.startEvaluation')}
-        onAction={() => onNavigate?.(NAV_TAB.EVALUATE)}
-      />
-    </MapEmpty>
-  );
-}
-
-// A failed fetch with nothing to show must render as an error, not the
-// "no evaluations yet" empty state -- otherwise a 404/500/timeout tells
-// the user their existing evaluations are gone. While a retry is in
-// flight (error still set, isFetching true), show the loader instead so
-// clicking Retry visibly does something.
-function MapNoDimensionsState({ loading, error, isFetching, selectedSource, selectedProject, projectName, isRefreshing, onNavigate, onRetry }) {
-  if (loading) return <MapLoadingState />;
-  if (error) return isFetching ? <MapLoadingState /> : <MapErrorState error={error} onRetry={onRetry} />;
-  return (
-    <MapNoEvaluationsState
-      selectedSource={selectedSource} selectedProject={selectedProject} projectName={projectName}
-      isRefreshing={isRefreshing} onNavigate={onNavigate}
-    />
-  );
-}
-
-function MapNoProjectsState({ onNavigate }) {
-  return (
-    <MapEmpty sub={t('map.subNoProjects')}>
-      <EmptyState
-        title={t('map.noProjectsYet')}
-        description={t('map.addProjectDesc')}
-        actionLabel={t('map.addProject')}
-        onAction={() => onNavigate?.(NAV_TAB.PROJECTS)}
-      />
-    </MapEmpty>
-  );
-}
-
-function MapNoProjectSelectedState({ onNavigate }) {
-  return (
-    <MapEmpty sub={t('map.subNoProjectSelected')}>
-      <EmptyState
-        title={t('map.noProjectSelected')}
-        description={t('map.pickProjectDesc')}
-        actionLabel={t('map.chooseProject')}
-        onAction={() => onNavigate?.(NAV_TAB.PROJECTS)}
-      />
-    </MapEmpty>
-  );
+function MapBody({ ready, state }) {
+  if (!ready) return <MapVizSkeleton />;
+  return <MapVizContainer vizState={state.vizState} treeState={state.treeState} dimensions={state.dimensions} callbacks={state.callbacks} display={state.display} />;
 }
 
 export default function MapPage(props) {
@@ -259,12 +175,15 @@ export default function MapPage(props) {
   const { projects = [], projectsLoaded, selectedProject, selectedSource = PROJECT_SOURCE.LOCAL, projectName, loading, isFetching, error } = data;
   const { onNavigate, onRetry } = callbacks;
 
+  // The first commit paints the header and controls over an empty slot; the
+  // tree build and the visualisation follow in a transition (useDeferredReady).
+  const ready = useDeferredReady();
   // Call the hook unconditionally to keep hook order stable across renders.
   // The hook tolerates missing data — `state.allDimensions` is `[]` when there
   // is no project or no run data, which is exactly what we use for case C.
-  const state = useMapPageState(props);
+  const state = useMapPageState({ ...props, deferTree: !ready });
 
-  if (!projectsLoaded) return <LoadingScreen />;
+  if (!projectsLoaded) return <MapLoadingState />;
   if (projects.length === 0 && selectedSource !== PROJECT_SOURCE.SHARED) return <MapNoProjectsState onNavigate={onNavigate} />;
   if (!selectedProject) return <MapNoProjectSelectedState onNavigate={onNavigate} />;
   const isRefreshing = isFetching && !loading;
@@ -278,20 +197,19 @@ export default function MapPage(props) {
     );
   }
 
-  const viol = state.currentNode.violations;
-  const ratio = complianceRatio(viol, state.currentNode.compliance);
+  const sub = ready ? nodeSummary(state.currentNode) : t('overview.loading');
 
   return (
     <div className={`map-page map-page--terminal${isRefreshing ? ' dashboard-refreshing' : ''}`}>
       <div className="map-page__top">
         <TermHeader
           name="map"
-          sub={`${viol} violation${viol !== 1 ? 's' : ''} · ratio ${ratio}`}
+          sub={sub}
           badge={selectedSource === PROJECT_SOURCE.SHARED ? <SharedReadOnlyBadge /> : null}
         />
         <MapControls viewState={state.viewState} galaxyState={state.galaxyState} dimensionState={state.dimensionState} />
       </div>
-      <MapVizContainer vizState={state.vizState} treeState={state.treeState} dimensions={state.dimensions} callbacks={state.callbacks} display={state.display} />
+      <MapBody ready={ready} state={state} />
     </div>
   );
 }

@@ -13,6 +13,9 @@ import { NAV_TAB } from '../../../vocab/navTab.js';
 // implementations live in mapTree.js (pure, unit-testable without the hook).
 export { findSubtree, buildBreadcrumbPath } from './mapTree.js';
 
+// Stable empty input for the tree while the page defers its heavy body.
+const EMPTY_DIMENSIONS = [];
+
 /**
  * Drill path and mode/style toggles live in the nav-stack entry (route
  * params), not component state — drilling pushes a history entry, toggling
@@ -108,8 +111,15 @@ function useMapPageLifecycle({ selectedProject, tabKey, cache }) {
  * and storage via the shared adapters (adapters/storage.js + pageStateCache).
  * `cache` is an optional injected page-state cache (see pageStateCache.js);
  * omit it in production, where every page shares the module-level default.
+ * `deferTree` keeps the file tree empty (so buildFileTree over every finding
+ * stays off the current commit); the page flips it once its frame has
+ * painted.
  */
-export default function useMapPageState({ data, callbacks, nav, tabKey = 0, cache }) {
+function treeDimensions(filteredDimensions, deferTree) {
+  return deferTree ? EMPTY_DIMENSIONS : filteredDimensions;
+}
+
+export default function useMapPageState({ data, callbacks, nav, tabKey = 0, cache, deferTree = false }) {
   const selectedProject = data?.projectName || data?.selectedProject || '__map__';
   const {
     currentPath, vizStyle, viewMode, galaxyMode,
@@ -129,7 +139,7 @@ export default function useMapPageState({ data, callbacks, nav, tabKey = 0, cach
   });
 
   const { fullTree, currentNode, breadcrumb, handleDrillDown, handleBreadcrumbNav } = useMapTreeState({
-    filteredDimensions, currentPath, setCurrentPath,
+    filteredDimensions: treeDimensions(filteredDimensions, deferTree), currentPath, setCurrentPath,
   });
 
   return buildMapPageResult({

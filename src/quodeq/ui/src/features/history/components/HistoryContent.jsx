@@ -1,6 +1,8 @@
 import { Component, useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import HistoryChartPanelPlaceholder from './HistoryChartPanelPlaceholder.jsx';
 import RunNavigator from '../../../components/RunNavigator.jsx';
+import DeferredMount from '../../../components/DeferredMount.jsx';
+import CardListSkeleton from '../../../components/CardListSkeleton.jsx';
 import { TermHeader } from '../../../components/terminal/index.js';
 import SharedReadOnlyBadge from '../../../components/SharedReadOnlyBadge.jsx';
 import { t } from '../../../strings/index.js';
@@ -151,19 +153,23 @@ export function HistoryContent({ data, callbacks, runNav, languageSub, selectedS
         </Suspense>
       </ChartErrorBoundary>
 
-      <EvaluationsTable
-        visible={visible}
-        selectedRunId={selectedRunId}
-        deltas={deltas}
-        countDeltas={countDeltas}
-        statusByRunId={statusByRunId}
-        onRunClick={onRunClick}
-        onRunHover={onRunHover}
-        onRunHoverEnd={onRunHoverEnd}
-        onDeleteRun={onDeleteRun}
-        deletingRunIds={deletingRunIds}
-        onNotReadyClick={handleNotReadyClick}
-      />
+      {/* Header and chart slot paint on the click; the run table (one row
+          per run, with deltas) follows in the next commit. */}
+      <DeferredMount fallback={<CardListSkeleton />}>
+        <EvaluationsTable
+          visible={visible}
+          selectedRunId={selectedRunId}
+          deltas={deltas}
+          countDeltas={countDeltas}
+          statusByRunId={statusByRunId}
+          onRunClick={onRunClick}
+          onRunHover={onRunHover}
+          onRunHoverEnd={onRunHoverEnd}
+          onDeleteRun={onDeleteRun}
+          deletingRunIds={deletingRunIds}
+          onNotReadyClick={handleNotReadyClick}
+        />
+      </DeferredMount>
 
       {toastVisible && (
         <NotReadyToast
