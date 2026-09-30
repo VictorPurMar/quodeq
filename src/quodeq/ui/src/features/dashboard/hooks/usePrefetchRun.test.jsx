@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePrefetchRun, PREFETCH_DWELL_MS } from './usePrefetchRun.js';
 import { useApi } from '../../../api/ApiContext.jsx';
 import { projectKeys } from '../../../api/queryKeys.js';
+import { DASHBOARD_VIEW } from '../../../vocab/dashboardView.js';
 
 vi.mock('../../../api/ApiContext.jsx', () => ({
   useApi: vi.fn(),
@@ -45,10 +46,10 @@ describe('usePrefetchRun', () => {
     vi.useRealTimers();
 
     await waitFor(() => {
-      expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1'))).toBeTruthy();
+      expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1', 'local', DASHBOARD_VIEW.OVERVIEW))).toBeTruthy();
       expect(queryClient.getQueryData(projectKeys.scores('p1', 'r1'))).toBeTruthy();
     });
-    expect(getDashboard).toHaveBeenCalledWith('p1', 'r1', 'full');
+    expect(getDashboard).toHaveBeenCalledWith('p1', 'r1', 'overview');
     expect(getProjectScores).toHaveBeenCalledWith('p1', 'r1');
   });
 
@@ -74,7 +75,7 @@ describe('usePrefetchRun', () => {
     await vi.advanceTimersByTimeAsync(PREFETCH_DWELL_MS);
 
     expect(getDashboard).toHaveBeenCalledTimes(1);
-    expect(getDashboard).toHaveBeenCalledWith('p1', 'r3', 'full');
+    expect(getDashboard).toHaveBeenCalledWith('p1', 'r3', 'overview');
     expect(getProjectScores).toHaveBeenCalledTimes(1);
     expect(getProjectScores).toHaveBeenCalledWith('p1', 'r3');
   });
@@ -134,9 +135,9 @@ describe('usePrefetchRun', () => {
       vi.useRealTimers();
 
       await waitFor(() => {
-        expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1', 'local'))).toBeTruthy();
+        expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1', 'local', DASHBOARD_VIEW.OVERVIEW))).toBeTruthy();
       });
-      expect(getDashboard).toHaveBeenCalledWith('p1', 'r1', 'full');
+      expect(getDashboard).toHaveBeenCalledWith('p1', 'r1', 'overview');
       expect(getProjectScores).toHaveBeenCalledWith('p1', 'r1');
       expect(sharedGetDashboard).not.toHaveBeenCalled();
       expect(sharedGetProjectScores).not.toHaveBeenCalled();
@@ -150,12 +151,29 @@ describe('usePrefetchRun', () => {
       vi.useRealTimers();
 
       await waitFor(() => {
-        expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1', 'shared'))).toBeTruthy();
+        expect(queryClient.getQueryData(projectKeys.dashboard('p1', 'r1', 'shared', DASHBOARD_VIEW.OVERVIEW))).toBeTruthy();
       });
-      expect(sharedGetDashboard).toHaveBeenCalledWith('p1', 'r1', 'full');
+      expect(sharedGetDashboard).toHaveBeenCalledWith('p1', 'r1', 'overview');
       expect(sharedGetProjectScores).toHaveBeenCalledWith('p1', 'r1');
       expect(getDashboard).not.toHaveBeenCalled();
       expect(getProjectScores).not.toHaveBeenCalled();
     });
+  });
+
+  // The full shape is 10-34 MB; a mouse crossing History must not pull any.
+  it('hovering twenty rows leaves no full-shape entry in the cache', async () => {
+    const { result } = renderHook(() => usePrefetchRun('p1'), { wrapper: makeWrapper(queryClient) });
+
+    for (let i = 1; i <= 20; i += 1) {
+      result.current.prefetchRun(`r${i}`);
+      // eslint-disable-next-line no-await-in-loop -- one dwell per row, in order
+      await vi.advanceTimersByTimeAsync(PREFETCH_DWELL_MS);
+    }
+
+    const views = queryClient.getQueryCache().getAll()
+      .filter((q) => q.queryKey[3] === 'dashboard')
+      .map((q) => q.queryKey.at(-1));
+    expect(views).toHaveLength(20);
+    expect(views.filter((v) => v === DASHBOARD_VIEW.FULL)).toHaveLength(0);
   });
 });

@@ -1,10 +1,14 @@
 /**
  * Prefetch a single run's dashboard + scores payloads into the query cache.
  *
- * Pairs with the run-detail views: warming the cache on hover means that by
- * the time the user clicks, the data is often already there and the loading
- * state is skipped entirely. Shared by the overview run navigator
+ * Pairs with the run views: warming the cache on hover means that by the time
+ * the user clicks, the data is often already there and the loading state is
+ * skipped entirely. Shared by the overview run navigator
  * (usePrefetchAdjacentRuns) and the History table rows.
+ *
+ * Only the overview shape is warmed. The full shape a run page needs is 10 to
+ * 34 MB, which is too much to fetch on a guess; the run page asks for it on
+ * arrival.
  *
  * The prefetch fires only after the pointer dwells PREFETCH_DWELL_MS on the
  * same run. Both payloads are expensive to build server-side (seconds of CPU
@@ -58,11 +62,12 @@ export function usePrefetchRun(selectedProject, selectedSource = PROJECT_SOURCE.
         // is good until a mutation invalidates it — and prefetchQuery refetches
         // invalidated entries regardless of staleTime.
         const staleTime = runId !== LATEST_RUN_ID ? Infinity : STALE_TIME_MS;
-        // Dashboard payload (the main render).
+        // Dashboard payload. The overview shape only: it is ~0.1 MB against
+        // 10-34 MB for the full one, and a hover is a guess about where the
+        // user is going. The run page fetches the full shape on arrival.
         queryClient.prefetchQuery({
-          // Explicitly the full shape: a hovered run opens as run-detail.
-          queryKey: projectKeys.dashboard(selectedProject, runId, selectedSource, DASHBOARD_VIEW.FULL),
-          queryFn: () => fetchDashboard(selectedProject, runId, DASHBOARD_VIEW.FULL),
+          queryKey: projectKeys.dashboard(selectedProject, runId, selectedSource, DASHBOARD_VIEW.OVERVIEW),
+          queryFn: () => fetchDashboard(selectedProject, runId, DASHBOARD_VIEW.OVERVIEW),
           staleTime,
         });
         // Scores payload (drives accumulated + trend).

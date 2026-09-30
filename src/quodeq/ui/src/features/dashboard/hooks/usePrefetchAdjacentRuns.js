@@ -3,7 +3,8 @@
  *
  * Pairs with placeholderData in useDashboard / useProjectScores: by the time
  * the user clicks Prev / Next / Latest, the cache for that run is often
- * already warm, so the placeholder swap is invisible.
+ * already warm, so the placeholder swap is invisible. The Overview reads the
+ * overview shape, which is what usePrefetchRun warms.
  *
  * Returns mouse-enter handlers to wire onto the run-navigator buttons.
  * The hook is no-op when the project or runs list is empty.
