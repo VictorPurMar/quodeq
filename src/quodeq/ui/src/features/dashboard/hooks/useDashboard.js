@@ -7,7 +7,7 @@ import { useScopedPlaceholder } from "../../../hooks/useScopedPlaceholder.js";
 import { isFrozenRun } from '../../../models/runRules.js';
 import { t } from '../../../strings/index.js';
 import { useDashboardInvalidation } from './useDashboardInvalidation.js';
-import { STALE_TIME_MS, refetchWhileError } from '../../../hooks/queryDefaults.js';
+import { STALE_TIME_MS, FULL_VIEW_GC_TIME_MS, refetchWhileError } from '../../../hooks/queryDefaults.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
 import { DASHBOARD_VIEW } from '../../../vocab/dashboardView.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
@@ -76,6 +76,9 @@ function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fe
     queryFn: () => fetchDashboard(selectedProject, selectedRun, view),
     enabled: !!selectedProject,
     staleTime: frozenRun ? Infinity : STALE_TIME_MS,
+    // The full shape is the big one; drop it soon after the user leaves the
+    // run page instead of holding it for the library's 5-minute default.
+    gcTime: view === DASHBOARD_VIEW.FULL ? FULL_VIEW_GC_TIME_MS : undefined,
     // The webview has no focus/reconnect events, so an errored query must
     // poll its own way back to health (see refetchWhileError).
     refetchInterval: refetchWhileError,

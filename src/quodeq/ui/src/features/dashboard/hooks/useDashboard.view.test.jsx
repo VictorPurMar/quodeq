@@ -5,6 +5,8 @@ import { useDashboard, dashboardViewForPage } from "./useDashboard";
 import { ApiProvider } from "../../../api/ApiContext.jsx";
 import { DASHBOARD_VIEW } from "../../../vocab/dashboardView.js";
 import { NAV_TAB } from "../../../vocab/navTab.js";
+import { FULL_VIEW_GC_TIME_MS } from "../../../hooks/queryDefaults.js";
+import { projectKeys } from "../../../api/queryKeys.js";
 
 // The dashboard view: which shape the hook asks for, how it keys it, and
 // that the two shapes never stand in for each other.
@@ -65,5 +67,26 @@ describe("useDashboard view", () => {
     expect(dashboardViewForPage(NAV_TAB.HISTORY_RUN)).toBe(DASHBOARD_VIEW.FULL);
     expect(dashboardViewForPage(NAV_TAB.OVERVIEW)).toBe(DASHBOARD_VIEW.OVERVIEW);
     expect(dashboardViewForPage(NAV_TAB.HISTORY)).toBe(DASHBOARD_VIEW.OVERVIEW);
+  });
+
+  // The full shape is 10-34 MB, so it must not sit in the cache for the
+  // library's 5-minute default once nothing is rendering it.
+  it.each([
+    [DASHBOARD_VIEW.FULL, FULL_VIEW_GC_TIME_MS],
+    [DASHBOARD_VIEW.OVERVIEW, undefined],
+  ])("gives the %s shape a gcTime of %s", async (view, expected) => {
+    const fakeApi = makeFakeApi();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }) => (
+      <QueryClientProvider client={client}><ApiProvider value={fakeApi}>{children}</ApiProvider></QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => useDashboard({ selectedProject: "p1", selectedRun: "r1", view }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.dashboard).toBeTruthy());
+    const query = client.getQueryCache().find({ queryKey: projectKeys.dashboard("p1", "r1", "local", view) });
+    expect(query.options.gcTime).toBe(expected);
   });
 });

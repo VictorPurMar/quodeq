@@ -44,6 +44,9 @@ export const evaluationKeys = {
 const PROJECT_SCOPE = "project";
 const PROJECT_ID_INDEX = 1;
 const PROJECT_SOURCE_INDEX = 2;
+// The subkey segment that marks a dashboard-payload key, and its position.
+const DASHBOARD_KIND = "dashboard";
+const DASHBOARD_KIND_INDEX = 3;
 
 /**
  * Build a project-scoped query key.
@@ -71,9 +74,9 @@ export const projectKeys = {
   // `dashboard` is an exact key (reads, writes, prefetch); an invalidation
   // that must reach both shapes uses `dashboardAnyView`, the prefix without it.
   dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE, view = DASHBOARD_VIEW.FULL) =>
-    projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID, view),
+    projectScope(projectId, source, DASHBOARD_KIND, run || LATEST_RUN_ID, view),
   dashboardAnyView: (projectId, run, source = DEFAULT_PROJECT_SOURCE) =>
-    projectScope(projectId, source, "dashboard", run || LATEST_RUN_ID),
+    projectScope(projectId, source, DASHBOARD_KIND, run || LATEST_RUN_ID),
   runs: (projectId, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "runs"),
   // The help page's worked example. Inside the project subtree so dismiss and
   // formula invalidations reach it like every other per-run read.
@@ -128,6 +131,19 @@ export function samePlaceholderScope(previousQuery, projectId, source = DEFAULT_
 
 // Position of the view segment in a `projectKeys.dashboard` key.
 const DASHBOARD_VIEW_INDEX = 5;
+const DASHBOARD_RUN_INDEX = 4;
+
+/**
+ * The run and view a dashboard key addresses, or null for any other key.
+ *
+ * @param {*} key
+ * @returns {{runId: string, view: string}|null}
+ */
+export function dashboardKeyParts(key) {
+  if (!Array.isArray(key)) return null;
+  if (key[0] !== PROJECT_SCOPE || key[DASHBOARD_KIND_INDEX] !== DASHBOARD_KIND) return null;
+  return { runId: key[DASHBOARD_RUN_INDEX], view: key[DASHBOARD_VIEW_INDEX] };
+}
 
 /**
  * True when *previousQuery* is a dashboard key of the given *view*. The
