@@ -1,10 +1,21 @@
 /* ── Tab fade transition ─────────────────────────────── */
 
+/* The wrapper is a stable node (see TabFade in AppMain.jsx); the two phases
+   name identical keyframes so a phase flip restarts the fade in place. */
 .tab-fade {
   animation: tab-fadein 300ms ease;
 }
 
+.tab-fade[data-fade="b"] {
+  animation-name: tab-fadein-alt;
+}
+
 @keyframes tab-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tab-fadein-alt {
   from { opacity: 0; }
   to { opacity: 1; }
 }

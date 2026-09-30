@@ -190,8 +190,8 @@ function ExplorerPageBody({
  * radial/enriched principle views, the principle-click handler, score,
  * refreshing flag). Thread sourceTab through onPrincipleClick: without it a
  * principle click from a Violations-tab drill-in falls back to the
- * Overview tab, force-remounting the whole content subtree (App.jsx keys
- * it on activeTab) and jumping the sidebar highlight. */
+ * Overview tab, swapping the whole page for the Overview and jumping the
+ * sidebar highlight. */
 function buildExplorerViewData(d, onNavigate, sourceTab, buildEvalPrincipal, principleViews) {
   return {
     dim: String(d.evalData.dimension || '').toLowerCase(),

@@ -165,7 +165,7 @@ export function ViolationsSubTabContent(props) {
 export default function ViolationsPage({ data, callbacks, tabKey = 0, subTab = VIOLATIONS_SUB_TAB.DIMENSION, onSubTabChange }) {
   const { accumulatedDimensions = [], selectedProject, dismissRefreshKey = 0, selectedSource = PROJECT_SOURCE.LOCAL } = data;
   const { projects = [], projectsLoaded, projectName, loading, isFetching, error } = data;
-  const { onNavigate, onRefresh, onReconcile, onRetry } = callbacks;
+  const { onNavigate, onReconcile, onRetry } = callbacks;
 
   // The active sub-tab lives in the nav-stack entry, not component state:
   // `subTab` arrives as a route param and flipping it replaces the entry in
@@ -181,7 +181,7 @@ export default function ViolationsPage({ data, callbacks, tabKey = 0, subTab = V
     restoreError, visibleDimensions,
     summary, topFilesCount, uniquePrinciples,
     fileCurrentPath, setFileCurrentPath,
-  } = useViolationsPageState({ tabKey, selectedProject, onRefresh, onReconcile, accumulatedDimensions, dismissRefreshKey, selectedSource });
+  } = useViolationsPageState({ tabKey, selectedProject, onReconcile, accumulatedDimensions, dismissRefreshKey, selectedSource });
 
   const emptyState = renderViolationsEmptyState({
     projectsLoaded, projects, selectedSource, selectedProject, onNavigate,

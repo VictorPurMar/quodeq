@@ -95,17 +95,11 @@ function buildViolationsData({ props, acc, dims }) {
   };
 }
 
-// ViolationsPage fires onRefresh on EVERY mount (its tabKey effect),
-// including plain drill-down/back navigation with no mutation -- the page
-// remounts on every round trip. onRefresh must stay wired to the lazy
-// refreshDashboard (mark-stale, refetchType:'none') so plain navigation
-// never forces an active refetch of the 10-20 MB dashboard payload.
-// Restore/delete (single + bulk) route through a SEPARATE onReconcile
-// callback via useDismissedFindings, called alongside onRefresh from its
-// four mutation handlers. restore-all/delete-all return a payload
-// applyMutationDelta can't patch (scores:null, delta.isLatest:false), so
-// those need the debounced ACTIVE reconcile -- see scheduleDashboardReconcile
-// in useDashboard.js.
+// ViolationsPage does not refresh on mount. Restore/delete (single + bulk)
+// route through onReconcile via useDismissedFindings; restore-all/delete-all
+// return a payload applyMutationDelta can't patch (scores:null,
+// delta.isLatest:false), so those need the debounced ACTIVE reconcile -- see
+// scheduleDashboardReconcile in useDashboard.js.
 // A type row drills into the findings of that requirement code alone, as a
 // synthetic file built from the dimension's own run (the same mechanism the
 // dimension rows use), so the file page needs no new filter.
@@ -136,7 +130,6 @@ function buildViolationsCallbacks({ props, nav, navigateToPrinciple, navigateToD
       }
     },
     onPrincipleClick: (principleObj) => navigateToPrinciple(principleObj),
-    onRefresh: props.refreshDashboard,
     onReconcile: props.scheduleDashboardReconcile,
     onNavigate: nav,
     onRetry: props.dashboardData.onRetry,

@@ -1,16 +1,15 @@
 /**
- * Keep History data fresh for the user. Two distinct refreshes:
+ * Keep History data fresh while a run is in progress: poll on a cadence so
+ * the running row flips to "done" without a manual reload. When all runs are
+ * terminal, the interval clears.
  *
- *   1. On mount — the user just navigated to History. Invalidate once so
- *      the page reflects whatever just happened on disk (e.g. a dim that
- *      finished while they were on another tab). Without this, the user
- *      stares at a stale snapshot until the next poll tick fires.
+ * There is no mount-time refresh. Opening History is not a signal that the
+ * data changed: a finished run invalidates the scores cache itself
+ * (useJobCompletionEffect), and everything else ages out through staleTime.
+ * Invalidating on mount made every tab switch refetch the run list and the
+ * latest dashboard.
  *
- *   2. Background polling — while at least one run is running, refresh
- *      on a cadence so the running row flips to "done" without a
- *      manual reload. When all runs are terminal, the interval clears.
- *
- * Both refreshes are scoped to what History actually renders: the trend and
+ * The refresh is scoped to what History actually renders: the trend and
  * run list (latest scores payload), the latest dashboard, and the dashboard
  * payloads of runs that are still running. Done historical runs are
  * immutable and their caches deliberately frozen (see useDashboard) — a
@@ -21,7 +20,6 @@
  * Overview / Standards / etc. The History list is the one place where the
  * user is actively watching for the running row to terminate.
  */
-import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '../api/queryKeys.js';
 import { pollIntervalForRuns } from '../utils/runPolling.js';
@@ -56,17 +54,7 @@ export function useRunningRunsRefresh({ selectedProject, selectedSource = PROJEC
   const queryClient = useQueryClient();
   const interval = pollIntervalForRuns(availableRuns);
 
-  // (1) Mount-time refresh: invalidate once when the project changes (which
-  // includes initial mount). The user's act of opening History IS the
-  // signal that they want fresh data; don't wait for the polling tick.
-  useEffect(() => {
-    if (!selectedProject) return;
-    invalidateHistoryScope(queryClient, selectedProject, availableRuns, selectedSource);
-    // availableRuns is intentionally not a dependency: this refresh fires on
-    // navigation (mount) and project switch, not on every runs-list update.
-  }, [queryClient, selectedProject, selectedSource]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // (2) Background polling: only while running runs exist AND SSE is off.
+  // Poll only while running runs exist AND SSE is off.
   // With SSE on, terminal-status events drive the running -> terminal flip
   // (see useRunEventStream); polling here would just double the request rate.
   const polling = selectedProject && interval && !SSE_ENABLED();

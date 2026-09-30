@@ -12,7 +12,7 @@ describe('useViolationsTabKeyReset: page-state cache injection', () => {
     injected.writeCachedState('violations', 'proj-x', { fileCurrentPath: 'src/foo' });
 
     const { result } = renderHook(() =>
-      useViolationsTabKeyReset({ tabKey: 0, selectedProject: 'proj-x', onRefresh: () => {}, cache: injected })
+      useViolationsTabKeyReset({ tabKey: 0, selectedProject: 'proj-x', cache: injected })
     );
 
     expect(result.current.fileCurrentPath).toBe('src/foo');
@@ -24,7 +24,7 @@ describe('useViolationsTabKeyReset: page-state cache injection', () => {
     writeCachedState('violations', 'proj-y', { fileCurrentPath: 'src/bar' });
 
     const { result } = renderHook(() =>
-      useViolationsTabKeyReset({ tabKey: 0, selectedProject: 'proj-y', onRefresh: () => {} })
+      useViolationsTabKeyReset({ tabKey: 0, selectedProject: 'proj-y' })
     );
 
     expect(result.current.fileCurrentPath).toBe('src/bar');
