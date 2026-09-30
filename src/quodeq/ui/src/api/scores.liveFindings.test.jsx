@@ -11,14 +11,14 @@ describe('getLiveFindings since query', () => {
   it('omits since on the first request', async () => {
     await getLiveFindings('proj', 'run-1', ['security', 'usability']);
     expect(request).toHaveBeenCalledWith(
-      '/api/projects/proj/runs/run-1/live-findings?dimensions=security%2Cusability',
+      '/projects/proj/runs/run-1/live-findings?dimensions=security%2Cusability',
     );
   });
 
   it('sends only the dimensions with rows already held', async () => {
     await getLiveFindings('proj', 'run-1', ['security', 'usability'], { security: 3, usability: 0 });
     expect(request).toHaveBeenCalledWith(
-      '/api/projects/proj/runs/run-1/live-findings?dimensions=security%2Cusability&since=security%3A3',
+      '/projects/proj/runs/run-1/live-findings?dimensions=security%2Cusability&since=security%3A3',
     );
   });
 });
