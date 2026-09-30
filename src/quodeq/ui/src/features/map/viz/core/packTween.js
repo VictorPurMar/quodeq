@@ -45,8 +45,9 @@ export function useTweenedTransform(target, skip) {
 
   useEffect(() => {
     const from = shownRef.current;
-    if (sameTransform(from, target)) return undefined;
-    if (skip?.current || prefersReducedMotion()) {
+    // Same values, new object (the root arriving from the worker): adopt it
+    // so callers comparing identity see the tween as settled.
+    if (sameTransform(from, target) || skip?.current || prefersReducedMotion()) {
       shownRef.current = target;
       setShown(target);
       return undefined;

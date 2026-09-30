@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense } from 'react';
+import FadeIn from './components/FadeIn.jsx';
 import NavBreadcrumb, { labelFor as navLabelFor } from './features/explorer/components/NavBreadcrumb.jsx';
 import UpdateBanner from './features/updates/UpdateBanner.jsx';
 import ServerDisconnectedOverlay from './components/ServerDisconnectedOverlay.jsx';
@@ -116,23 +117,9 @@ function AppTopBar({ shell }) {
   );
 }
 
-const FADE_PHASES = ['a', 'b'];
-
-/**
- * Fades the routed page in on every tab change without remounting it. The
- * wrapper node is stable; the animation restarts because `data-fade`
- * alternates between two phases that select identical keyframes (a CSS
- * animation only restarts when its `animation-name` changes). A keyed
- * remount would drop every page's local state and refire its mount effects.
- */
+/** Fades the routed page in on every tab change without remounting it. */
 export function TabFade({ activeTab, children }) {
-  const [fade, setFade] = useState({ tab: activeTab, phase: 0 });
-  if (fade.tab !== activeTab) setFade({ tab: activeTab, phase: (fade.phase + 1) % FADE_PHASES.length });
-  return (
-    <div className="tab-fade" data-fade={FADE_PHASES[fade.phase]}>
-      {children}
-    </div>
-  );
+  return <FadeIn restartKey={activeTab} className="tab-fade">{children}</FadeIn>;
 }
 
 function AppRouteContent({ shell }) {

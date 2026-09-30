@@ -162,6 +162,18 @@
   outline-offset: -2px;
 }
 
+/* Circle pack body. Fades in when a layout lands (see FadeIn); the phase
+   attribute flips to restart the animation in place. */
+.pack-fade {
+  width: 100%;
+  height: 100%;
+  animation: tab-fadein 300ms ease;
+}
+
+.pack-fade[data-fade="b"] {
+  animation-name: tab-fadein-alt;
+}
+
 /* Active-state dot: floats in the top-right corner of the button
    when a subset of dimensions is active (standard notification dot
    pattern — does not affect the button's width). */

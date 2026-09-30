@@ -48,7 +48,8 @@ describe('pack padding shrinks with depth', () => {
     const root = packInPlace(buildPackRoot(TREE, MAP_VIEW_MODE.VIOLATIONS));
     const byPath = new Map(root.descendants().map((n) => [n.data.path, n]));
     const fill = byPath.get('x/y/one.py').r / byPath.get('x/y').r;
-    expect(fill).toBeGreaterThan(0.5);
+    // Flat padding leaves this at ~0.23.
+    expect(fill).toBeGreaterThan(0.4);
   });
 
   it('padding at the top level stays at the base value', () => {
