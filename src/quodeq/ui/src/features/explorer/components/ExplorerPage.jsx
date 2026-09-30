@@ -160,7 +160,7 @@ function ExplorerPageBody({
   sourceTab, project, sinceBaseline,
 }) {
   return (
-    <div className={`explorer-page dashboard-fade${isRefreshing ? ' dashboard-refreshing' : ''}`}>
+    <div className={`explorer-page dashboard-fade${isRefreshing ? ' section-pending' : ''}`}>
       <TermHeader
         name={dim} description={standardDescription} sub={activeDateLabel || activeRunId || null}
         learnMore={onNavigate ? { label: t('helpHint.learnMore'), onClick: () => onNavigate(NAV_TAB.HELP, { section: HELP_SECTION.WHY_THIS_GRADE, dimension: dim }) } : undefined}

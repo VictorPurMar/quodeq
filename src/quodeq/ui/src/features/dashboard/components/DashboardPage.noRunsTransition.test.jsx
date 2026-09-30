@@ -34,7 +34,7 @@ describe('DashboardPage no-runs -> first-run transition (P5-T2)', () => {
     );
     expect(getByText('No evaluations yet')).toBeTruthy();
     expect(container.querySelector('.loading-screen')).toBeNull();
-    expect(container.querySelector('.dashboard-page').className).toContain('dashboard-refreshing');
+    expect(container.querySelector('.dashboard-page').className).toContain('section-pending');
   });
 
   it('keeps the empty state (dimmed) through the post-eval selectedRun flip, then swaps straight to content', () => {
@@ -54,7 +54,7 @@ describe('DashboardPage no-runs -> first-run transition (P5-T2)', () => {
     );
     expect(getByText('No evaluations yet')).toBeTruthy();
     expect(container.querySelector('.loading-screen')).toBeNull();
-    expect(container.querySelector('.dashboard-page').className).toContain('dashboard-refreshing');
+    expect(container.querySelector('.dashboard-page').className).toContain('section-pending');
 
     const dims = [{ dimension: 'maintainability', overallScore: '7.0/10' }];
 
@@ -82,7 +82,7 @@ describe('DashboardPage no-runs -> first-run transition (P5-T2)', () => {
     );
     expect(getByText('No evaluations yet')).toBeTruthy();
     expect(container.querySelector('.loading-screen')).toBeNull();
-    expect(container.querySelector('.dashboard-page').className).toContain('dashboard-refreshing');
+    expect(container.querySelector('.dashboard-page').className).toContain('section-pending');
 
     rerender(
       <SidePaneProvider>

@@ -44,14 +44,14 @@ function renderNoDimensionDataState({
   // precedent this mirrors).
   if (selectedSource === PROJECT_SOURCE.SHARED) {
     return (
-      <div className={`violations-page violations-page--terminal${isRefreshing ? ' dashboard-refreshing' : ''}`}>
+      <div className={`violations-page violations-page--terminal${isRefreshing ? ' section-pending' : ''}`}>
         <TermHeader name={t('violations.termName')} sub={t('violations.subNoEvals')} />
         <SharedNoCompletedEvalEmptyState />
       </div>
     );
   }
   return (
-    <div className={`violations-page violations-page--terminal${isRefreshing ? ' dashboard-refreshing' : ''}`}>
+    <div className={`violations-page violations-page--terminal${isRefreshing ? ' section-pending' : ''}`}>
       <TermHeader name={t('violations.termName')} sub={t('violations.subNoEvals')} />
       <NoEvalsEmptyState projectName={projectName || selectedProject} onNavigate={onNavigate} />
     </div>

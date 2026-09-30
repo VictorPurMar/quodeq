@@ -200,7 +200,7 @@ export default function MapPage(props) {
   const sub = ready ? nodeSummary(state.currentNode) : t('overview.loading');
 
   return (
-    <div className={`map-page map-page--terminal${isRefreshing ? ' dashboard-refreshing' : ''}`}>
+    <div className={`map-page map-page--terminal${isRefreshing ? ' section-pending' : ''}`}>
       <div className="map-page__top">
         <TermHeader
           name="map"

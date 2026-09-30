@@ -74,7 +74,7 @@ describe('MapPage — scenario 9: loader gate, containment, refresh dim', () => 
 
   it('applies the refresh dim class to the empty state during a background refetch', () => {
     const { container } = renderPage(baseData({ loading: false, isFetching: true }));
-    expect(container.querySelector('.map-page--terminal').className).toContain('dashboard-refreshing');
+    expect(container.querySelector('.map-page--terminal').className).toContain('section-pending');
   });
 
   it('applies the refresh dim class to real content during a background refetch', () => {
@@ -82,7 +82,7 @@ describe('MapPage — scenario 9: loader gate, containment, refresh dim', () => 
     const { container } = renderPage(baseData({
       accumulated: { dimensions: DIMS }, loading: false, isFetching: true,
     }));
-    expect(container.querySelector('.map-page--terminal').className).toContain('dashboard-refreshing');
+    expect(container.querySelector('.map-page--terminal').className).toContain('section-pending');
   });
 });
 

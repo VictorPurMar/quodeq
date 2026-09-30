@@ -1,3 +1,4 @@
+import { withPending } from '../../../utils/pendingClass.js';
 import { useMemo } from 'react';
 import LoadingScreen from '../../../components/LoadingScreen.jsx';
 import TopOffendingFilesTable from './TopOffendingFilesTable.jsx';
@@ -100,7 +101,7 @@ function useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate
   return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline };
 }
 
-export default function RunOverviewPanel({ dashboard, selectedRunId, projectName, onDimensionClick, onFileClick, onNavigate }) {
+export default function RunOverviewPanel({ dashboard, selectedRunId, projectName, onDimensionClick, onFileClick, onNavigate, refreshing = false }) {
   const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline } = useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate });
 
   const isLoading = !dashboard || !dashboard.dimensions;
@@ -114,7 +115,7 @@ export default function RunOverviewPanel({ dashboard, selectedRunId, projectName
   const dimCount = (dashboard?.dimensions || []).length;
 
   return (
-    <div className="run-overview-fade run-overview-ready">
+    <div className={withPending('run-overview-fade run-overview-ready', refreshing)} aria-busy={refreshing || undefined}>
       <RunHeroSection dashboard={dashboard} selectedRunId={selectedRunId} runSummary={runSummary} onCardNavigate={onCardNavigate} deltas={chipDeltas(since)} density={headline.density} />
       <section className="quality-dimensions" aria-label={t('overview.qualityDimensionsAria')}>
         <div className="quality-dimensions__head">

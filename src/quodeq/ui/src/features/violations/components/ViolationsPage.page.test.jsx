@@ -102,7 +102,7 @@ describe('ViolationsPage — scenario 9: loader gate, containment, refresh dim',
 
   it('applies the refresh dim class to the empty state during a background refetch', () => {
     const { container } = renderPage(baseData({ loading: false, isFetching: true }));
-    expect(container.querySelector('.violations-page--terminal').className).toContain('dashboard-refreshing');
+    expect(container.querySelector('.violations-page--terminal').className).toContain('section-pending');
   });
 
   it('applies the refresh dim class to real content during a background refetch', () => {
@@ -110,7 +110,7 @@ describe('ViolationsPage — scenario 9: loader gate, containment, refresh dim',
       accumulatedDimensions: [{ dimension: 'security', violations: [], compliance: [] }],
       loading: false, isFetching: true,
     }));
-    expect(container.querySelector('.violations-page--terminal').className).toContain('dashboard-refreshing');
+    expect(container.querySelector('.violations-page--terminal').className).toContain('section-pending');
   });
 });
 

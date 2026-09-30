@@ -83,8 +83,8 @@ export function useSelectedRunDashboard({ activePage, projectBundle, historySele
   // past runs in a comparison-oriented mental model — flashing the previous
   // run's data via placeholderData is confusing. Overview navigation, by
   // contrast, benefits from the instant swap because consecutive runs are
-  // usually nearly identical. The dashboard-refreshing class dims the
-  // page during the background refetch so the user sees that something
+  // usually nearly identical. Each Overview section carries a section-pending
+  // line during the background refetch so the user sees that something
   // is happening without the jarring full-screen LoadingScreen.
   const dashboardState = useDashboard({
     selectedProject,

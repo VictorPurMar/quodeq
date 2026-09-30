@@ -20,7 +20,7 @@ import { DEFAULT_PROJECT_SOURCE } from "../../../vocab/projectSource.js";
  * @returns {{onPrevHover: Function, onNextHover: Function, onLatestHover: Function}}
  */
 export function usePrefetchAdjacentRuns({ selectedProject, selectedSource = DEFAULT_PROJECT_SOURCE, availableRuns, overviewRunIndex }) {
-  const { prefetchRun } = usePrefetchRun(selectedProject, selectedSource);
+  const { prefetchRun, cancelPrefetch } = usePrefetchRun(selectedProject, selectedSource);
 
   // Warm the run at `idx`, if there is one there. An index past either end of
   // the list just means nothing to prefetch.
@@ -41,5 +41,6 @@ export function usePrefetchAdjacentRuns({ selectedProject, selectedSource = DEFA
     prefetchAt(0);
   }, [prefetchAt]);
 
-  return { onPrevHover, onNextHover, onLatestHover };
+  // Score bar hover: the same dwell-gated warm-up the History rows use.
+  return { onPrevHover, onNextHover, onLatestHover, onRunHover: prefetchRun, onRunHoverEnd: cancelPrefetch };
 }

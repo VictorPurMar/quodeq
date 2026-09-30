@@ -141,7 +141,7 @@ export function HistoryContent({ data, callbacks, runNav, languageSub, selectedS
   const { statusByRunId, visible, deltas, countDeltas } = useHistoryVisibleRows({ availableRuns, trend, partialRuns });
 
   return (
-    <div className={`history-page history-page--terminal${isRefreshing ? ' dashboard-refreshing' : ''}`}>
+    <div className={`history-page history-page--terminal${isRefreshing ? ' section-pending' : ''}`}>
       <HistoryTopHeader
         trend={trend} languageSub={languageSub} selectedSource={selectedSource}
         availableRuns={availableRuns} runNav={runNav} onRunClick={onRunClick}

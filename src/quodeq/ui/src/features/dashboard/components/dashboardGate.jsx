@@ -24,9 +24,11 @@ function gateFrame(className, children) {
   );
 }
 
-export function dashboardPageClassName({ appearClass = '', dimmed = false, refreshing = false }) {
+// `pending` adds the section-pending line to the page itself: only for
+// gate states with no sections of their own to carry it.
+export function dashboardPageClassName({ appearClass = '', dimmed = false, pending = false }) {
   const state = dimmed ? 'dashboard-loading' : `dashboard-ready${appearClass}`;
-  return `dashboard-page dashboard-fade ${state}${refreshing ? ' dashboard-refreshing' : ''}`;
+  return `dashboard-page dashboard-fade ${state}${pending ? ' section-pending' : ''}`;
 }
 
 function renderNoProjectsGate({ sharedHasContent, onNavigate, readyClass }) {
@@ -81,8 +83,8 @@ export function renderDashboardGate({ data, callbacks, runMode, projectName, pro
     return renderProjectErrorGate({ isFetching, projectName, error, onRetry, readyClass });
   }
   if (pageState.showNoRunsEmpty) {
-    const refreshingClass = dashboardPageClassName({ appearClass: pageState.dashboardAppearClass, refreshing: isFetching });
-    return gateFrame(refreshingClass, <NoRunsEmptyContent projectInfo={projectInfo} onComplete={onSetupComplete} projectName={projectName} onNavigate={onNavigate} />);
+    const pendingClass = dashboardPageClassName({ appearClass: pageState.dashboardAppearClass, pending: isFetching });
+    return gateFrame(pendingClass, <NoRunsEmptyContent projectInfo={projectInfo} onComplete={onSetupComplete} projectName={projectName} onNavigate={onNavigate} />);
   }
   if (runMode && !loading && !dashboard && !error) {
     return renderRunModeGate({ isFetching, projectName, onRetry, readyClass });

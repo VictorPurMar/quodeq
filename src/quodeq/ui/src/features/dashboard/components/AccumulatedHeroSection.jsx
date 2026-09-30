@@ -66,7 +66,7 @@ function heroSubLine(projectInfo, lastDate) {
     || (lastDate ? t('overview.lastEvaluated', { date: lastDate }) : null);
 }
 
-export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false, deltas = null, density = null }) {
+export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, projectInfo, onCardNavigate, selectedSource, customFormula = false, deltas = null, density = null, pending = false }) {
   const stats = accumulatedStats(accumulated?.summary);
   const { handleViolations, handleCompliance, handleSeverity } = heroCardHandlers(
     onCardNavigate,
@@ -75,6 +75,7 @@ export function AccumulatedHeroSection({ accumulated, scoreDelta, lastDate, proj
 
   return (
     <HeroPanel
+      pending={pending}
       header={<>
         <TermHeader
           name={t('overview.termName')}
