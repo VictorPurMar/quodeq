@@ -127,7 +127,8 @@ def _make_version_for(
                         project, run_id, exc_info=True,
                     )
         version = run_scoped_version(
-            inputs.params, keys[0], keys[1], inputs.dismissed, inputs.deleted)
+            inputs.params, keys[0], keys[1], inputs.dismissed, inputs.deleted,
+            standards=inputs.standards)
         if cacheable:
             remember_run_version(project_dir, run_id, state_fp, version)
         return version
@@ -221,7 +222,7 @@ def _suppression_version_for(
     dismissed = (deps.dismissed_keys or _default_dismissed_keys)(project_dir)
     deleted = (deps.deleted_keys or _default_deleted_keys)(project_dir)
     return _make_version_for(
-        project_dir, project, VersionInputs.of(params, dismissed, deleted),
+        project_dir, project, VersionInputs.of(params, dismissed, deleted, project_dir),
         lambda: load_run_keys_or_empty(project), cacheable_run_ids,
     )
 
