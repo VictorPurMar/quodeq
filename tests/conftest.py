@@ -204,6 +204,24 @@ def _reset_cancellation() -> None:
     cancellation.reset()
 
 
+@pytest.fixture(autouse=True)
+def _global_warmup_engine_stays_idle() -> Iterator[None]:
+    """Fail any test that leaves the process-wide warm-up engine running.
+
+    ``quodeq.services.warmup.engine`` is one object per process; ``start``
+    spawns a daemon thread that outlives the test and, under xdist, the rest
+    of the worker. A later test's ``/api/projects`` then carries a ``warmup``
+    snapshot and competes with real background warming. Tests that need a
+    running engine build their own ``WarmupEngine`` (see test_warmup_engine).
+    """
+    from quodeq.services.warmup import engine
+
+    yield
+    if engine.snapshot() is not None:
+        engine.reset_for_tests()
+        pytest.fail("test left the global warm-up engine running; patch _start_background_work or use a local WarmupEngine")
+
+
 class DummyProcess:
     """Minimal process stub for tests that need a mock subprocess."""
 

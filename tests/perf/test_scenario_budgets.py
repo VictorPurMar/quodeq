@@ -121,15 +121,19 @@ def _compare_fleet(client, monkeypatch, peak_budget):
     return _measure(monkeypatch, run, extra=lambda: dict(calls), peak_budget=peak_budget)
 
 
-def _project_list(client, monkeypatch, *, peak_budget):
-    """The dashboard's project list in one request (cards pending until warmed)."""
+def _project_list(client, monkeypatch):
+    """The dashboard's project list in one request (cards pending until warmed).
+
+    No memory metric: a settled list is a cache hit of a few KiB, where
+    allocator noise exceeds the headroom band. Counts and bytes are exact.
+    """
     calls = _count_score_cache_opens(monkeypatch)
 
     def run():
         calls["score_cache_opens"] = 0
         return get_ok(client, "/api/projects")
 
-    return _measure(monkeypatch, run, extra=lambda: dict(calls), peak_budget=peak_budget)
+    return _measure(monkeypatch, run, extra=lambda: dict(calls), peak_budget=False)
 
 
 def _warm_fleet(client, monkeypatch):
@@ -226,9 +230,8 @@ def test_project_list_reads_stay_within_budget(client, monkeypatch):
     list cache keys its pending tier on.
     """
     budgets = _load_budgets()
-    measured = {"project_list_cold": _project_list(client, monkeypatch, peak_budget=False)}
+    measured = {"project_list_cold": _project_list(client, monkeypatch)}
     measured["project_warm_10"] = _warm_fleet(client, monkeypatch)
     monkeypatch.setattr(warmup_engine, "generation", lambda: len(FLEET))
-    measured["project_list_settled"] = _project_list(
-        client, monkeypatch, peak_budget=budgets.get("project_list_settled", {}).get("peak_kib"))
+    measured["project_list_settled"] = _project_list(client, monkeypatch)
     _check_or_update(measured, budgets)

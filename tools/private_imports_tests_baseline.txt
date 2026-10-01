@@ -343,11 +343,11 @@ tests/analysis/test_verify_io_coverage.py:83:private-module:quodeq.analysis.suba
 tests/analysis/test_verify_io_coverage.py:90:private-name:quodeq.analysis.subagents._verify_io._find_previous_evidence
 tests/analysis/test_verify_io_coverage.py:96:private-name:quodeq.analysis.subagents._verify_io._find_previous_evidence
 tests/api/_log_stream_routes_fixtures.py:9:private-module:quodeq.api._log_stream_routes.register_log_stream_routes
-tests/api/test_app_factory.py:160:private-name:quodeq.api.app._build_rate_limit_store
-tests/api/test_app_factory.py:161:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
-tests/api/test_app_factory.py:174:private-name:quodeq.api.app._build_rate_limit_store
-tests/api/test_app_factory.py:175:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
-tests/api/test_app_factory.py:188:private-name:quodeq.api.app._build_rate_limit_store
+tests/api/test_app_factory.py:162:private-name:quodeq.api.app._build_rate_limit_store
+tests/api/test_app_factory.py:163:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
+tests/api/test_app_factory.py:176:private-name:quodeq.api.app._build_rate_limit_store
+tests/api/test_app_factory.py:177:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
+tests/api/test_app_factory.py:190:private-name:quodeq.api.app._build_rate_limit_store
 tests/api/test_app_factory.py:8:private-name:quodeq.api.app._default_provider
 tests/api/test_app_rate_limit_env.py:14:private-name:quodeq.api.app._DEFAULT_EVALUATION_RATE_LIMIT_MAX
 tests/api/test_app_rate_limit_env.py:14:private-name:quodeq.api.app._DEFAULT_EVALUATION_RATE_LIMIT_WINDOW
