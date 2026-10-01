@@ -6,16 +6,17 @@
     "standards_reads": 5
   },
   "compare_fleet_10": {
-    "eval_report_reads": 120,
-    "evaluation_db_opens": 450,
-    "get_project_scores": 10,
-    "peak_kib": 289,
-    "response_bytes": 30610
+    "eval_report_reads": 100,
+    "evaluation_db_opens": 400,
+    "get_project_scores": 0,
+    "peak_kib": 238,
+    "response_bytes": 30778,
+    "score_cache_opens": 1
   },
   "eval_poll_tick": {
     "eval_report_reads": 3,
     "evaluation_db_opens": 5,
-    "peak_kib": 156,
+    "peak_kib": 151,
     "response_bytes": 1784,
     "standards_reads": 3
   },

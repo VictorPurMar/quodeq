@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from quodeq.data.sqlite import score_cache_db
+from quodeq.data.sqlite import score_cache_schema, score_cache_db
 from quodeq.services.score_cache import open_score_cache
 
 _THREADS = 8
@@ -100,6 +100,7 @@ def test_a_file_overwritten_in_place_is_rebuilt(db_path, init_calls):
 def test_an_epoch_bump_runs_the_init_again(db_path, init_calls, monkeypatch):
     _touch()
     monkeypatch.setattr(score_cache_db, "CACHE_WRITER_EPOCH", "test-epoch")
+    monkeypatch.setattr(score_cache_schema, "CACHE_WRITER_EPOCH", "test-epoch")
     _touch()
     assert len(init_calls) == 2
     with open_score_cache() as conn:

@@ -1,10 +1,13 @@
 """Principle grades and files read persist next to the cached per-run scalars."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from quodeq.core.observability import NULL_LOG
 from quodeq.core.types import DimensionResult
+from quodeq.core.types.finding import Finding
 from quodeq.core.types.report import PrincipleGrade
 from quodeq.data.sqlite.score_cache_principles import principle_rows
 from quodeq.data.sqlite.score_cache_rows import row_dimension, scalar_dimension
@@ -21,6 +24,8 @@ def _dims() -> list[DimensionResult]:
     return [
         DimensionResult(
             dimension="security", overall_score="7.0/10", overall_grade="Fair", files_read=42,
+            source_file_count=120, quarantined_count=2, exit_reason="failure_streak",
+            evidence_date="2026-01-01T00:00:00Z", discipline="python",
             principles=[PrincipleGrade("P1", "6.0/10", "Fair"), PrincipleGrade("P2", "8.0/10", "Good")],
         ),
         DimensionResult(
@@ -91,6 +96,15 @@ class TestStore:
             back = read_cached_rows(conn, "proj", "r1", "v1")
         assert {d.dimension: d.files_read for d in back} == {"security": 42, "reliability": None}
 
+    def test_every_scalar_round_trips(self):
+        with open_score_cache() as conn:
+            write_cached_rows(conn, "proj", "r1", "v1", [row_dimension(d) for d in _dims()])
+            back = {d.dimension: d for d in read_cached_rows(conn, "proj", "r1", "v1")}
+        assert back["security"] == row_dimension(_dims()[0])
+        bare = back["reliability"]
+        assert (bare.source_file_count, bare.quarantined_count, bare.exit_reason, bare.evidence_date,
+                bare.discipline) == (None, 0, None, None, None)
+
     def test_scalar_rows_still_read_back(self):
         with open_score_cache() as conn:
             write_cached_rows(conn, "proj", "r1", "v1", _dims())
@@ -108,10 +122,13 @@ def test_scalar_dimension_drops_principles_and_files_read():
     assert served.principles == [] and served.files_read is None
 
 
-def test_row_dimension_keeps_principles_and_files_read():
-    row = row_dimension(_dims()[0])
-    assert row.principles == _dims()[0].principles and row.files_read == 42
+def test_row_dimension_is_the_dimension_without_its_findings():
+    full = replace(_dims()[0], violations=[Finding(file="a.py", line=1, req="R1")],
+                   compliance=[Finding(file="b.py", line=2, req="R2")])
+    row = row_dimension(full)
     assert row.violations == [] and row.compliance == []
+    assert replace(row, open_types=None) == replace(_dims()[0], open_types=None)
+    assert row.open_types == 1
 
 
 def test_cache_backed_fetcher_writes_principle_rows_on_a_miss():

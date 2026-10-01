@@ -2,10 +2,9 @@
 
 Split from ``scoring/__init__.py`` to keep that file under the size
 ratchet's 300-line cap. ``get_project_scores`` stays re-exported from there.
-Fetchers are called through the ``_fetchers`` module attribute (not names
-bound into this module's namespace) so tests can still
-``monkeypatch.setattr(_fetchers, "make_scoring_trend_fetcher", ...)`` and have it
-take effect here.
+The fetcher and the trend come from ``_project_rows``, which Compare
+shares; it calls through the ``_fetchers`` module attribute so tests can
+still ``monkeypatch.setattr(_fetchers, "make_scoring_trend_fetcher", ...)``.
 """
 from __future__ import annotations
 
@@ -13,13 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from quodeq.core.run.state import TERMINAL_STATES, RunState
+from quodeq.core.run.state import TERMINAL_STATES
 from quodeq.core.scoring.params import ScoringParams
 from quodeq.services.dashboard import make_run_dimension_fetcher
-from quodeq.services.dashboard_trend import build_accumulated_trend
 from quodeq.services.accumulated import compute_accumulated
 from quodeq.services.grade_formula import is_custom, load_params
-from quodeq.services.scoring_view import select_trend_runs
 from quodeq.services.score_cache import (
     accumulated_cache_version,
     accumulated_stale_scope,
@@ -34,13 +31,13 @@ from quodeq.services.suppression_keys import SuppressionKeys
 from quodeq.shared.log_sink import SHARED_LOG
 from quodeq.shared.stamp_memo import StampCache
 from quodeq.services.wiring import find_children, list_runs, run_fingerprint
-from quodeq.services.scoring import _fetchers
 from quodeq.services.scoring._accumulated_rows import (
     EMPTY_ACCUMULATED,
     AccumulatedScope,
     build_accumulated_from_rows,
     runs_as_of,
 )
+from quodeq.services.scoring._project_rows import make_row_fetcher, resolve_trend
 from quodeq.services.scoring._deps import ScoringDeps, NO_DEPS
 from quodeq.services.scoring._rescoring import rescore_accumulated_with_coverage
 
@@ -122,33 +119,6 @@ def _resolve_accumulated(
     )
 
 
-def _make_fetcher(req: _ScoresRequest, all_runs: list):
-    """The row-backed fetcher the trend and the accumulated block share.
-
-    Only completed runs may be persisted to the score cache: an in-progress
-    run's scalar set is still growing, and the cache version can't see that,
-    so caching its partial set would strand a stale row (e.g. 1 of 6 dims)
-    served forever after the run finishes. Every completed run is eligible:
-    the accumulated walk may reach past the history window.
-    """
-    cacheable_run_ids = {r.run_id for r in all_runs if r.status is RunState.DONE}
-    return _fetchers.make_scoring_trend_fetcher(
-        req.reports_root, req.project, params=req.params, cacheable_run_ids=cacheable_run_ids,
-        deps=req.deps,
-    )
-
-
-def _resolve_trend(params: ScoringParams, all_runs: list, fetcher) -> list[dict]:
-    """Build the trend over the history window with the shared *fetcher*.
-
-    Shared trend rule (scoring_view.select_trend_runs): cancelled/failed
-    runs are excluded; their partial scores are misleading on the history
-    chart. They remain in availableRuns so the UI can show them when the
-    user asks for them explicitly."""
-    history_runs = select_trend_runs(all_runs)[:_fetchers.max_history_runs()]
-    return build_accumulated_trend(history_runs, fetcher, params=params)
-
-
 def _empty_project_scores(scoring_meta: dict) -> dict[str, Any]:
     return {
         "accumulated": dict(EMPTY_ACCUMULATED),
@@ -195,9 +165,9 @@ def _build_project_scores(
     # it: a payload whose rescore missed dimensions must be served but never
     # persisted (its version hash can't self-invalidate).
     rescore_complete = [True]
-    fetcher = _make_fetcher(req, all_runs)
+    fetcher = make_row_fetcher(req.reports_root, req.project, req.params, all_runs, req.deps)
     accumulated = _resolve_accumulated(req, rescore_complete, run_versions, keys, all_runs, fetcher)
-    trend = _resolve_trend(req.params, all_runs, fetcher)
+    trend = resolve_trend(req.params, all_runs, fetcher)
     payload = {
         "accumulated": accumulated,
         "trend": trend,

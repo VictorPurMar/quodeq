@@ -23,6 +23,7 @@ from quodeq.analysis.mcp.args import parse_args
 from quodeq.analysis.mcp import findings_server
 from quodeq.api.app import create_app
 from quodeq.config.paths import default_paths
+from quodeq.data.sqlite import score_cache_db
 from quodeq.services import compare as compare_service
 from tests.perf._budget_fixture import PROJECT, count_io, seed_project
 from tests.perf._scenario_fixture import (
@@ -82,17 +83,33 @@ def _measure(monkeypatch, run, *, extra=lambda: {}, peak_budget=None) -> dict[st
 
 
 def _compare_fleet(client, monkeypatch, peak_budget):
-    calls = {"get_project_scores": 0}
-    real = compare_service.get_project_scores
+    """The Compare screen's one request for a fleet of ten.
 
-    def spy(*args, **kwargs):
+    Rides two counters of its own: ``get_project_scores`` (the full-read
+    path, which only a parent project may take; the fleet has none) and
+    ``score_cache_opens`` (the whole fleet shares one connection).
+    """
+    calls = {"get_project_scores": 0, "score_cache_opens": 0}
+    real_scores = compare_service.get_project_scores
+    real_open = score_cache_db._open_locked
+
+    def spy_scores(*args, **kwargs):
         calls["get_project_scores"] += 1
-        return real(*args, **kwargs)
+        return real_scores(*args, **kwargs)
 
-    monkeypatch.setattr(compare_service, "get_project_scores", spy)
-    return _measure(monkeypatch, lambda: sum(
-        get_ok(client, f"/api/projects/{name}/compare-summary") for name in FLEET),
-        extra=lambda: dict(calls), peak_budget=peak_budget)
+    def spy_open(path):
+        calls["score_cache_opens"] += 1
+        return real_open(path)
+
+    monkeypatch.setattr(compare_service, "get_project_scores", spy_scores)
+    monkeypatch.setattr(score_cache_db, "_open_locked", spy_open)
+    url = f"/api/fleet/compare?projects={','.join(FLEET)}"
+
+    def run():
+        calls["score_cache_opens"] = 0
+        return get_ok(client, url)
+
+    return _measure(monkeypatch, run, extra=lambda: dict(calls), peak_budget=peak_budget)
 
 
 def _scores_as_of(client):

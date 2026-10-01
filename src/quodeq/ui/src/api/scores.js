@@ -9,10 +9,10 @@ import { request } from './request.js';
 import { attachFindingDetailRefs } from './complianceDetail.js';
 import { FINDING_TYPE } from '../vocab/findingType.js';
 import { createViolations } from '../models/violation.js';
-import { asOfQuery, parseAccumulated, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
+import { asOfQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
 import { LATEST_RUN_ID } from '../constants.js';
 import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
-import { projectPath } from './paths.js';
+import { fleetQuery, projectPath } from './paths.js';
 
 // ── Unified Scores ─────────────────────────────────────────────────────
 
@@ -68,6 +68,17 @@ export async function getRunScores(projectId, runId) {
 export async function getCompareSummary(projectId) {
   const data = await request(`${projectPath(projectId)}/compare-summary`);
   return parseSlimDimensions(data);
+}
+
+/**
+ * The compare summaries of a whole fleet in one request. A project the
+ * server could not serve is named in `errors` instead of failing the call.
+ * @param {string[]} projectIds
+ * @returns {Promise<{summaries: Array<Object>, errors: Object<string, string>}>}
+ */
+export async function getFleetCompare(projectIds) {
+  const data = await request(`/fleet/compare${fleetQuery(projectIds)}`);
+  return parseFleetCompare(data);
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────────

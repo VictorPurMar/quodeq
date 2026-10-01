@@ -25,7 +25,7 @@ export {
   sharedGetDashboard, sharedGetAccumulated, sharedGetProjectScores,
   sharedGetRunScores, sharedGetDimensionEval, sharedGetViolations,
   sharedListDismissedFindings, sharedListVerifiedFindings,
-  publishProject, pullSharedProject, sharedGetCompareSummary,
+  publishProject, pullSharedProject, sharedGetCompareSummary, sharedGetFleetCompare,
 } from './shared.js';
 export { listTerminalSessions, createTerminalSession, killTerminalSession, killTerminal } from './terminal.js';
 
@@ -41,7 +41,7 @@ export {
 } from './evaluations.js';
 
 export {
-  getProjectScores, getRunScores, getCompareSummary, getDashboard,
+  getProjectScores, getRunScores, getCompareSummary, getFleetCompare, getDashboard,
   getAccumulated, getDimensionEval, getLiveFindings, getComplianceDetail, getFindingDetail,
 } from './scores.js';
 

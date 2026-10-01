@@ -5,8 +5,9 @@ migration and the store (``score_cache_store``) needs the mapping, and neither
 may import the other.
 
 Two projections of a dimension live here. ``row_dimension`` is what the store
-keeps: score, grade, counts, files read and principle grades, enough for the
-accumulated walk to pick and grade a winning run without its findings.
+keeps: everything but the findings (score, grade, counts, coverage, exit
+reason, evidence date, principle grades), enough to build any view that does
+not list findings, the accumulated walk and the Compare screen included.
 ``scalar_dimension`` is the narrower shape the trend serves, pinned by the
 golden payloads: no principles, no files read.
 """
@@ -25,18 +26,27 @@ from quodeq.core.types.severity import SEVERITY_ORDER
 RUN_SCALARS_COUNT_COLUMNS: tuple[str, ...] = (
     "violation_count", "compliance_count", *(s.value for s in SEVERITY_ORDER), "unknown", "open_types",
 )
+#: The remaining per-dimension scalars, with their SQL type: coverage, trust
+#: and provenance metadata the findings-free views show next to the grade.
+RUN_SCALARS_META_COLUMNS: dict[str, str] = {
+    "files_read": "INTEGER", "source_file_count": "INTEGER", "quarantined_count": "INTEGER",
+    "exit_reason": "TEXT", "evidence_date": "TEXT", "discipline": "TEXT",
+}
 #: Every column after the key, in SELECT and INSERT order. The ones after the
 #: first three are added by migration to a table created before them.
 RUN_SCALARS_COLUMNS: tuple[str, ...] = (
-    "dimension", "overall_score", "overall_grade", *RUN_SCALARS_COUNT_COLUMNS, "files_read",
+    "dimension", "overall_score", "overall_grade", *RUN_SCALARS_COUNT_COLUMNS, *RUN_SCALARS_META_COLUMNS,
 )
 
 
+def column_type(column: str) -> str:
+    """The SQL type of a ``RUN_SCALARS_COLUMNS`` column (counts are INTEGER)."""
+    return RUN_SCALARS_META_COLUMNS.get(column, "INTEGER")
+
+
 def row_dimension(d: DimensionResult) -> DimensionResult:
-    """*d* reduced to what the store keeps: score, grade, counts, files read and principles."""
-    return DimensionResult(dimension=d.dimension, overall_score=d.overall_score,
-                           overall_grade=d.overall_grade, principles=list(d.principles),
-                           totals=d.totals, open_types=open_types_of(d), files_read=d.files_read)
+    """*d* without its findings: every scalar the store keeps, principles included."""
+    return replace(d, violations=[], compliance=[], principles=list(d.principles), open_types=open_types_of(d))
 
 
 def scalar_dimension(d: DimensionResult) -> DimensionResult:
@@ -62,7 +72,9 @@ def dimension_from_row(row: tuple) -> DimensionResult:
                         severity=severity)
     return DimensionResult(dimension=col["dimension"], overall_score=col["overall_score"],
                            overall_grade=col["overall_grade"], totals=totals, open_types=col["open_types"],
-                           files_read=col["files_read"])
+                           files_read=col["files_read"], source_file_count=col["source_file_count"],
+                           quarantined_count=col["quarantined_count"] or 0, exit_reason=col["exit_reason"],
+                           evidence_date=col["evidence_date"], discipline=col["discipline"])
 
 
 def row_values(d: DimensionResult) -> tuple:
@@ -74,4 +86,5 @@ def row_values(d: DimensionResult) -> tuple:
         sev = t.severity
         counts = (t.violation_count, t.compliance_count, *(getattr(sev, s.value) for s in SEVERITY_ORDER),
                   sev.unknown, d.open_types)
-    return (d.dimension, d.overall_score, d.overall_grade, *counts, d.files_read)
+    return (d.dimension, d.overall_score, d.overall_grade, *counts, d.files_read, d.source_file_count,
+            d.quarantined_count, d.exit_reason, d.evidence_date, d.discipline)
