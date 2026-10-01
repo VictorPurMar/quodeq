@@ -1,39 +1,37 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useFullRunDimensions } from './useFullRunDimensions.js';
-import { getDashboard } from '../../../api/index.js';
-import { withQueryClient } from '../../../test-utils/withQueryClient.jsx';
+import { withStableQueryApi } from '../../../test-utils/withQueryClient.jsx';
 
-vi.mock('../../../api/index.js', () => ({ getDashboard: vi.fn() }));
+const wrap = (getRunScores) => withStableQueryApi({ getRunScores });
 
 describe('useFullRunDimensions', () => {
-  beforeEach(() => { getDashboard.mockReset(); });
-
   it('returns the given dimensions when they carry bodies', () => {
+    const getRunScores = vi.fn();
     const dims = [{ dimension: 'security', violations: [] }];
     const { result } = renderHook(
       () => useFullRunDimensions({ project: 'p1', runId: 'r1', source: 'local', dimensions: dims }),
-      { wrapper: withQueryClient() },
+      { wrapper: wrap(getRunScores) },
     );
     expect(result.current).toBe(dims);
-    expect(getDashboard).not.toHaveBeenCalled();
+    expect(getRunScores).not.toHaveBeenCalled();
   });
 
-  it('fetches the full dashboard when the given dimensions are slim', async () => {
-    getDashboard.mockResolvedValue({ dimensions: [{ dimension: 'security', violations: [{ req: 'S-1', severity: 'major' }] }], trend: [] });
+  it('reads the run findings when the given dimensions are slim', async () => {
+    const getRunScores = vi.fn(async () => ({ dimensions: [{ dimension: 'security', violations: [{ req: 'S-1', severity: 'major' }] }] }));
     const { result } = renderHook(
       () => useFullRunDimensions({ project: 'p1', runId: 'r1', source: 'local', dimensions: [{ dimension: 'security' }] }),
-      { wrapper: withQueryClient() },
+      { wrapper: wrap(getRunScores) },
     );
     await waitFor(() => expect(result.current[0]?.violations).toHaveLength(1));
-    expect(getDashboard).toHaveBeenCalledWith('p1', 'r1', 'full');
+    expect(getRunScores).toHaveBeenCalledWith('p1', 'r1');
   });
 
-  it('returns an empty list while the full dashboard loads', () => {
-    getDashboard.mockReturnValue(new Promise(() => {}));
+  it('returns an empty list while the findings load', () => {
+    const getRunScores = vi.fn(() => new Promise(() => {}));
     const { result } = renderHook(
       () => useFullRunDimensions({ project: 'p1', runId: 'r1', source: 'local', dimensions: [{ dimension: 'security' }] }),
-      { wrapper: withQueryClient() },
+      { wrapper: wrap(getRunScores) },
     );
     expect(result.current).toEqual([]);
   });

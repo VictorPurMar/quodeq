@@ -15,16 +15,6 @@ export const STALE_TIME_MS = 60_000;
 export const ERROR_RETRY_MS = 15_000;
 
 /**
- * How long an unobserved full-shape dashboard payload stays cached.
- *
- * The full shape is 10 to 34 MB on a large project, so the library's 5-minute
- * default keeps hundreds of megabytes alive after the user has moved on. The
- * overview shape keeps the default: it is ~0.1 MB and is what the pages the
- * user moves between actually read.
- */
-export const FULL_VIEW_GC_TIME_MS = 30_000;
-
-/**
  * refetchInterval that turns a failed query into a self-healing one.
  *
  * The client's recovery paths assume a browser: refetchOnWindowFocus fires

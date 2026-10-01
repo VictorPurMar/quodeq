@@ -21,7 +21,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api/ApiContext.jsx";
-import { DASHBOARD_VIEW } from '../../../vocab/dashboardView.js';
 import { projectKeys } from "../../../api/queryKeys.js";
 import { STALE_TIME_MS } from "../../../hooks/queryDefaults.js";
 import { PROJECT_SOURCE } from "../../../vocab/projectSource.js";
@@ -62,12 +61,11 @@ export function usePrefetchRun(selectedProject, selectedSource = PROJECT_SOURCE.
         // is good until a mutation invalidates it — and prefetchQuery refetches
         // invalidated entries regardless of staleTime.
         const staleTime = runId !== LATEST_RUN_ID ? Infinity : STALE_TIME_MS;
-        // Dashboard payload. The overview shape only: it is ~0.1 MB against
-        // 10-34 MB for the full one, and a hover is a guess about where the
-        // user is going. The run page fetches the full shape on arrival.
+        // Dashboard payload (overview shape, ~0.1 MB), the entry the run
+        // page reads on arrival.
         queryClient.prefetchQuery({
-          queryKey: projectKeys.dashboard(selectedProject, runId, selectedSource, DASHBOARD_VIEW.OVERVIEW),
-          queryFn: () => fetchDashboard(selectedProject, runId, DASHBOARD_VIEW.OVERVIEW),
+          queryKey: projectKeys.dashboard(selectedProject, runId, selectedSource),
+          queryFn: () => fetchDashboard(selectedProject, runId),
           staleTime,
         });
         // Scores payload (drives accumulated + trend).

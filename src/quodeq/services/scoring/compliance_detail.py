@@ -1,11 +1,11 @@
-"""Defer finding detail out of the /scores payload.
+"""Defer finding detail out of the /scores and /scores/<run> payloads.
 
 Violation and compliance items carry ``context``, ``snippet``, ``reason``
 and ``reqRefs``, most of the payload's bytes. Only the Principle, File and
-Finding pages and the Overview report render them, so /scores sends the
-items without those fields (marked ``detailDeferred``) and
-/compliance-detail serves them on demand, per kind, from the same
-accumulated payload.
+Finding pages and the reports render them, so /scores and /scores/<run>
+send the items without those fields (marked ``detailDeferred``) and
+/compliance-detail serves them on demand, per kind, from the same payload
+(``?asOf=`` for the accumulated lists, ``?run=`` for one run's).
 """
 from __future__ import annotations
 
@@ -24,6 +24,14 @@ def _slim_item(item: dict[str, Any]) -> dict[str, Any]:
     return slim
 
 
+def defer_dimension_detail(dimensions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """*dimensions* with detail dropped from both lists of each; copies every level it changes."""
+    return [
+        {**dim, **{key: [_slim_item(c) for c in dim.get(key) or []] for key in _LIST_KEY.values()}}
+        for dim in dimensions
+    ]
+
+
 def defer_finding_detail(payload: dict[str, Any]) -> dict[str, Any]:
     """*payload* with detail dropped from both accumulated lists.
 
@@ -33,10 +41,7 @@ def defer_finding_detail(payload: dict[str, Any]) -> dict[str, Any]:
     accumulated = payload.get("accumulated")
     if not isinstance(accumulated, dict):
         return payload
-    dimensions = [
-        {**dim, **{key: [_slim_item(c) for c in dim.get(key) or []] for key in _LIST_KEY.values()}}
-        for dim in accumulated.get("dimensions") or []
-    ]
+    dimensions = defer_dimension_detail(accumulated.get("dimensions") or [])
     return {**payload, "accumulated": {**accumulated, "dimensions": dimensions}}
 
 
@@ -45,8 +50,17 @@ def finding_detail(
     *, principle: str | None = None, path_prefix: str | None = None,
 ) -> list[dict[str, Any]]:
     """Full items of one kind in one accumulated dimension, in payload order."""
-    dims = (payload.get("accumulated") or {}).get("dimensions") or []
-    dim = next((d for d in dims if d.get("dimension") == dimension), None)
+    return dimension_detail(
+        (payload.get("accumulated") or {}).get("dimensions") or [], dimension, kind,
+        principle=principle, path_prefix=path_prefix)
+
+
+def dimension_detail(
+    dimensions: list[dict[str, Any]], dimension: str, kind: FindingType,
+    *, principle: str | None = None, path_prefix: str | None = None,
+) -> list[dict[str, Any]]:
+    """Full items of one kind in the named one of *dimensions*, in payload order."""
+    dim = next((d for d in dimensions if d.get("dimension") == dimension), None)
     if dim is None:
         return []
     return [

@@ -14,14 +14,9 @@
  * own listener. No query sets refetchIntervalInBackground, so reporting the
  * window as unfocused is what stops every refetchInterval while the app is
  * hidden — including the health poll, which resumes on its next tick.
- *
- * Full-shape dashboard payloads are also capped in number, because they are
- * frozen and large enough that the gcTime above never gets to run on them
- * (see dashboardCacheCap.js).
  */
 import { QueryClient, focusManager } from "@tanstack/react-query";
 import { isHidden, subscribeVisibility } from "../utils/appVisibility.js";
-import { installDashboardCacheCap } from "./dashboardCacheCap.js";
 
 focusManager.setEventListener((handleFocus) => {
   handleFocus(!isHidden());
@@ -44,5 +39,3 @@ export const queryClient = new QueryClient({
     },
   },
 });
-
-installDashboardCacheCap(queryClient);

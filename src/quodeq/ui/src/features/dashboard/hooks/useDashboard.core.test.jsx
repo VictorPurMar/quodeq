@@ -226,7 +226,7 @@ describe("useDashboard source-aware fetch selection", () => {
       { wrapper: ({ children }) => wrap(fakeApi, children) },
     );
     await waitFor(() => expect(result.current.dashboard).not.toBeNull());
-    expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", null, "full");
+    expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", null);
     expect(fakeApi.sharedGetDashboard).not.toHaveBeenCalled();
     expect(fakeApi.getProjectScores).toHaveBeenCalled();
     expect(fakeApi.sharedGetProjectScores).not.toHaveBeenCalled();
@@ -239,7 +239,7 @@ describe("useDashboard source-aware fetch selection", () => {
       { wrapper: ({ children }) => wrap(fakeApi, children) },
     );
     await waitFor(() => expect(result.current.dashboard?.marker).toBe("shared"));
-    expect(fakeApi.sharedGetDashboard).toHaveBeenCalledWith("p1", null, "full");
+    expect(fakeApi.sharedGetDashboard).toHaveBeenCalledWith("p1", null);
     expect(fakeApi.getDashboard).not.toHaveBeenCalled();
     expect(fakeApi.sharedGetProjectScores).toHaveBeenCalled();
     expect(fakeApi.getProjectScores).not.toHaveBeenCalled();

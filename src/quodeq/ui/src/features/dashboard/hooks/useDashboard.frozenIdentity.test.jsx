@@ -251,7 +251,7 @@ describe("useDashboard frozen historical runs", () => {
       await waitFor(() => expect(result.current.dashboard?.summary?.score).toBe(75));
 
       rerender({ run: "r_old" });
-      await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", "r_old", "full"));
+      await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", "r_old"));
       // Instant perceived navigation within a project is preserved.
       expect(result.current.dashboard?.summary?.score).toBe(75);
 

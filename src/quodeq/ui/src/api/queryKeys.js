@@ -19,7 +19,6 @@
  * pass the caller's source explicitly if it should also match shared entries.
  */
 import { DEFAULT_PROJECT_SOURCE } from '../vocab/projectSource.js';
-import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { FINDING_TYPE } from '../vocab/findingType.js';
 import { LATEST_RUN_ID } from '../constants.js';
 
@@ -46,7 +45,6 @@ const PROJECT_ID_INDEX = 1;
 const PROJECT_SOURCE_INDEX = 2;
 // The subkey segment that marks a dashboard-payload key, and its position.
 const DASHBOARD_KIND = "dashboard";
-const DASHBOARD_KIND_INDEX = 3;
 
 /**
  * Build a project-scoped query key.
@@ -70,12 +68,15 @@ export const projectKeys = {
   ),
   complianceDetail: (projectId, asOf, dimension, generation, scope = {}) =>
     projectKeys.findingDetail(projectId, asOf, FINDING_TYPE.COMPLIANCE, dimension, generation, scope),
-  // The trailing view keeps the overview (no bodies) and full shapes apart.
-  // `dashboard` is an exact key (reads, writes, prefetch); an invalidation
-  // that must reach both shapes uses `dashboardAnyView`, the prefix without it.
-  dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE, view = DASHBOARD_VIEW.FULL) =>
-    projectScope(projectId, source, DASHBOARD_KIND, run || LATEST_RUN_ID, view),
-  dashboardAnyView: (projectId, run, source = DEFAULT_PROJECT_SOURCE) =>
+  // Detail /scores/<run> deferred: one run's lists, on either source. Takes
+  // the ref a run finding carries (api/complianceDetail.js) plus the kind
+  // and the request scope.
+  runFindingDetail: ({ project, run, dimension, generation, source = DEFAULT_PROJECT_SOURCE }, kind, scope = {}) =>
+    projectScope(
+      project, source, "runFindingDetail", kind, run, dimension, generation,
+      scope.principle ?? null, scope.pathPrefix ?? null,
+    ),
+  dashboard: (projectId, run, source = DEFAULT_PROJECT_SOURCE) =>
     projectScope(projectId, source, DASHBOARD_KIND, run || LATEST_RUN_ID),
   runs: (projectId, source = DEFAULT_PROJECT_SOURCE) => projectScope(projectId, source, "runs"),
   // The help page's worked example. Inside the project subtree so dismiss and
@@ -127,32 +128,6 @@ export function samePlaceholderScope(previousQuery, projectId, source = DEFAULT_
   const key = previousQuery?.queryKey;
   if (!Array.isArray(key)) return false;
   return key[PROJECT_ID_INDEX] === projectId && key[PROJECT_SOURCE_INDEX] === source;
-}
-
-// Position of the view segment in a `projectKeys.dashboard` key.
-const DASHBOARD_VIEW_INDEX = 5;
-const DASHBOARD_RUN_INDEX = 4;
-
-/**
- * The run and view a dashboard key addresses, or null for any other key.
- *
- * @param {*} key
- * @returns {{runId: string, view: string}|null}
- */
-export function dashboardKeyParts(key) {
-  if (!Array.isArray(key)) return null;
-  if (key[0] !== PROJECT_SCOPE || key[DASHBOARD_KIND_INDEX] !== DASHBOARD_KIND) return null;
-  return { runId: key[DASHBOARD_RUN_INDEX], view: key[DASHBOARD_VIEW_INDEX] };
-}
-
-/**
- * True when *previousQuery* is a dashboard key of the given *view*. The
- * overview shape has no bodies, so it must never stand in as a placeholder
- * for a full-view observer (an empty worst-files table would flash).
- */
-export function sameDashboardView(previousQuery, view) {
-  const key = previousQuery?.queryKey;
-  return Array.isArray(key) && key[DASHBOARD_VIEW_INDEX] === view;
 }
 
 const SYSTEM_SCOPE = "system"; // query-key prefix for the systemKeys.* subtree below

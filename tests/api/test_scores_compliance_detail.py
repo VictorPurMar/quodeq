@@ -153,3 +153,64 @@ def test_detail_missing_project_is_404(served, monkeypatch) -> None:
     resp = client.get("/api/projects/demo/compliance-detail?dimension=security")
 
     assert resp.status_code == 404
+
+
+def _run_payload() -> dict:
+    return {"dimensions": [
+        {"dimension": "security", "violations": [_item("src/a.py", 1, "P1", severity="major")],
+         "compliance": [_item("src/b.py", 2, "P2")]},
+    ], "summary": {}}
+
+
+@pytest.fixture()
+def run_served(tmp_path, monkeypatch):
+    """A client whose get_scores_raw returns one run's payload; records the run asked for."""
+    monkeypatch.setenv("QUODEQ_EVALUATIONS_DIR", str(tmp_path / "reports"))
+    calls: list[tuple] = []
+
+    def fake_raw(root, project, run_id, *a, **kw):
+        calls.append((project, run_id))
+        if run_id == "missing":
+            raise FileNotFoundError(run_id)
+        return _run_payload()
+
+    monkeypatch.setattr("quodeq.api._scores_routes.get_scores_raw", fake_raw)
+    monkeypatch.setattr("quodeq.services.scoring._scores_raw.get_scores_raw", fake_raw)
+    app = create_app(test_config={"TESTING": True})
+    with app.test_client() as c:
+        yield c, calls
+
+
+def test_run_scores_defers_detail_and_keeps_compliance(run_served) -> None:
+    client, _ = run_served
+    body = client.get("/api/projects/demo/scores/r1").get_json()
+
+    violation = body["dimensions"][0]["violations"][0]
+    assert violation["detailDeferred"] is True
+    assert "snippet" not in violation and "reason" not in violation and "context" not in violation
+    assert (violation["file"], violation["line"], violation["practiceId"], violation["severity"]) == (
+        "src/a.py", 1, "P1", "major")
+    compliance = body["dimensions"][0]["compliance"][0]
+    assert compliance["detailDeferred"] is True and compliance["file"] == "src/b.py"
+
+
+def test_detail_for_a_run_refills_from_that_run(run_served) -> None:
+    client, calls = run_served
+    body = client.get("/api/projects/demo/compliance-detail?dimension=security&kind=violation&run=r1").get_json()
+
+    assert calls[-1] == ("demo", "r1")
+    assert body["items"][0]["snippet"] == "code src/a.py:1"
+    assert "detailDeferred" not in body["items"][0]
+    comp = client.get("/api/projects/demo/compliance-detail?dimension=security&run=r1").get_json()
+    assert comp["items"][0]["file"] == "src/b.py"
+
+
+def test_detail_for_a_missing_run_is_404(run_served) -> None:
+    client, _ = run_served
+    assert client.get("/api/projects/demo/compliance-detail?dimension=security&run=missing").status_code == 404
+
+
+def test_detail_rejects_traversal_run(run_served) -> None:
+    client, calls = run_served
+    assert client.get("/api/projects/demo/compliance-detail?dimension=security&run=..").status_code == 400
+    assert calls == []

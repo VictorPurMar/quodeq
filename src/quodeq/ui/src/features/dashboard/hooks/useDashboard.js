@@ -2,15 +2,13 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api/ApiContext.jsx";
 import { useProjectScores } from "../../../hooks/useProjectScores.js";
-import { projectKeys, sameDashboardView } from "../../../api/queryKeys.js";
+import { projectKeys } from "../../../api/queryKeys.js";
 import { useScopedPlaceholder } from "../../../hooks/useScopedPlaceholder.js";
 import { isFrozenRun } from '../../../models/runRules.js';
 import { t } from '../../../strings/index.js';
 import { useDashboardInvalidation } from './useDashboardInvalidation.js';
-import { STALE_TIME_MS, FULL_VIEW_GC_TIME_MS, refetchWhileError } from '../../../hooks/queryDefaults.js';
+import { STALE_TIME_MS, refetchWhileError } from '../../../hooks/queryDefaults.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
-import { DASHBOARD_VIEW } from '../../../vocab/dashboardView.js';
-import { NAV_TAB } from '../../../vocab/navTab.js';
 
 const EMPTY_TREND = [];
 
@@ -60,25 +58,15 @@ function buildSharedProjectInfoQueryConfig({ projectKey, selectedSource, sharedG
 // section-pending flash) on re-entering a run view. The rule
 // itself (including why an unknown run counts as frozen) lives in
 // models/runRules.js.
-// Run pages render the worst-files table, the report and the fix plan from
-// every dimension's bodies; every other page renders scalars, so it asks
-// for the overview shape (0.1 MB instead of 10-34 MB on large projects).
-const FULL_VIEW_PAGES = new Set([NAV_TAB.RUN, NAV_TAB.HISTORY_RUN]);
-
-/** The dashboard view a page needs. */
-export function dashboardViewForPage(page) {
-  return FULL_VIEW_PAGES.has(page) ? DASHBOARD_VIEW.FULL : DASHBOARD_VIEW.OVERVIEW;
-}
-
-function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope, view }) {
+// The payload is the overview shape on every page (scores and counts, ~0.1
+// MB); run pages read their finding lists from the run's scores query
+// (useRunFindings.js) instead of a 10-34 MB full dashboard.
+function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope }) {
   return {
-    queryKey: projectKeys.dashboard(projectKey, selectedRun, selectedSource, view),
-    queryFn: () => fetchDashboard(selectedProject, selectedRun, view),
+    queryKey: projectKeys.dashboard(projectKey, selectedRun, selectedSource),
+    queryFn: () => fetchDashboard(selectedProject, selectedRun),
     enabled: !!selectedProject,
     staleTime: frozenRun ? Infinity : STALE_TIME_MS,
-    // The full shape is the big one; drop it soon after the user leaves the
-    // run page instead of holding it for the library's 5-minute default.
-    gcTime: view === DASHBOARD_VIEW.FULL ? FULL_VIEW_GC_TIME_MS : undefined,
     // The webview has no focus/reconnect events, so an errored query must
     // poll its own way back to health (see refetchWhileError).
     refetchInterval: refetchWhileError,
@@ -88,12 +76,8 @@ function buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fe
     // Disabled when keepPlaceholder=false (History run details).
     // Scoped to this project+source: a PROJECT switch must fall through to a
     // real loading state instead of parking the old project's overview on
-    // screen (see samePlaceholderScope). Also scoped to this view: the
-    // overview shape has no bodies, so it never stands in for a full-view
-    // observer (see sameDashboardView).
-    placeholderData: keepPlaceholder
-      ? (prev, prevQuery) => (sameDashboardView(prevQuery, view) ? keepInScope(prev, prevQuery) : undefined)
-      : undefined,
+    // screen (see samePlaceholderScope).
+    placeholderData: keepPlaceholder ? keepInScope : undefined,
   };
 }
 
@@ -169,7 +153,7 @@ function mergeTrendIntoDashboard(dashboardData, fallbackTrend) {
  * which History turns off because flashing a neighbouring run is misleading
  * there. Placeholders never cross a project or source boundary.
  */
-export function useDashboard({ selectedProject, selectedRun, selectedSource = PROJECT_SOURCE.LOCAL, keepPlaceholder = true, view = DASHBOARD_VIEW.FULL } = {}) {
+export function useDashboard({ selectedProject, selectedRun, selectedSource = PROJECT_SOURCE.LOCAL, keepPlaceholder = true } = {}) {
   const { getDashboard, sharedGetDashboard, sharedGetProjectInfo } = useApi();
   const fetchDashboard = selectedSource === PROJECT_SOURCE.SHARED ? sharedGetDashboard : getDashboard;
   const queryClient = useQueryClient();
@@ -188,7 +172,7 @@ export function useDashboard({ selectedProject, selectedRun, selectedSource = PR
 
   const frozenRun = isFrozenRun(selectedRun, availableRuns);
 
-  const dashboardQuery = useQuery(buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope, view }));
+  const dashboardQuery = useQuery(buildDashboardQueryConfig({ projectKey, selectedRun, selectedSource, fetchDashboard, selectedProject, frozenRun, keepPlaceholder, keepInScope }));
 
   const fallbackTrend = useMemo(() => computeFallbackTrend(scores, latestScores), [scores, latestScores]);
 

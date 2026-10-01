@@ -10,15 +10,39 @@ const slim = (file, line) => ({
   reason: null, snippet: null, context: null, detailDeferred: true, detailRef: ref,
 });
 
-function setup(getFindingDetail) {
+function setup(getFindingDetail, sharedGetFindingDetail = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }) => (
     <QueryClientProvider client={client}>
-      <ApiProvider value={{ getFindingDetail }}>{children}</ApiProvider>
+      <ApiProvider value={{ getFindingDetail, sharedGetFindingDetail }}>{children}</ApiProvider>
     </QueryClientProvider>
   );
   return wrapper;
 }
+
+describe('useHydratedFindings for one run', () => {
+  const runRef = { project: 'proj', run: 'r1', dimension: 'security', generation: 1, kind: 'violation', source: 'local' };
+
+  it('refills a run ref from that run, not the accumulated lists', async () => {
+    const item = { ...slim('src/v.py', 3), detailRef: runRef };
+    const get = vi.fn(async () => [{ ...item, reason: 'why', snippet: 'code', detailDeferred: false }]);
+    const { result } = renderHook(() => useHydratedFindings([item], FINDING_TYPE.VIOLATION), { wrapper: setup(get) });
+
+    await waitFor(() => expect(result.current[0].snippet).toBe('code'));
+    expect(get).toHaveBeenCalledWith('proj', { kind: 'violation', dimension: 'security', run: 'r1', principle: 'P1', pathPrefix: 'src/v.py' });
+  });
+
+  it('uses the shared mirror for a shared run ref', async () => {
+    const item = { ...slim('src/v.py', 3), detailRef: { ...runRef, source: 'shared' } };
+    const local = vi.fn();
+    const shared = vi.fn(async () => [{ ...item, reason: 'why', snippet: 'code', detailDeferred: false }]);
+    const { result } = renderHook(() => useHydratedFindings([item], FINDING_TYPE.VIOLATION), { wrapper: setup(local, shared) });
+
+    await waitFor(() => expect(result.current[0].snippet).toBe('code'));
+    expect(local).not.toHaveBeenCalled();
+    expect(shared).toHaveBeenCalledWith('proj', { kind: 'violation', dimension: 'security', run: 'r1', principle: 'P1', pathPrefix: 'src/v.py' });
+  });
+});
 
 describe('useHydratedCompliance', () => {
   it('fills deferred items with the fetched detail', async () => {

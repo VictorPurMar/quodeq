@@ -1,12 +1,14 @@
 /**
- * Finding detail that /scores defers.
+ * Finding detail that /scores and /scores/<run> defer.
  *
- * /scores sends accumulated violation and compliance items without `reason`,
- * `snippet`, `context` and `reqRefs` (flagged `detailDeferred`), since those
- * fields are most of its payload. Pages that render finding cards fetch the
- * detail from /compliance-detail (per kind) and merge it back by identity.
+ * Both send violation and compliance items without `reason`, `snippet`,
+ * `context` and `reqRefs` (flagged `detailDeferred`), since those fields are
+ * most of their payload. Pages that render finding cards fetch the detail
+ * from /compliance-detail (per kind; `?asOf=` for accumulated items, `?run=`
+ * for one run's) and merge it back by identity.
  */
 import { FINDING_TYPE } from '../vocab/findingType.js';
+import { DEFAULT_PROJECT_SOURCE } from '../vocab/projectSource.js';
 
 // The accumulated list each kind lives in.
 const LIST_BY_KIND = Object.freeze({ [FINDING_TYPE.VIOLATION]: 'violations', [FINDING_TYPE.COMPLIANCE]: 'compliance' });
@@ -36,6 +38,31 @@ export function attachFindingDetailRefs(data, project, asOf, generation) {
 
 /** `attachFindingDetailRefs` under its pre-kind name. */
 export const attachComplianceDetailRefs = attachFindingDetailRefs;
+
+// Numbers each /scores/<run> response (both sources), see attachFindingDetailRefs.
+let runScoresGeneration = 0;
+
+/**
+ * `attachFindingDetailRefs` for a run-scores payload: its items' detail
+ * lives at `/compliance-detail?run=`, on the source the payload came from.
+ * @param {Object} data Parsed run scores payload (mutated and returned).
+ * @param {string} project
+ * @param {string} run
+ * @param {string} [source] PROJECT_SOURCE value.
+ * @returns {Object}
+ */
+export function attachRunFindingDetailRefs(data, project, run, source = DEFAULT_PROJECT_SOURCE) {
+  runScoresGeneration += 1;
+  for (const dim of data?.dimensions || []) {
+    for (const [kind, list] of Object.entries(LIST_BY_KIND)) {
+      const ref = { project, run, dimension: dim.dimension, generation: runScoresGeneration, kind, source };
+      for (const item of dim[list] || []) {
+        if (item?.detailDeferred) item.detailRef = ref;
+      }
+    }
+  }
+  return data;
+}
 
 function commonPrefix(strings) {
   if (strings.length === 0) return '';

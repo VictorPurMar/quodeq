@@ -87,10 +87,10 @@ describe('useRunningRunsRefresh', () => {
     oneTick();
     const keys = keysCalled(invalidateSpy);
     expect(keys).toContainEqual(projectKeys.scores('p1', null));
-    expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', null));
-    expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', 'r_live'));
+    expect(keys).toContainEqual(projectKeys.dashboard('p1', null));
+    expect(keys).toContainEqual(projectKeys.dashboard('p1', 'r_live'));
     expect(keys).not.toContainEqual(projectKeys.project('p1'));
-    expect(keys).not.toContainEqual(projectKeys.dashboardAnyView('p1', 'r_done'));
+    expect(keys).not.toContainEqual(projectKeys.dashboard('p1', 'r_done'));
     expect(keys).not.toContainEqual(projectKeys.scores('p1', 'r_done'));
   });
 
@@ -144,7 +144,7 @@ describe('useRunningRunsRefresh', () => {
       oneTick();
       const keys = keysCalled(invalidateSpy);
       expect(keys).toContainEqual(projectKeys.scores('p1', null, 'local'));
-      expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', null, 'local'));
+      expect(keys).toContainEqual(projectKeys.dashboard('p1', null, 'local'));
     });
 
     it("scopes invalidation to the 'shared' keys when selectedSource is 'shared'", () => {
@@ -152,9 +152,9 @@ describe('useRunningRunsRefresh', () => {
       oneTick();
       const keys = keysCalled(invalidateSpy);
       expect(keys).toContainEqual(projectKeys.scores('p1', null, 'shared'));
-      expect(keys).toContainEqual(projectKeys.dashboardAnyView('p1', null, 'shared'));
+      expect(keys).toContainEqual(projectKeys.dashboard('p1', null, 'shared'));
       expect(keys).not.toContainEqual(projectKeys.scores('p1', null, 'local'));
-      expect(keys).not.toContainEqual(projectKeys.dashboardAnyView('p1', null, 'local'));
+      expect(keys).not.toContainEqual(projectKeys.dashboard('p1', null, 'local'));
     });
   });
 });

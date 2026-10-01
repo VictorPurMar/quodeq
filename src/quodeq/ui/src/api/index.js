@@ -23,7 +23,7 @@ export {
   getSharedStatus, connectShared, disconnectShared, refreshShared,
   sharedListProjects, sharedGetProjectInfo, sharedGetRuns,
   sharedGetDashboard, sharedGetAccumulated, sharedGetProjectScores,
-  sharedGetRunScores, sharedGetDimensionEval, sharedGetViolations,
+  sharedGetRunScores, sharedGetFindingDetail, sharedGetDimensionEval, sharedGetViolations,
   sharedListDismissedFindings, sharedListVerifiedFindings,
   publishProject, pullSharedProject, sharedGetCompareSummary, sharedGetFleetCompare,
 } from './shared.js';

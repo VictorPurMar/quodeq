@@ -36,12 +36,11 @@
     "response_bytes": 0,
     "score_cache_opens": 110
   },
-  "run_page_full_warm": {
-    "eval_report_reads": 2,
+  "run_page_findings_warm": {
     "evaluation_db_opens": 5,
-    "peak_kib": 169,
-    "response_bytes": 5926,
-    "score_cache_opens": 1
+    "peak_kib": 42,
+    "response_bytes": 2249,
+    "score_cache_opens": 0
   },
   "run_page_overview_cold": {
     "eval_report_reads": 1,
