@@ -1,7 +1,7 @@
 {
   "agent_spawn": {
     "evaluation_db_opens": 7,
-    "peak_kib": 3943,
+    "peak_kib": 428,
     "response_bytes": 0,
     "standards_reads": 5
   },
@@ -9,13 +9,13 @@
     "eval_report_reads": 300,
     "evaluation_db_opens": 930,
     "get_project_scores": 10,
-    "peak_kib": 1087,
+    "peak_kib": 270,
     "response_bytes": 30460
   },
   "eval_poll_tick": {
     "eval_report_reads": 3,
     "evaluation_db_opens": 5,
-    "peak_kib": 465,
+    "peak_kib": 156,
     "response_bytes": 1784,
     "standards_reads": 3
   },
@@ -23,13 +23,12 @@
     "eval_report_reads": 19,
     "evaluation_db_opens": 52,
     "event_log_reads": 1,
-    "peak_kib": 233,
     "response_bytes": 3894
   },
   "scores_as_of_warm": {
     "eval_report_reads": 8,
     "evaluation_db_opens": 10,
-    "peak_kib": 172,
+    "peak_kib": 168,
     "response_bytes": 3894
   }
 }
