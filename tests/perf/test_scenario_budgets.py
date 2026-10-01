@@ -4,8 +4,9 @@ Same contract as ``test_request_budgets.py``: each scenario runs once on a
 fixed fixture, its reads are counted, and the counts must equal the values
 committed in ``scenario_budgets.json``. Two coarser metrics ride along:
 response bytes per request (exact) and tracemalloc peak per scenario (a 20%
-band, see ``_scenario_fixture.check_budgets``). The peak is taken on a warm
-repeat of the scenario so it does not depend on what the worker ran before.
+band, see ``_scenario_fixture.check_budgets``). The peak is the minimum over
+warm repeats of the scenario so it does not depend on what the worker ran
+before or on one-off interpreter events.
 
 Rewrite the budgets with ``QUODEQ_UPDATE_BUDGETS=1`` and commit the file in
 the same PR as the change that moved them.
@@ -30,6 +31,7 @@ from tests.perf._scenario_fixture import (
 )
 
 _BUDGETS = Path(__file__).with_name("scenario_budgets.json")
+PEAK_REPEATS = 2
 
 pytestmark = pytest.mark.real_standards
 
@@ -52,21 +54,26 @@ def client(tmp_path, monkeypatch):
 
 
 def _measure(monkeypatch, run, *, extra=lambda: {}, peak=True) -> dict[str, int]:
-    """Count I/O and bytes on a first run of *run*; take the tracemalloc peak from a second.
+    """Count I/O and bytes on a first run of *run*; take the tracemalloc peak from warm repeats.
 
     A first call pays for lazy imports, module caches and the coverage tracer,
     and how much of that is still unpaid depends on what the xdist worker ran
-    before. Measuring the peak on a repeat keeps it about the scenario itself.
-    *extra* is snapshotted after the counting run; ``peak=False`` skips the
-    repeat for scenarios whose next call must stay cold.
+    before. The peak is the minimum over PEAK_REPEATS warm runs: the minimum
+    also discards one-off interpreter events that land on a single run, such
+    as the interned-string table growing (seen as a 7 MiB allocation out of
+    ``pathlib`` on macOS). *extra* is snapshotted after the counting run;
+    ``peak=False`` skips the repeats for scenarios whose next call must stay cold.
     """
     with count_io(monkeypatch) as counts:
         response_bytes = run()
     out = {**counts, **extra(), "response_bytes": response_bytes}
     if peak:
-        with peak_kib() as measured:
-            run()
-        out.update(measured)
+        peaks = []
+        for _ in range(PEAK_REPEATS):
+            with peak_kib() as measured:
+                run()
+            peaks.append(measured["peak_kib"])
+        out["peak_kib"] = min(peaks)
     return out
 
 
