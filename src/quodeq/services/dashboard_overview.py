@@ -37,7 +37,7 @@ from quodeq.shared.stamp_memo import StampCache, file_stamp
 MEMO_MAX_ENTRIES = 16
 
 #: Process-wide memo; tests patch this with a fresh ``StampCache``.
-_CACHE = StampCache(max_entries=MEMO_MAX_ENTRIES)
+_CACHE = StampCache(max_entries=MEMO_MAX_ENTRIES, name="dashboard_overview")
 
 SelectedDims = tuple[list[DimensionResult], dict[str, int], dict[str, int]]
 

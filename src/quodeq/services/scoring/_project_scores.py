@@ -122,7 +122,7 @@ def _empty_project_scores(scoring_meta: dict) -> dict[str, Any]:
 #: One full payload per project (latest only); a decoded payload can be tens
 #: of MB, so the bound is a handful of projects, like the stale slots.
 PAYLOAD_MEMO_MAX = 8
-_PAYLOADS = StampCache(max_entries=PAYLOAD_MEMO_MAX)
+_PAYLOADS = StampCache(max_entries=PAYLOAD_MEMO_MAX, name="project_scores.payloads")
 
 
 def _payload_stamp(
