@@ -30,7 +30,7 @@ from quodeq.api.dimension_eval_wire import dimension_eval_response
 from quodeq.api.helpers import json_error, validate_segment
 from quodeq.api.routes_shared_findings_mirrors import register_shared_findings_mirror_routes
 from quodeq.services import fs_reports, fs_projects
-from quodeq.api.routes_compare import FLEET_LOG, fleet_projects_or_error
+from quodeq.api.fleet_request import FLEET_LOG, fleet_projects_or_error
 from quodeq.services.compare import build_compare_summary, build_fleet_compare
 from quodeq.services.run_constants import LATEST_RUN
 from quodeq.services.runs_unit import build_runs_unit
