@@ -94,7 +94,7 @@ def test_non_complete_runs_are_still_read_every_call(tmp_path, monkeypatch):
 def test_trend_version_for_reuses_the_memo_for_cacheable_runs(tmp_path, monkeypatch):
     pd = tmp_path / "proj"
     _run_with_finding(pd, "r1")
-    inputs = VersionInputs.of(DEFAULT_PARAMS, set(), set())
+    inputs = VersionInputs.of(DEFAULT_PARAMS, set(), set(), pd)
     first = _make_version_for(pd, "proj", inputs, lambda: {}, {"r1"})("r1")
 
     _forbid_key_reads(monkeypatch)
@@ -118,7 +118,7 @@ def test_trend_version_for_loads_keys_lazily_and_once(tmp_path):
 
     # Not cacheable: nothing memoized, so the loader runs, but only once per fetcher.
     version_for = _make_version_for(
-        pd, "proj", VersionInputs.of(DEFAULT_PARAMS, set(), set()), load, set())
+        pd, "proj", VersionInputs.of(DEFAULT_PARAMS, set(), set(), pd), load, set())
     assert loads == []
     version_for("r1")
     version_for("r2")

@@ -31,6 +31,7 @@ from quodeq.services._run_version_memo import (  # facade re-export
 )
 from quodeq.core.scoring import projector_scoring
 from quodeq.services._score_cache_params import params_fingerprint
+from quodeq.services.standards_version import standards_fingerprint
 from quodeq.services.wiring import load_suppression_rules
 
 # ---------------------------------------------------------------------------
@@ -72,15 +73,15 @@ _ACCUMULATED_CACHE_ALGO_VERSION = 6
 
 
 def score_cache_version(project_dir: Path, params: ScoringParams) -> str:
-    """Content-hash of the project's suppression state + grade params.
+    """Content-hash of the project's suppression state + grade params + standards.
 
     Any change to any of these produces a new version, auto-invalidating cached
-    rows without a write-path hook. Pattern rules are part of the state for the
-    same reason the exact keys are: adding one hides findings, so a cached row
-    computed before it must not survive.
+    rows without a write-path hook. Pattern rules hide findings like exact keys
+    do; standards are what a rescore resolves principles against.
     """
     payload = json.dumps({
         "epoch": _CACHE_WRITER_EPOCH,
+        "standards": standards_fingerprint(project_dir),
         # Read at call time so every grade-formula bump invalidates cached
         # rows the same way it re-derives the SQL grade tables.
         "algo": projector_scoring.GRADE_ALGO_VERSION,
@@ -100,19 +101,23 @@ def run_scoped_version(
     run_class_keys: set[tuple],
     dismissed_all: "DismissedKeys | set[tuple]",
     deleted_all: set[tuple],
+    *,
+    standards: str,
 ) -> str:
-    """Version hash for a single run: params + only the suppressions that touch it.
+    """Version hash for a single run: params, standards, and only the suppressions that touch it.
 
-    A run's rescored score depends solely on dismissals that can hide one of
-    its findings (``DismissedKeys.touching`` against *run_dismiss_keys*, the
-    run's ``finding_dismiss_keys`` union) and deletions whose
-    (dim,principle,file) is in *run_class_keys*, so intersecting keeps
-    unaffected runs' versions stable.
+    A run's rescored score depends on dismissals that can hide one of its
+    findings (``DismissedKeys.touching`` against *run_dismiss_keys*, the run's
+    ``finding_dismiss_keys`` union), deletions whose (dim,principle,file) is
+    in *run_class_keys*, and the standards its findings resolve against
+    (*standards*, see :func:`standards_fingerprint`). Intersecting the
+    suppressions keeps unaffected runs' versions stable.
     """
     touching = as_dismissed_keys(dismissed_all).touching(run_dismiss_keys)
     payload = json.dumps({
         "epoch": _CACHE_WRITER_EPOCH,
         "algo": projector_scoring.GRADE_ALGO_VERSION,
+        "standards": standards,
         "dismissed": touching.version_payload(),
         "deleted": sorted(str(k) for k in (deleted_all & run_class_keys)),
         "params": params_fingerprint(params),
@@ -201,19 +206,15 @@ def per_run_versions(
     cache (see :func:`accumulated_cache_version`).
 
     *keys* (the project's dismissed and deleted sets) defaults to a fresh
-    lookup (``dismissed_keys`` / ``deleted_keys``) when omitted — an injection
-    seam for tests, in place of patching those module attributes (this
-    function used to re-import both names in its body on every call, which
-    made such a patch a no-op).
+    lookup (``dismissed_keys`` / ``deleted_keys``) when omitted, an injection
+    seam for tests in place of patching those module attributes.
 
     Only TERMINAL runs persist their key sets: an in-progress run's findings
-    table is still being written as dimensions finish, so its key set is partial.
-    Persisting that partial snapshot would freeze it (``load_run_keys`` short-
-    circuits any re-read), so a suppression targeting a key that appears only
-    after the run is first observed mid-scan would not intersect the frozen set
-    and would silently under-invalidate. Non-terminal runs therefore compute
-    their scoped version from a fresh ``read_run_key_sets`` each call and never
-    write it back, mirroring ``trend_fetcher.version_for``.
+    table is still being written, so its key set is partial and persisting it
+    would freeze it (``load_run_keys`` short-circuits any re-read) and
+    silently under-invalidate. Non-terminal runs compute their scoped version
+    from a fresh ``read_run_key_sets`` each call, mirroring
+    ``trend_fetcher.version_for``.
 
     That immutability also makes a terminal run's version a pure function of
     its keys and the suppression state, so :func:`memoized_run_version` serves
@@ -221,7 +222,7 @@ def per_run_versions(
     """
     if keys is None:
         keys = SuppressionKeys(dismissed_keys(project_dir), deleted_keys(project_dir))
-    inputs = VersionInputs.of(params, keys.dismissed, keys.deleted)
+    inputs = VersionInputs.of(params, keys.dismissed, keys.deleted, project_dir)
     out: list[tuple[str, RunState, str]] = []
     pending: list[tuple[int, str, RunState]] = []
     for idx, (rid, status) in enumerate(runs):
@@ -241,14 +242,18 @@ class VersionInputs:
     params: ScoringParams
     dismissed: "DismissedKeys | set[tuple]"
     deleted: set[tuple]
+    standards: str
     fingerprint: str
 
     @classmethod
     def of(
         cls, params: ScoringParams, dismissed: "DismissedKeys | set[tuple]", deleted: set[tuple],
+        project_dir: Path,
     ) -> "VersionInputs":
-        """Bundle the inputs and compute the fingerprint once, for reuse across every run."""
-        return cls(params, dismissed, deleted, suppression_state_fingerprint(params, dismissed, deleted))
+        """Bundle the inputs, read the project's standards fingerprint, and hash once for every run."""
+        standards = standards_fingerprint(project_dir)
+        fingerprint = suppression_state_fingerprint(params, dismissed, deleted, standards=standards)
+        return cls(params, dismissed, deleted, standards, fingerprint)
 
 
 def _fill_pending_versions(
@@ -273,7 +278,8 @@ def _fill_pending_versions(
             if terminal:
                 store_run_keys_best_effort(project, rid, keys[0], keys[1])
         version = run_scoped_version(
-            inputs.params, keys[0], keys[1], inputs.dismissed, inputs.deleted)
+            inputs.params, keys[0], keys[1], inputs.dismissed, inputs.deleted,
+            standards=inputs.standards)
         if terminal:
             remember_run_version(project_dir, rid, inputs.fingerprint, version)
         out[idx] = (rid, status, version)
@@ -283,9 +289,11 @@ def suppression_state_fingerprint(
     params: ScoringParams,
     dismissed_all: "DismissedKeys | set[tuple]",
     deleted_all: set[tuple],
+    *,
+    standards: str,
 ) -> str:
     """Hash of everything except a run's own keys that feeds run_scoped_version.
 
     See ``services._run_version_memo``; this facade folds in the params hash.
     """
-    return _state_fingerprint(params_fingerprint(params), dismissed_all, deleted_all)
+    return _state_fingerprint(params_fingerprint(params), dismissed_all, deleted_all, standards)
