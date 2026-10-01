@@ -1,7 +1,13 @@
-import { render, act } from '@testing-library/react';
+import { render as rtlRender, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import DashboardPage from './DashboardPage.jsx';
 import { SidePaneProvider } from '../../side-pane/index.js';
+import { withStableQueryApi } from '../../../test-utils/withQueryClient.jsx';
+
+// The run panel reads the run's findings through the query client; the
+// page tests only care about the loader and fade gates, so the findings
+// never resolve here.
+const render = (ui) => rtlRender(ui, { wrapper: withStableQueryApi({ getRunScores: () => new Promise(() => {}) }) });
 
 // Split from DashboardPage.test.jsx: dashboard-appear fade-once,
 // part 2 (no-replay on empty-state handoff, re-arm on project/run switch).

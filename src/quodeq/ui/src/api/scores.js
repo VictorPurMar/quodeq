@@ -6,10 +6,10 @@
 import { createDashboard } from '../models/dashboard.js';
 import { createDimensionEval } from '../models/dimension.js';
 import { request } from './request.js';
-import { attachFindingDetailRefs } from './complianceDetail.js';
+import { attachFindingDetailRefs, attachRunFindingDetailRefs } from './complianceDetail.js';
 import { FINDING_TYPE } from '../vocab/findingType.js';
 import { createViolations } from '../models/violation.js';
-import { asOfQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
+import { asOfQuery, findingDetailQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
 import { LATEST_RUN_ID } from '../constants.js';
 import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { fleetQuery, projectPath } from './paths.js';
@@ -28,18 +28,15 @@ export async function getProjectScores(projectId, asOfRun = null) {
 }
 
 /**
- * Full items of one kind /scores deferred, for one accumulated dimension.
+ * Full items of one kind that /scores (accumulated, `asOf`) or
+ * /scores/<run> (`run`) deferred, for one dimension.
  * @param {string} projectId
- * @param {{kind: string, dimension: string, asOf?: string|null, principle?: string, pathPrefix?: string}} scope
+ * @param {{kind: string, dimension: string, run?: string|null, asOf?: string|null, principle?: string, pathPrefix?: string}} scope
  *   `kind` is FINDING_TYPE.VIOLATION or FINDING_TYPE.COMPLIANCE.
  * @returns {Promise<import('../models/violation.js').Violation[]>}
  */
-export async function getFindingDetail(projectId, { kind, dimension, asOf, principle, pathPrefix }) {
-  const params = new URLSearchParams({ dimension, kind });
-  if (asOf) params.set('asOf', asOf);
-  if (principle) params.set('principle', principle);
-  if (pathPrefix) params.set('pathPrefix', pathPrefix);
-  const data = await request(`${projectPath(projectId)}/compliance-detail?${params}`);
+export async function getFindingDetail(projectId, scope) {
+  const data = await request(`${projectPath(projectId)}/compliance-detail?${findingDetailQuery(scope)}`);
   return createViolations(data?.items);
 }
 
@@ -53,10 +50,14 @@ export function getComplianceDetail(projectId, scope) {
   return getFindingDetail(projectId, { ...scope, kind: FINDING_TYPE.COMPLIANCE });
 }
 
-/** @returns {Promise<{dimensions: Array, summary: Object}>} */
+/**
+ * One run's rescored dimensions with finding detail deferred (see
+ * attachRunFindingDetailRefs).
+ * @returns {Promise<{dimensions: Array, summary: Object}>}
+ */
 export async function getRunScores(projectId, runId) {
   const data = await request(`${projectPath(projectId)}/scores/${encodeURIComponent(runId)}`);
-  return parseSlimDimensions(data);
+  return attachRunFindingDetailRefs(parseSlimDimensions(data), projectId, runId);
 }
 
 /**
@@ -86,15 +87,14 @@ export async function getFleetCompare(projectIds) {
 /**
  * @param {string} projectId
  * @param {string|null} run  LATEST_RUN_ID or a run id; falsy means the server default
- * @param {string} view      DASHBOARD_VIEW.FULL (bodies) or OVERVIEW (scalars only)
- * @returns {Promise<import('../models/dashboard.js').Dashboard>}
+ * @returns {Promise<import('../models/dashboard.js').Dashboard>} the
+ *   overview shape: scores and counts, no finding lists (see getRunScores)
  */
-export async function getDashboard(projectId, run = LATEST_RUN_ID, view = DASHBOARD_VIEW.FULL) {
+export async function getDashboard(projectId, run = LATEST_RUN_ID) {
   const query = new URLSearchParams();
   if (run) query.set('run', run);
-  if (view !== DASHBOARD_VIEW.FULL) query.set('view', view);
-  const qs = query.toString();
-  const data = await request(`${projectPath(projectId)}/dashboard${qs ? `?${qs}` : ''}`);
+  query.set('view', DASHBOARD_VIEW.OVERVIEW);
+  const data = await request(`${projectPath(projectId)}/dashboard?${query}`);
   return createDashboard(data);
 }
 

@@ -10,7 +10,9 @@ import { createDashboard } from '../models/dashboard.js';
 import { createDimensionEval } from '../models/dimension.js';
 import { epochSecondsToMs } from './sharedStatus.js';
 import { LATEST_RUN_ID } from '../constants.js';
-import { asOfQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores, runQuery } from './scoresShape.js';
+import { asOfQuery, findingDetailQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores, runQuery } from './scoresShape.js';
+import { attachRunFindingDetailRefs } from './complianceDetail.js';
+import { createViolations } from '../models/violation.js';
 import { PROJECT_SOURCE } from '../vocab/projectSource.js';
 import { fleetQuery, sharedProjectPath } from './paths.js';
 
@@ -135,7 +137,8 @@ export async function sharedGetProjectScores(projectId, asOfRun = null) {
 }
 
 /**
- * Get slim scores for a specific run.
+ * One run's rescored dimensions with finding detail deferred, from the
+ * shared mirror (`sharedGetFindingDetail` refills it).
  * @param {string} projectId
  * @param {string} runId
  * @returns {Promise<{dimensions: Array, summary: Object}>}
@@ -144,7 +147,18 @@ export async function sharedGetRunScores(projectId, runId) {
   const data = await request(
     `${sharedProjectPath(projectId)}/scores/${encodeURIComponent(runId)}`
   );
-  return parseSlimDimensions(data);
+  return attachRunFindingDetailRefs(parseSlimDimensions(data), projectId, runId, PROJECT_SOURCE.SHARED);
+}
+
+/**
+ * `getFindingDetail` against the shared mirror.
+ * @param {string} projectId
+ * @param {{kind: string, dimension: string, run?: string|null, asOf?: string|null, principle?: string, pathPrefix?: string}} scope
+ * @returns {Promise<import('../models/violation.js').Violation[]>}
+ */
+export async function sharedGetFindingDetail(projectId, scope) {
+  const data = await request(`${sharedProjectPath(projectId)}/compliance-detail?${findingDetailQuery(scope)}`);
+  return createViolations(data?.items);
 }
 
 // ── Dimension Eval & Violations ─────────────────────────────────────────────

@@ -27,6 +27,7 @@ from flask import Flask, Response, current_app, jsonify, request
 
 from quodeq.api._constants import CODE_INTERNAL_ERROR, CODE_NOT_FOUND, QUERY_FLAG_TRUE_NUMERIC
 from quodeq.api.dimension_eval_wire import dimension_eval_response
+from quodeq.api._scores_routes import finding_detail_response
 from quodeq.api.helpers import json_error, validate_segment
 from quodeq.api.routes_shared_findings_mirrors import register_shared_findings_mirror_routes
 from quodeq.services import fs_reports, fs_projects
@@ -148,16 +149,23 @@ def shared_scores(project: str, eval_root: Path):
     err = validate_segment(project)
     if err:
         return err
-    as_of = request.args.get("asOf")
+    result, err = _load_shared_scores(eval_root, project)
+    if err:
+        return err
+    return jsonify(result)
+
+
+def _load_shared_scores(eval_root: Path, project: str) -> tuple[dict | None, tuple[Response, int] | None]:
+    """The shared clone's full scores payload at ``?asOf=``, or an error."""
     result, err = _load_or_500(
-        lambda: get_project_scores(eval_root, project, as_of), project,
+        lambda: get_project_scores(eval_root, project, request.args.get("asOf")), project,
         log_msg="Unexpected error fetching shared scores for project %s", error_msg="Failed to load scores",
     )
     if err:
-        return err
+        return None, err
     if result is None:
-        return json_error(_PROJECT_NOT_FOUND, HTTPStatus.NOT_FOUND, CODE_NOT_FOUND)
-    return jsonify(result)
+        return None, json_error(_PROJECT_NOT_FOUND, HTTPStatus.NOT_FOUND, CODE_NOT_FOUND)
+    return result, None
 
 
 @with_shared_root
@@ -185,6 +193,13 @@ def shared_compare_summary(project: str, eval_root: Path):
     if result is None:
         return json_error(_PROJECT_NOT_FOUND, HTTPStatus.NOT_FOUND, CODE_NOT_FOUND)
     return jsonify(result)
+
+
+@with_shared_root
+def shared_compliance_detail(project: str, eval_root: Path):
+    """Refill the finding detail the shared ``/scores/<run>`` mirror defers (``?run=``)."""
+    return finding_detail_response(
+        project, lambda: _load_shared_scores(eval_root, project), eval_root=eval_root)
 
 
 @with_shared_root
@@ -253,6 +268,7 @@ def register_shared_mirror_routes(app: Flask) -> None:
     app.get("/api/shared/projects/<project>/compare-summary")(shared_compare_summary)
     app.get("/api/shared/fleet/compare")(shared_fleet_compare)
     app.get("/api/shared/projects/<project>/scores/<run_id>")(shared_run_scores)
+    app.get("/api/shared/projects/<project>/compliance-detail")(shared_compliance_detail)
     app.get("/api/shared/projects/<project>/dimensions/<dim>/eval")(shared_dimension_eval)
     app.get("/api/shared/projects/<project>/violations")(shared_violations)
     register_shared_findings_mirror_routes(app)

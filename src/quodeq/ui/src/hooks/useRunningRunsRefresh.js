@@ -32,10 +32,10 @@ import { useVisibleInterval } from './useVisibleInterval.js';
 // entry (the root hook off run pages) and the full one (run views) go stale.
 function invalidateHistoryScope(queryClient, selectedProject, availableRuns, selectedSource) {
   queryClient.invalidateQueries({ queryKey: projectKeys.scores(selectedProject, null, selectedSource) });
-  queryClient.invalidateQueries({ queryKey: projectKeys.dashboardAnyView(selectedProject, null, selectedSource) });
+  queryClient.invalidateQueries({ queryKey: projectKeys.dashboard(selectedProject, null, selectedSource) });
   for (const r of availableRuns || []) {
     if (r?.status === RUN_STATE.RUNNING && r.runId) {
-      queryClient.invalidateQueries({ queryKey: projectKeys.dashboardAnyView(selectedProject, r.runId, selectedSource) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.dashboard(selectedProject, r.runId, selectedSource) });
     }
   }
 }

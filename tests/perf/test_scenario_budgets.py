@@ -155,11 +155,14 @@ def _scores_as_of(client):
 
 # A fleet project, so the in-flight run in PROJECT (read fresh on every
 # history walk by design) does not stand in for the run page's own cost.
-_RUN_PAGE = f"/api/projects/{FLEET[5]}/dashboard?run=20260103T000000"
+_RUN_PAGE_RUN = "20260103T000000"
+_RUN_PAGE = f"/api/projects/{FLEET[5]}/dashboard?run={_RUN_PAGE_RUN}&view=overview"
+# The run page's second request: the run's finding lists, detail deferred.
+_RUN_FINDINGS = f"/api/projects/{FLEET[5]}/scores/{_RUN_PAGE_RUN}"
 
 
-def _run_page(client, view):
-    return get_ok(client, _RUN_PAGE if view == "full" else f"{_RUN_PAGE}&view={view}")
+def _run_page(client, url):
+    return get_ok(client, url)
 
 
 def _eval_poll_tick(client):
@@ -200,20 +203,20 @@ def _scenarios(client, monkeypatch, budgets) -> dict[str, dict[str, int]]:
         monkeypatch, lambda: _eval_poll_tick(client), peak_budget=peak_budget("eval_poll_tick"))
     calls = _count_score_cache_opens(monkeypatch)
 
-    def run_page(view):
+    def run_page(url):
         def run():
             calls["score_cache_opens"] = 0
-            return _run_page(client, view)
+            return _run_page(client, url)
         return run
 
     out["run_page_overview_cold"] = _measure(
-        monkeypatch, run_page("overview"), extra=lambda: dict(calls), peak_budget=False)
+        monkeypatch, run_page(_RUN_PAGE), extra=lambda: dict(calls), peak_budget=False)
     out["run_page_overview_warm"] = _measure(
-        monkeypatch, run_page("overview"), extra=lambda: dict(calls),
+        monkeypatch, run_page(_RUN_PAGE), extra=lambda: dict(calls),
         peak_budget=peak_budget("run_page_overview_warm"))
-    out["run_page_full_warm"] = _measure(
-        monkeypatch, run_page("full"), extra=lambda: dict(calls),
-        peak_budget=peak_budget("run_page_full_warm"))
+    out["run_page_findings_warm"] = _measure(
+        monkeypatch, run_page(_RUN_FINDINGS), extra=lambda: dict(calls),
+        peak_budget=peak_budget("run_page_findings_warm"))
     out["agent_spawn"] = _measure(
         monkeypatch, lambda: _agent_spawn(client), peak_budget=peak_budget("agent_spawn"))
     return out

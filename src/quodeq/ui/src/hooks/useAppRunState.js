@@ -4,7 +4,7 @@
  * facts derived from both. Composed by useAppState, in its hook order.
  */
 import { useMemo } from 'react';
-import { useDashboard, dashboardViewForPage } from '../features/dashboard/hooks/useDashboard.js';
+import { useDashboard } from '../features/dashboard/hooks/useDashboard.js';
 import { usePrefetchAdjacentRuns } from '../features/dashboard/hooks/usePrefetchAdjacentRuns.js';
 import { buildPeriodRuns } from '../utils/dailyGrouping.js';
 import { useRunNavigator } from './useRunNavigator.js';
@@ -91,7 +91,6 @@ export function useSelectedRunDashboard({ activePage, projectBundle, historySele
     selectedRun: isHistoryRun ? historySelectedRun : selectedRun,
     selectedSource,
     keepPlaceholder: !isHistoryRun && !isHistoryTab,
-    view: dashboardViewForPage(activePage.page),
   });
   const { dropRunFromCache, scheduleDashboardReconcile } = dashboardState;
   const handleRunDeleted = useHandleRunDeleted({ dropRunFromCache, setSelectedRun, historySelectedRun, setHistorySelectedRun, scheduleDashboardReconcile, loadProjects });

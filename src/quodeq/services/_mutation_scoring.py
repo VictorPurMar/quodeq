@@ -28,7 +28,9 @@ def slim_scores(scores: dict[str, Any]) -> dict[str, Any]:
 
     The UI's dismiss handlers (PrincipleDetail, FileDetail, FindingDetail)
     only need the per-dimension and per-principle ``score`` / ``grade``
-    fields to update local state. Returning the full payload meant 300+ KB
+    fields to update local state, plus the recounted ``totals`` the run
+    page's cached overview counts are patched from (that cache has no
+    lists to recount). Returning the full payload meant 300+ KB
     on large projects (quodeq: 322 KB → 543 B after slimming, a 600× cut),
     which was the bulk of the perceived dismiss latency: parse + transfer +
     re-render against violations the page already has from its initial fetch.
@@ -50,6 +52,7 @@ def slim_scores(scores: dict[str, Any]) -> dict[str, Any]:
             "overallScore": dim.get("overallScore"),
             "overallGrade": dim.get("overallGrade"),
             "principles": slim_principles,
+            "totals": dim.get("totals"),
         })
     return {"dimensions": slim_dims, "summary": scores.get("summary", {})}
 

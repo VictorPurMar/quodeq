@@ -1,6 +1,7 @@
 """Per-project /api/shared mirrors: info, runs, dashboard, accumulated, scores, compare-summary and the fleet compare."""
 from __future__ import annotations
 
+from quodeq.services.scoring.compliance_detail import DETAIL_FIELDS
 from tests.api._routes_shared_read_fixtures import app, client  # noqa: F401 -- pytest fixtures
 
 
@@ -217,9 +218,28 @@ def test_shared_run_scores(client, shared_clone_fixture):
     assert resp.status_code == 200
     body = resp.get_json()
     assert "dimensions" in body
-    for dim in body["dimensions"]:
-        for v in dim.get("violations", []):
-            assert set(v.keys()) == {"req", "file", "line"}
+    # Same deferred shape as the local /scores/<run>: identity and scalar
+    # fields stay, bodies are refilled by /compliance-detail?run=.
+    items = [v for dim in body["dimensions"] for v in dim.get("violations", [])]
+    assert items
+    for v in items:
+        assert v["detailDeferred"] is True
+        assert not DETAIL_FIELDS & set(v)
+        assert {"req", "file", "line"} <= set(v)
+
+
+def test_shared_compliance_detail_refills_a_runs_deferred_detail(client, shared_clone_fixture):
+    run = client.get("/api/shared/projects/proj-a/scores/run-1").get_json()
+    dim = next(d for d in run["dimensions"] if d.get("violations"))
+    resp = client.get(
+        f"/api/shared/projects/proj-a/compliance-detail?dimension={dim['dimension']}&kind=violation&run=run-1")
+    assert resp.status_code == 200
+    items = resp.get_json()["items"]
+    assert len(items) == len(dim["violations"])
+    assert all("detailDeferred" not in item for item in items)
+    assert client.get(
+        f"/api/shared/projects/proj-a/compliance-detail?dimension={dim['dimension']}&kind=violation&run=nope",
+    ).status_code == 404
 
 
 def test_shared_run_scores_not_found(client, shared_clone_fixture):

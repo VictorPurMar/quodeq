@@ -142,7 +142,7 @@ describe("useDashboard frozen historical runs", () => {
       () => useDashboard({ selectedProject: "p1", selectedRun: "r1", keepPlaceholder: false }),
       { wrapper: wrapWith(client, fakeApi) },
     );
-    await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", "r1", "full"));
+    await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", "r1"));
   });
 
   it("still refetches a stale latest selection", async () => {
@@ -157,7 +157,7 @@ describe("useDashboard frozen historical runs", () => {
       () => useDashboard({ selectedProject: "p1", selectedRun: null, keepPlaceholder: false }),
       { wrapper: wrapWith(client, fakeApi) },
     );
-    await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", null, "full"));
+    await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", null));
   });
 
   it("refetches a frozen run after invalidation (dismiss/delete contract)", async () => {
@@ -168,7 +168,7 @@ describe("useDashboard frozen historical runs", () => {
       () => useDashboard({ selectedProject: "p1", selectedRun: "r1", keepPlaceholder: false }),
       { wrapper: wrapWith(client, fakeApi) },
     );
-    await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", "r1", "full"));
+    await waitFor(() => expect(fakeApi.getDashboard).toHaveBeenCalledWith("p1", "r1"));
   });
 });
 

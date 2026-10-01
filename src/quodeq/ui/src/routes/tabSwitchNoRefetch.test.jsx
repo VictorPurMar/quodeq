@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { projectKeys } from '../api/queryKeys.js';
-import { DASHBOARD_VIEW } from '../vocab/dashboardView.js';
 import { useRunningRunsRefresh } from '../hooks/useRunningRunsRefresh.js';
 import { useViolationsTabKeyReset } from '../features/violations/hooks/useViolationsPageState.js';
 import { createPageStateCache } from '../utils/pageStateCache.js';
@@ -17,8 +16,7 @@ const PROJECT = 'p1';
 const SOURCE = 'local';
 const RUNS = [{ runId: 'r1', status: 'done' }];
 const KEYS = {
-  overview: projectKeys.dashboard(PROJECT, null, SOURCE, DASHBOARD_VIEW.OVERVIEW),
-  full: projectKeys.dashboard(PROJECT, null, SOURCE, DASHBOARD_VIEW.FULL),
+  dashboard: projectKeys.dashboard(PROJECT, null, SOURCE),
   scores: projectKeys.scores(PROJECT, null, SOURCE),
 };
 
@@ -31,7 +29,7 @@ function makeClient(fetchSpy) {
 }
 
 function Overview() {
-  useQuery({ queryKey: KEYS.overview });
+  useQuery({ queryKey: KEYS.dashboard });
   useQuery({ queryKey: KEYS.scores });
   return null;
 }
@@ -44,7 +42,7 @@ function History() {
 
 function Violations({ cache }) {
   useViolationsTabKeyReset({ tabKey: 1, selectedProject: PROJECT, cache });
-  useQuery({ queryKey: KEYS.full });
+  useQuery({ queryKey: KEYS.dashboard });
   return null;
 }
 

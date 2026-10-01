@@ -12,6 +12,7 @@ import { RunHeroSection } from './RunHeroSection.jsx';
 import { chipDeltas } from '../headlineStats.js';
 import { buildRunViewData } from '../runViewData.js';
 import { useRunReportSpecs } from './runReportSpecs.jsx';
+import { useRunFindings } from '../hooks/useRunFindings.js';
 import { HERO_CARD_KIND } from '../dashboardVocab.js';
 import { SEVERITY_FILTER_ALL } from '../../../vocab/severity.js';
 import { NAV_TAB } from '../../../vocab/navTab.js';
@@ -74,35 +75,45 @@ function useTrendDeltas(dashboard) {
   }, [dashboard]);
 }
 
-function useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, onNavigate }) {
+function useCardNavigate({ dimensions, selectedRunId, projectName, runDateLabel, onNavigate }) {
   return useMemo(() => {
     if (!onNavigate) return undefined;
     return (kind) => {
       const label = `${projectName || 'project'} · ${runDateLabel || 'run'}`;
-      const projectFile = buildProjectRootFile(dashboard?.dimensions || [], label);
+      const projectFile = buildProjectRootFile(dimensions, label);
       const severityFilter = kind === HERO_CARD_KIND.VIOLATIONS ? SEVERITY_FILTER_ALL : kind;
       onNavigate(NAV_TAB.FILE, { file: projectFile, severityFilter, runId: selectedRunId, dateLabel: runDateLabel });
     };
-  }, [onNavigate, dashboard, projectName, runDateLabel, selectedRunId]);
-}
-
-function useRunViewData(dashboard) {
-  return useMemo(() => buildRunViewData(dashboard), [dashboard]);
+  }, [onNavigate, dimensions, projectName, runDateLabel, selectedRunId]);
 }
 
 // The run's derived view data: summary, worst files, hero-card navigation and
-// the per-dimension deltas; also registers this run's report specs.
-function useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate }) {
-  const { runSummary, since, runTopFiles, headline } = useRunViewData(dashboard);
+// the per-dimension deltas; also registers this run's report specs. The
+// dashboard is the overview shape (scores and counts); the finding lists the
+// worst files, navigation, report and fix plan need come from the run's
+// scores query and are merged in by dimension.
+function useRunOverviewModel({ dashboard, selectedRunId, selectedProject, selectedSource, availableRuns, projectName, onNavigate }) {
+  const runId = dashboard?.selectedRun?.runId || selectedRunId;
+  const findings = useRunFindings({ project: selectedProject, runId, source: selectedSource, availableRuns, enabled: !!dashboard?.dimensions });
+  const { dimensions, runSummary, since, runTopFiles, headline } = useMemo(
+    () => buildRunViewData(dashboard, findings.dimensions),
+    [dashboard, findings.dimensions],
+  );
   const runDateLabel = dashboard?.selectedRun?.dateLabel || formatRunId(selectedRunId);
-  const onCardNavigate = useCardNavigate({ dashboard, selectedRunId, projectName, runDateLabel, onNavigate });
-  useRunReportSpecs({ dashboard, runSummary, selectedRunId, projectName, headline, since });
+  const onCardNavigate = useCardNavigate({ dimensions, selectedRunId, projectName, runDateLabel, onNavigate });
+  const reportDashboard = useMemo(() => (dashboard ? { ...dashboard, dimensions } : dashboard), [dashboard, dimensions]);
+  useRunReportSpecs({ dashboard: reportDashboard, runSummary, selectedRunId, projectName, headline, since });
   const trendDeltas = useTrendDeltas(dashboard);
   return { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline };
 }
 
-export default function RunOverviewPanel({ dashboard, selectedRunId, projectName, onDimensionClick, onFileClick, onNavigate, refreshing = false }) {
-  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline } = useRunOverviewModel({ dashboard, selectedRunId, projectName, onNavigate });
+export default function RunOverviewPanel({
+  dashboard, selectedRunId, selectedProject, selectedSource, availableRuns, projectName,
+  onDimensionClick, onFileClick, onNavigate, refreshing = false,
+}) {
+  const { runSummary, runTopFiles, onCardNavigate, trendDeltas, since, headline } = useRunOverviewModel({
+    dashboard, selectedRunId, selectedProject, selectedSource, availableRuns, projectName, onNavigate,
+  });
 
   const isLoading = !dashboard || !dashboard.dimensions;
   if (isLoading) {

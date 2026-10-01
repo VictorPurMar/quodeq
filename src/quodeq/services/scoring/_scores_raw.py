@@ -20,6 +20,7 @@ from quodeq.services.scoring._response_builders import (
     build_response_from_grade_tables,
 )
 from quodeq.shared.validation import validate_path_segment
+from quodeq.services.scoring.compliance_detail import defer_dimension_detail
 
 _logger = logging.getLogger(__name__)
 
@@ -119,23 +120,15 @@ def get_scores_slim(
     reports_root: Path, project: str, run_id: str,
     deps: ScoringDeps | None = None,
 ) -> dict:
-    """``get_scores_raw`` with finding bodies stripped for the run-scores route.
+    """``get_scores_raw`` with finding detail deferred, for the run-scores route.
 
-    The Explorer (the endpoint's only consumer) uses the response to overlay
-    dismissal-aware scores onto the eval payload it fetched separately: it
-    reads per-dimension/per-principle score + grade + totals, and uses each
-    violation solely as a ``req|file|line`` identity key to filter dismissed
-    findings out of the eval data. Returning full bodies made the response
-    7+ MB on finding-heavy runs; the slim form carries the same information
-    the merge needs at a fraction of the size. Compliance bodies are never
-    read from this payload, so the list is emptied (counts live in totals).
+    The Explorer overlays dismissal-aware scores onto the eval payload it
+    fetched separately, matching violations by ``req|file|line``; the run
+    page builds its worst-files table, hero navigation, report and fix plan
+    from the same lists. Both read identity and scalar fields only, so the
+    items go out without ``context``, ``snippet``, ``reason`` and
+    ``reqRefs`` (most of a finding-heavy run's 7+ MB) and
+    ``/compliance-detail?run=`` refills them on demand.
     """
     raw = get_scores_raw(reports_root, project, run_id, deps=deps)
-    slim_dims = []
-    for dim in raw.get("dimensions", []) or []:
-        slim_violations = [
-            {"req": v.get("req"), "file": v.get("file"), "line": v.get("line")}
-            for v in (dim.get("violations") or [])
-        ]
-        slim_dims.append({**dim, "violations": slim_violations, "compliance": []})
-    return {**raw, "dimensions": slim_dims}
+    return {**raw, "dimensions": defer_dimension_detail(raw.get("dimensions") or [])}
