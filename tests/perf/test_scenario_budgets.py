@@ -4,7 +4,8 @@ Same contract as ``test_request_budgets.py``: each scenario runs once on a
 fixed fixture, its reads are counted, and the counts must equal the values
 committed in ``scenario_budgets.json``. Two coarser metrics ride along:
 response bytes per request (exact) and tracemalloc peak per scenario (a 20%
-band, see ``_scenario_fixture.check_budgets``).
+band, see ``_scenario_fixture.check_budgets``). The peak is taken on a warm
+repeat of the scenario so it does not depend on what the worker ran before.
 
 Rewrite the budgets with ``QUODEQ_UPDATE_BUDGETS=1`` and commit the file in
 the same PR as the change that moved them.
@@ -50,11 +51,23 @@ def client(tmp_path, monkeypatch):
     return client
 
 
-def _measure(monkeypatch, run) -> dict[str, int]:
-    """Run *run* once under the I/O counter and tracemalloc; merge both into one dict."""
-    with count_io(monkeypatch) as counts, peak_kib() as peak:
+def _measure(monkeypatch, run, *, extra=lambda: {}, peak=True) -> dict[str, int]:
+    """Count I/O and bytes on a first run of *run*; take the tracemalloc peak from a second.
+
+    A first call pays for lazy imports, module caches and the coverage tracer,
+    and how much of that is still unpaid depends on what the xdist worker ran
+    before. Measuring the peak on a repeat keeps it about the scenario itself.
+    *extra* is snapshotted after the counting run; ``peak=False`` skips the
+    repeat for scenarios whose next call must stay cold.
+    """
+    with count_io(monkeypatch) as counts:
         response_bytes = run()
-    return {**counts, "response_bytes": response_bytes, **peak}
+    out = {**counts, **extra(), "response_bytes": response_bytes}
+    if peak:
+        with peak_kib() as measured:
+            run()
+        out.update(measured)
+    return out
 
 
 def _compare_fleet(client, monkeypatch):
@@ -66,9 +79,9 @@ def _compare_fleet(client, monkeypatch):
         return real(*args, **kwargs)
 
     monkeypatch.setattr(compare_service, "get_project_scores", spy)
-    metrics = _measure(monkeypatch, lambda: sum(
-        get_ok(client, f"/api/projects/{name}/compare-summary") for name in FLEET))
-    return {**metrics, **calls}
+    return _measure(monkeypatch, lambda: sum(
+        get_ok(client, f"/api/projects/{name}/compare-summary") for name in FLEET),
+        extra=lambda: dict(calls))
 
 
 def _scores_as_of(client):
@@ -103,7 +116,7 @@ def _agent_spawn(client):
 def _scenarios(client, monkeypatch) -> dict[str, dict[str, int]]:
     out: dict[str, dict[str, int]] = {}
     out["compare_fleet_10"] = _compare_fleet(client, monkeypatch)
-    out["scores_as_of_cold"] = _measure(monkeypatch, lambda: _scores_as_of(client))
+    out["scores_as_of_cold"] = _measure(monkeypatch, lambda: _scores_as_of(client), peak=False)
     out["scores_as_of_warm"] = _measure(monkeypatch, lambda: _scores_as_of(client))
     out["eval_poll_tick"] = _measure(monkeypatch, lambda: _eval_poll_tick(client))
     out["agent_spawn"] = _measure(monkeypatch, lambda: _agent_spawn(client))
