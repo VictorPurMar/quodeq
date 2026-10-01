@@ -2,20 +2,13 @@
 
 Convention (documented in ARCHITECTURE.md): services import data-layer
 functions from this module instead of reaching into ``quodeq.data.*``
-directly, so every services -> data edge is visible in one place. The
-layer checker allows any services -> data import — a convention on its
-own, but tests/tools/test_services_data_imports.py now enforces it as a
-shrink-only ratchet baselining today's edges — new or edited services
-code goes through here. Contents are plain re-exports grouped by
-concern; the Protocols
-services accept as injected seams live in ``services/ports.py`` instead —
-this module carries only default concretions, never interface types. Most
-re-exported adapters are dependency-light, but a few (the filesystem report
-parser, the shared-results repo git plumbing) pull in a fair amount of the
-data layer themselves; re-exporting them here anyway is a deliberate
-choice — keeping every services -> data edge visible in one place outweighs
-staying thin — not an oversight. The adapters themselves live in
-``quodeq.data``.
+directly, so every services -> data edge is visible in one place.
+tests/tools/test_services_data_imports.py enforces it as a shrink-only
+ratchet over today's edges. Contents are plain re-exports grouped by
+concern; the Protocols services accept as injected seams live in
+``services/ports.py``, never here. A few re-exports (the filesystem report
+parser, the shared-results git plumbing) pull in a fair amount of the data
+layer; keeping every edge visible here outweighs staying thin.
 """
 from __future__ import annotations
 
@@ -253,6 +246,7 @@ from quodeq.data.sqlite.score_cache_store import (  # noqa: F401
     write_cached_project_summary,
     write_cached_rows,
 )
+from quodeq.data.sqlite.score_cache_principles import principle_rows  # noqa: F401
 
 # Live evidence tally (heartbeat + scan-progress counters).
 from quodeq.data.fs.evidence_tally import (  # noqa: F401

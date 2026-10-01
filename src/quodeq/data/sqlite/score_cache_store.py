@@ -10,10 +10,12 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from quodeq.core.types import DimensionResult
 from quodeq.data.sqlite.score_cache_db import open_score_cache
+from quodeq.data.sqlite.score_cache_principles import PrincipleRow, write_principle_rows
 from quodeq.data.sqlite.score_cache_rows import (
     RUN_SCALARS_COUNT_COLUMNS, dimension_from_row, row_counts,
 )
@@ -43,15 +45,17 @@ def read_cached_rows(
 
 def write_cached_rows(
     conn: sqlite3.Connection, project: str, run_id: str, version: str,
-    dims: list[DimensionResult],
+    dims: list[DimensionResult], principles: Iterable[PrincipleRow] = (),
 ) -> None:
     """Replace all cached rows for (project, run_id) with *dims* at *version*.
 
-    Best-effort: logs and returns on any SQLite error (the caller still has the
-    computed result).
+    *principles* (``score_cache_principles.principle_rows``) land in
+    ``run_principle_scalars`` in the same commit. Best-effort: logs and returns
+    on any SQLite error (the caller still has the computed result).
     """
     try:
         conn.execute("DELETE FROM run_scalars WHERE project=? AND run_id=?", (project, run_id))
+        write_principle_rows(conn, project, run_id, version, list(principles))
         conn.executemany(
             f"INSERT OR REPLACE INTO run_scalars (project, run_id, version, {_SCALAR_COLUMNS})"
             f" VALUES (?, ?, ?, {_SCALAR_PLACEHOLDERS})",
