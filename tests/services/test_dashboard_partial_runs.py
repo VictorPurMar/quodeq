@@ -42,6 +42,7 @@ def dashboard(tmp_path):
         patch("quodeq.services.dashboard.list_runs", return_value=[DONE, SCORED, EMPTY, FAILED]),
         patch("quodeq.services.dashboard.read_run_data", side_effect=_read),
         patch("quodeq.data.fs.report_parser.runs.read_run_data", side_effect=_read),
+        patch("quodeq.services._accumulated_data.read_run_data", side_effect=_read),
         patch("quodeq.services.dashboard.summarize_dimensions", return_value=summary),
     ):
         yield build_dashboard(str(tmp_path), "proj", "latest")
@@ -92,6 +93,7 @@ def test_unreadable_cancelled_run_does_not_break_the_dashboard(tmp_path):
         patch("quodeq.services.dashboard.list_runs", return_value=[DONE, gone, SCORED]),
         patch("quodeq.services.dashboard.read_run_data", side_effect=_read),
         patch("quodeq.data.fs.report_parser.runs.read_run_data", side_effect=_read),
+        patch("quodeq.services._accumulated_data.read_run_data", side_effect=_read),
         patch("quodeq.services.dashboard.summarize_dimensions", return_value=summary),
     ):
         result = build_dashboard(str(tmp_path), "proj", "latest")
@@ -105,6 +107,7 @@ def test_all_cancelled_project_lists_its_scored_runs(tmp_path):
         patch("quodeq.services.dashboard.list_runs", return_value=[SCORED, EMPTY]),
         patch("quodeq.services.dashboard.read_run_data", side_effect=_read),
         patch("quodeq.data.fs.report_parser.runs.read_run_data", side_effect=_read),
+        patch("quodeq.services._accumulated_data.read_run_data", side_effect=_read),
         patch("quodeq.services.dashboard.summarize_dimensions", return_value=summary),
     ):
         result = build_dashboard(str(tmp_path), "proj", "latest")

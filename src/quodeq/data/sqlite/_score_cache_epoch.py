@@ -45,7 +45,10 @@ from __future__ import annotations
 # written by the prior writer have no principle rows, and a reader cannot tell
 # that from a dimension without principles. This bump retires them so every
 # cached run carries its principles.
-CACHE_WRITER_EPOCH = "9"
+# "10": run_scalars rows gained files_read, which the accumulated walk reads
+# to skip coverage-0 stubs when it picks a dimension's winning run from rows.
+# A NULL on an older row would read as "unknown, trusted", so they are retired.
+CACHE_WRITER_EPOCH = "10"
 
 # Shape of the ``run_keys`` rows, versioned apart from the epoch because the key
 # sets are the costly part of a rebuild and most epoch bumps change only score

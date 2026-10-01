@@ -35,8 +35,8 @@ class TestInProgressFreshnessThroughDashboard:
         summary = DimensionSummary(dimensions_count=1, overall_grade="B", numeric_average=7.0)
 
         # The in_progress run grows from 1 dim to 2 between the two dashboard
-        # calls (a dim finished mid-run). Scalar reads fall back to the runs-
-        # module read_run_data for these no-db tmp runs.
+        # calls (a dim finished mid-run). Scalar reads fall back to the
+        # accumulated reader's full read for these report-less tmp runs.
         run_call_count = {"r-run": 0}
 
         def history_read(_root, _project, run_id):
@@ -54,6 +54,7 @@ class TestInProgressFreshnessThroughDashboard:
             patch("quodeq.services.dashboard.list_runs", return_value=runs),
             patch("quodeq.services.dashboard.read_run_data", side_effect=history_read),
             patch("quodeq.data.fs.report_parser.runs.read_run_data", side_effect=history_read),
+            patch("quodeq.services._accumulated_data.read_run_data", side_effect=history_read),
             patch("quodeq.services.dashboard.summarize_dimensions", return_value=summary),
         ):
             first = build_dashboard(str(tmp_path), "proj-ip", "r-sel")

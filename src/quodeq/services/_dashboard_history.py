@@ -208,7 +208,6 @@ def _make_history_fetcher(
     return make_trend_fetcher(
         reports_root, project, params=params, cacheable_run_ids=cacheable_run_ids,
         deps=ScoringDeps(
-            max_history=window.max_history,
             base_fetcher_factory=lambda rr, proj: make_run_dimension_fetcher(
                 rr, proj, dim_cache_config,
             ),

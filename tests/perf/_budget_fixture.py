@@ -33,6 +33,9 @@ def _violation(i: int) -> dict:
     )
 
 
+FILES_READ = 40
+
+
 def seed_project(reports_root: Path, name: str = PROJECT) -> Path:
     """RUNS finished runs of one project, each projected into its evaluation.db."""
     project_dir = reports_root / name
@@ -45,9 +48,11 @@ def seed_project(reports_root: Path, name: str = PROJECT) -> Path:
         # Each run shifts its window by one, so older findings age out the way
         # fixed code does and the newest finding exists in the latest run only.
         violations = [_violation(i) for i in range(n, n + VIOLATIONS_PER_RUN)]
+        # A real scan records the files it read; the scalar readers trust a
+        # grade row only when it carries that count.
         (run_dir / "evaluation" / "security.json").write_text(json.dumps({
             "dimension": "security", "overallScore": "6.0/10", "overallGrade": "Adequate",
-            "principles": [], "compliance": [],
+            "filesRead": FILES_READ, "principles": [], "compliance": [],
             "violations": [{"practiceId": v["practice_id"], "req": v["req"], "file": v["file"],
                             "line": v["line"], "severity": v["severity"], "snippet": v["snippet"]}
                            for v in violations],

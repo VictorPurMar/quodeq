@@ -1,10 +1,17 @@
 """Shared cache-backed, dismiss-adjusted SCALAR trend fetcher.
 
-Extracted from ``scoring/__init__.py`` so both the ``/scores`` endpoint
-(``get_project_scores``) and the run-detail dashboard (``build_dashboard``)
-can build their history trend / previous-score / stale computations off the
-SAME fast, cache-backed, scalar-only fetcher instead of reading full run data
-(violations, multi-MB) for every historical run.
+Both the ``/scores`` endpoint (``get_project_scores``) and the run-detail
+dashboard (``build_dashboard``) build their history trend, previous-score and
+stale computations off the SAME row-backed fetcher instead of reading full run
+data (violations, multi-MB) for every historical run. The accumulated view
+walks the same fetcher's ``rows`` for its winning runs (see
+``scoring/_accumulated_rows``), so one bulk read of ``run_scalars`` serves a
+whole ``/scores`` response.
+
+Every run is served from ``run_scalars`` at its scoped version (params,
+standards, the suppressions touching it). A miss reads the run once: from its
+grade tables when no suppression touches it, through the findings rescore
+otherwise, and persists the result when the run is terminal.
 
 This module depends only on leaf modules (``_cache``, ``score_cache``,
 ``ports``, ``rescore``, ``scoring_deps``) so it can be imported by both
@@ -13,13 +20,13 @@ This module depends only on leaf modules (``_cache``, ``score_cache``,
 the ``scoring`` package), so importing it here at module load time does not
 force ``quodeq.services.scoring`` to initialize first.
 
-Dependency injection: the scalar reader, the dismissed/deleted lookups, the
-full-data base-fetcher factory, and the trend-window size are bundled in a
-``ScoringDeps`` (see ``scoring_deps.py``). A ``None`` field falls back to the
-real function; ``scoring/__init__.py`` passes its own module-level references
-so its monkeypatch-based tests keep working; ``dashboard.py`` uses the
-defaults for everything except ``base_fetcher_factory``/``max_history``,
-which have no leaf-level default and must always be supplied.
+Dependency injection: the scalar reader, the dismissed/deleted lookups and the
+full-data base-fetcher factory are bundled in a ``ScoringDeps`` (see
+``scoring_deps.py``). A ``None`` field falls back to the real function;
+``scoring/__init__.py`` passes its own module-level references so its
+monkeypatch-based tests keep working; ``dashboard.py`` uses the defaults for
+everything except ``base_fetcher_factory``, which has no leaf-level default
+and must always be supplied.
 """
 from __future__ import annotations
 
@@ -30,7 +37,7 @@ from typing import Callable
 
 from quodeq.core.scoring.params import DEFAULT_PARAMS, ScoringParams
 from quodeq.core.types import DimensionResult
-from quodeq.services._trend_scalar_fetcher import make_scalar_trend_fetcher
+from quodeq.services._accumulated_data import read_scalar_dimensions
 from quodeq.services.scoring_deps import ScoringDeps, NO_DEPS
 from quodeq.services.deleted import deleted_keys as _default_deleted_keys
 from quodeq.services.dismissed import dismissed_keys as _default_dismissed_keys
@@ -137,28 +144,25 @@ def _make_version_for(
 
 
 def _require_trend_deps(deps: ScoringDeps) -> None:
-    """Fail fast on the two ``ScoringDeps`` fields with no leaf-level default.
+    """Fail fast on the ``ScoringDeps`` field with no leaf-level default.
 
-    Both were required keyword-only parameters of the pre-refactor
-    ``make_trend_fetcher``, so a caller that omitted either got a ``TypeError``
-    at call time regardless of which path (fast/heavy) would have run. Called
-    unconditionally, before path selection, to keep that contract now that
-    both live on ``deps`` instead.
+    ``base_fetcher_factory`` was a required keyword-only parameter of the
+    pre-refactor ``make_trend_fetcher``, so a caller that omitted it got a
+    ``TypeError`` at call time. The check keeps that contract now that it
+    lives on ``deps`` instead.
     """
-    if deps.max_history is None:
-        raise TypeError("ScoringDeps.max_history is required for the trend fetcher's fast path")
     if deps.base_fetcher_factory is None:
-        raise TypeError("ScoringDeps.base_fetcher_factory is required for the heavy trend path")
+        raise TypeError("ScoringDeps.base_fetcher_factory is required for the trend fetcher")
 
 
-def _make_heavy_trend_fetcher(
+def _make_row_trend_fetcher(
     reports_root: Path, project: str, params: ScoringParams,
     cacheable_run_ids: set[str] | None,
     deps: ScoringDeps,
 ) -> _Fetcher:
     """Wrap the findings-based rescoring fetcher with the read-through score
     cache. The cache version is a content hash of dismissals/deletions/
-    params, so any change auto-invalidates."""
+    params/standards, so any change auto-invalidates."""
     base = make_rescoring_fetcher(
         reports_root, project, params=params,
         base_fetcher=deps.base_fetcher_factory(reports_root, project), deps=deps,
@@ -182,10 +186,11 @@ def _read_untouched_runs_as_scalars(
     """Serve a run no dismissal or deletion touches from its scalar grades.
 
     The rescore returns such a run unchanged, so reading every finding to feed it
-    is wasted; its scalars are what the fast path serves for it. Only the runs a
-    suppression actually touches (by the same key intersection that versions
-    them, ``run_scoped_version``) are read in full and rescored. Suppression
-    rules match by pattern, not by key, so with any rule every run is rescored.
+    is wasted; its grade tables answer for it (``read_scalar_dimensions``, which
+    falls back to the full read when they cannot). Only the runs a suppression
+    actually touches (by the same key intersection that versions them,
+    ``run_scoped_version``) are read in full and rescored. Suppression rules
+    match by pattern, not by key, so with any rule every run is rescored.
     """
     project_dir = reports_root / project
     if load_suppression_rules(project_dir):
@@ -197,6 +202,13 @@ def _read_untouched_runs_as_scalars(
     dismissed = as_dismissed_keys((deps.dismissed_keys or _default_dismissed_keys)(project_dir))
     deleted = (deps.deleted_keys or _default_deleted_keys)(project_dir)
     read_scalars = deps.read_run_scalars or _default_read_run_scalars
+
+    def scalars(run_id: str) -> list[DimensionResult]:
+        return read_scalar_dimensions(
+            reports_root, project, run_id, scalar_reader=read_scalars, log=SHARED_LOG)
+
+    if not dismissed and not deleted:
+        return scalars
     persisted: dict | None = None
 
     def fetch(run_id: str) -> list[DimensionResult]:
@@ -207,7 +219,7 @@ def _read_untouched_runs_as_scalars(
         dismiss_keys, class_keys = persisted.get(run_id) or read_run_key_sets(project_dir / run_id)
         if dismissed.touching(dismiss_keys) or deleted & class_keys:
             return rescoring(run_id)
-        return read_scalars(reports_root, project, run_id)
+        return scalars(run_id)
 
     return fetch
 
@@ -237,43 +249,23 @@ def make_trend_fetcher(
 ) -> _Fetcher:
     """Return the dimension fetcher for the history trend / previous / stale path.
 
-    Fast path (no active dismissals/deletions): read only per-run scalar grades
-    via *deps.read_run_scalars* through the process-wide trend scalar cache,
-    kept apart from the shared full-data cache used for the selected run.
-    Findings are dropped before caching (only scalars are consumed), and each
-    entry is keyed on the inputs that can change a finished run's grades (see
-    ``_scalar_version_for``).
+    Every run is served from ``run_scalars`` through a
+    :class:`~quodeq.services._score_cache_fetch.RowFetcher` (see
+    ``_make_row_trend_fetcher``): a hit at the run's scoped version returns
+    its rows; a miss reads the run's grade tables when no suppression touches
+    it and rescores its findings otherwise, then persists the rows.
 
-    Heavy path (dismissals/deletions active): see _make_heavy_trend_fetcher.
+    ``cacheable_run_ids`` restricts which runs the cache may *persist*: only
+    terminal (complete) runs are safe. An in-progress run's scalar set grows
+    as dims finish, and the version hash can't see that, so persisting its
+    partial set would strand a stale row. When ``None`` every run is
+    cacheable. Non-cacheable runs are read fresh every request. Stale-partial
+    detection is preserved inside ``read_scalar_dimensions``, which falls back
+    to the full read whenever the SQL scalar projection disagrees with the
+    on-disk ``evaluation/*.json`` set.
 
-    ``cacheable_run_ids`` restricts which runs either path's cache may
-    *persist*: only terminal (complete) runs are safe. An in-progress run's
-    scalar set grows as dims finish, and the version hash can't see that, so
-    persisting its partial set would strand a stale row. When ``None`` every run
-    is cacheable.
-
-    In-progress freshness: both paths read in-progress runs fresh every request.
-    The ``cacheable_run_ids`` guard makes in-progress runs compute-through
-    without persisting, and the fast path's cache also bypasses runs whose
-    ``status.json`` is non-terminal. Stale-partial detection is preserved inside ``read_run_scalars``,
-    which falls back to full ``read_run_data`` whenever the SQL scalar projection
-    disagrees with the on-disk ``evaluation/*.json`` count.
-
-    ``deps.base_fetcher_factory`` (heavy path) and ``deps.max_history`` (fast
-    path) have no leaf-level default -- ``_require_trend_deps`` checks both
-    up front, before path selection, so omitting either raises regardless of
-    which path would have run.
+    ``deps.base_fetcher_factory`` has no leaf-level default;
+    ``_require_trend_deps`` checks it up front.
     """
     _require_trend_deps(deps)
-    project_dir = reports_root / project
-    dismissed_keys = deps.dismissed_keys or _default_dismissed_keys
-    deleted_keys = deps.deleted_keys or _default_deleted_keys
-    if dismissed_keys(project_dir) or deleted_keys(project_dir):
-        return _make_heavy_trend_fetcher(
-            reports_root, project, params, cacheable_run_ids, deps,
-        )
-
-    return make_scalar_trend_fetcher(
-        reports_root, project, cacheable_run_ids,
-        deps.read_run_scalars or _default_read_run_scalars, log=SHARED_LOG,
-    )
+    return _make_row_trend_fetcher(reports_root, project, params, cacheable_run_ids, deps)

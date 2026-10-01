@@ -67,7 +67,6 @@ src/quodeq/services/_run_status_readers.py:3
 src/quodeq/services/_scan_progress_dims.py:3
 src/quodeq/services/_scan_progress_elapsed.py:3
 src/quodeq/services/_scan_progress_types.py:3
-src/quodeq/services/_trend_scalar_fetcher.py:3
 src/quodeq/services/scan_progress.py:18
 src/quodeq/services/scoring/_fetchers.py:3
 src/quodeq/services/scoring/_project_scores.py:3

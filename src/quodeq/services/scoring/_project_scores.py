@@ -15,6 +15,7 @@ from typing import Any
 
 from quodeq.core.run.state import TERMINAL_STATES, RunState
 from quodeq.core.scoring.params import ScoringParams
+from quodeq.services.dashboard import make_run_dimension_fetcher
 from quodeq.services.dashboard_trend import build_accumulated_trend
 from quodeq.services.accumulated import compute_accumulated
 from quodeq.services.grade_formula import is_custom, load_params
@@ -34,6 +35,12 @@ from quodeq.shared.log_sink import SHARED_LOG
 from quodeq.shared.stamp_memo import StampCache
 from quodeq.services.wiring import find_children, list_runs, run_fingerprint
 from quodeq.services.scoring import _fetchers
+from quodeq.services.scoring._accumulated_rows import (
+    EMPTY_ACCUMULATED,
+    AccumulatedScope,
+    build_accumulated_from_rows,
+    runs_as_of,
+)
 from quodeq.services.scoring._deps import ScoringDeps, NO_DEPS
 from quodeq.services.scoring._rescoring import rescore_accumulated_with_coverage
 
@@ -49,18 +56,40 @@ class _ScoresRequest:
     deps: ScoringDeps
 
 
-def _compute_accumulated_payload(req: _ScoresRequest, rescore_complete: list[bool]) -> dict:
-    """Compute accumulated dims + summary, rescored, tracking coverage in
+def _compute_parent_payload(req: _ScoresRequest, rescore_complete: list[bool]) -> dict:
+    """A parent project's accumulated dims + summary, folding in its children.
+
+    Children's runs and suppressions are outside the project's rows, so
+    parents keep the full-read path and rescore. Coverage lands in
     *rescore_complete* (a 1-element list used as an outparam) so the caller's
-    cache-eligibility check can see it."""
+    cache-eligibility check can see it.
+    """
     acc = compute_accumulated(
         str(req.reports_root), req.project, req.as_of, params=req.params, log=SHARED_LOG,
     )
     if acc is None:
-        acc = {"dimensions": [], "summary": {}}
+        acc = dict(EMPTY_ACCUMULATED)
     payload, complete = rescore_accumulated_with_coverage(
         acc, req.reports_root, req.project, params=req.params, deps=req.deps,
     )
+    rescore_complete[0] = complete
+    return payload
+
+
+def _compute_accumulated_payload(
+    req: _ScoresRequest, rescore_complete: list[bool], all_runs: list, fetcher, keys: SuppressionKeys,
+) -> dict:
+    """The accumulated dims + summary from the project's score-cache rows.
+
+    Shares *fetcher* with the trend, so every run is graded once per request
+    and the winning runs are the only full reads (through
+    ``deps.base_fetcher_factory``, the same full-data reader the trend
+    rescores from).
+    """
+    scope = AccumulatedScope(req.reports_root, req.project, req.params, keys)
+    fetch_full = (req.deps.base_fetcher_factory or make_run_dimension_fetcher)(req.reports_root, req.project)
+    payload, complete = build_accumulated_from_rows(
+        scope, runs_as_of(all_runs, req.as_of), fetcher, fetch_full=fetch_full)
     rescore_complete[0] = complete
     return payload
 
@@ -73,53 +102,56 @@ def _state_fingerprint(req: _ScoresRequest, keys: SuppressionKeys) -> str:
 
 def _resolve_accumulated(
     req: _ScoresRequest, rescore_complete: list[bool],
-    run_versions: list[tuple], keys: SuppressionKeys,
+    run_versions: list[tuple], keys: SuppressionKeys, all_runs: list, fetcher,
 ) -> dict:
     """Compute (or fetch from cache) the accumulated dims + summary."""
     if find_children(req.reports_root, req.project):
         # Parent aggregation pulls child projects' dismissals/runs into the
         # payload, which the project-scoped cache version can't see -- bypass
         # the cache for parents to avoid serving stale data.
-        return _compute_accumulated_payload(req, rescore_complete)
+        return _compute_parent_payload(req, rescore_complete)
     stale_scope = accumulated_stale_scope(
         req.params, run_versions, req.as_of,
         _state_fingerprint(req, keys),
     )
     return (req.deps.cached_accumulated or cached_accumulated)(
         req.project, accumulated_cache_version(req.params, run_versions, req.as_of),
-        lambda: _compute_accumulated_payload(req, rescore_complete),
+        lambda: _compute_accumulated_payload(req, rescore_complete, all_runs, fetcher, keys),
         cacheable=lambda _payload: rescore_complete[0],
         stale_scope=stale_scope, log=SHARED_LOG,
     )
 
 
-def _resolve_trend(
-    reports_root: Path, project: str, params: ScoringParams,
-    deps: ScoringDeps | None, all_runs: list,
-) -> list[dict]:
-    """Build trend using the appropriate fetcher: scalar fast path when there
-    are no active dismissals/deletions, rescoring (findings) path otherwise.
+def _make_fetcher(req: _ScoresRequest, all_runs: list):
+    """The row-backed fetcher the trend and the accumulated block share.
+
+    Only completed runs may be persisted to the score cache: an in-progress
+    run's scalar set is still growing, and the cache version can't see that,
+    so caching its partial set would strand a stale row (e.g. 1 of 6 dims)
+    served forever after the run finishes. Every completed run is eligible:
+    the accumulated walk may reach past the history window.
+    """
+    cacheable_run_ids = {r.run_id for r in all_runs if r.status is RunState.DONE}
+    return _fetchers.make_scoring_trend_fetcher(
+        req.reports_root, req.project, params=req.params, cacheable_run_ids=cacheable_run_ids,
+        deps=req.deps,
+    )
+
+
+def _resolve_trend(params: ScoringParams, all_runs: list, fetcher) -> list[dict]:
+    """Build the trend over the history window with the shared *fetcher*.
+
     Shared trend rule (scoring_view.select_trend_runs): cancelled/failed
-    runs are excluded — their partial scores are misleading on the history
+    runs are excluded; their partial scores are misleading on the history
     chart. They remain in availableRuns so the UI can show them when the
     user asks for them explicitly."""
-    scoreable_runs = select_trend_runs(all_runs)
-    history_runs = scoreable_runs[:_fetchers.max_history_runs()]
-    # Only completed runs may be persisted to the score cache: an in-progress
-    # run's scalar set is still growing, and the cache version can't see that,
-    # so caching its partial set would strand a stale row (e.g. 1 of 6 dims)
-    # served forever after the run finishes.
-    cacheable_run_ids = {r.run_id for r in history_runs if r.status is RunState.DONE}
-    trend_fetcher = _fetchers.make_scoring_trend_fetcher(
-        reports_root, project, params=params, cacheable_run_ids=cacheable_run_ids,
-        deps=deps,
-    )
-    return build_accumulated_trend(history_runs, trend_fetcher, params=params)
+    history_runs = select_trend_runs(all_runs)[:_fetchers.max_history_runs()]
+    return build_accumulated_trend(history_runs, fetcher, params=params)
 
 
 def _empty_project_scores(scoring_meta: dict) -> dict[str, Any]:
     return {
-        "accumulated": {"dimensions": [], "summary": {}},
+        "accumulated": dict(EMPTY_ACCUMULATED),
         "trend": [],
         "availableRuns": [],
         "scoring": scoring_meta,
@@ -163,8 +195,9 @@ def _build_project_scores(
     # it: a payload whose rescore missed dimensions must be served but never
     # persisted (its version hash can't self-invalidate).
     rescore_complete = [True]
-    accumulated = _resolve_accumulated(req, rescore_complete, run_versions, keys)
-    trend = _resolve_trend(req.reports_root, req.project, req.params, req.deps, all_runs)
+    fetcher = _make_fetcher(req, all_runs)
+    accumulated = _resolve_accumulated(req, rescore_complete, run_versions, keys, all_runs, fetcher)
+    trend = _resolve_trend(req.params, all_runs, fetcher)
     payload = {
         "accumulated": accumulated,
         "trend": trend,
