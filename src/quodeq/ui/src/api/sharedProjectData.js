@@ -10,9 +10,9 @@ import { createDashboard } from '../models/dashboard.js';
 import { createDimensionEval } from '../models/dimension.js';
 import { epochSecondsToMs } from './sharedStatus.js';
 import { LATEST_RUN_ID } from '../constants.js';
-import { asOfQuery, parseAccumulated, parseSlimDimensions, parseUnifiedScores, runQuery } from './scoresShape.js';
+import { asOfQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores, runQuery } from './scoresShape.js';
 import { PROJECT_SOURCE } from '../vocab/projectSource.js';
-import { sharedProjectPath } from './paths.js';
+import { fleetQuery, sharedProjectPath } from './paths.js';
 
 // ── Project List & Info ─────────────────────────────────────────────────────
 
@@ -100,6 +100,16 @@ export async function sharedGetDashboard(projectId, run = LATEST_RUN_ID) {
 export async function sharedGetCompareSummary(projectId) {
   const data = await request(`${sharedProjectPath(projectId)}/compare-summary`);
   return parseSlimDimensions(data);
+}
+
+/**
+ * The compare summaries of a fleet of shared projects in one request.
+ * @param {string[]} projectIds
+ * @returns {Promise<{summaries: Array<Object>, errors: Object<string, string>}>}
+ */
+export async function sharedGetFleetCompare(projectIds) {
+  const data = await request(`/shared/fleet/compare${fleetQuery(projectIds)}`);
+  return parseFleetCompare(data);
 }
 
 /**

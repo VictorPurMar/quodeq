@@ -30,7 +30,8 @@ from quodeq.api.dimension_eval_wire import dimension_eval_response
 from quodeq.api.helpers import json_error, validate_segment
 from quodeq.api.routes_shared_findings_mirrors import register_shared_findings_mirror_routes
 from quodeq.services import fs_reports, fs_projects
-from quodeq.services.compare import build_compare_summary
+from quodeq.api.routes_compare import FLEET_LOG, fleet_projects_or_error
+from quodeq.services.compare import build_compare_summary, build_fleet_compare
 from quodeq.services.run_constants import LATEST_RUN
 from quodeq.services.runs_unit import build_runs_unit
 from quodeq.services.scoring import get_project_scores, get_scores_slim
@@ -160,6 +161,15 @@ def shared_scores(project: str, eval_root: Path):
 
 
 @with_shared_root
+def shared_fleet_compare(eval_root: Path):
+    """The compare summaries of the listed shared projects in one response."""
+    names = fleet_projects_or_error()
+    if not isinstance(names, list):
+        return names
+    return jsonify(build_fleet_compare(eval_root, names, log=FLEET_LOG))
+
+
+@with_shared_root
 def shared_compare_summary(project: str, eval_root: Path):
     """Return the run-over-run comparison for a shared project, for the compare view."""
     err = validate_segment(project)
@@ -241,6 +251,7 @@ def register_shared_mirror_routes(app: Flask) -> None:
     app.get("/api/shared/projects/<project>/accumulated")(shared_accumulated)
     app.get("/api/shared/projects/<project>/scores")(shared_scores)
     app.get("/api/shared/projects/<project>/compare-summary")(shared_compare_summary)
+    app.get("/api/shared/fleet/compare")(shared_fleet_compare)
     app.get("/api/shared/projects/<project>/scores/<run_id>")(shared_run_scores)
     app.get("/api/shared/projects/<project>/dimensions/<dim>/eval")(shared_dimension_eval)
     app.get("/api/shared/projects/<project>/violations")(shared_violations)

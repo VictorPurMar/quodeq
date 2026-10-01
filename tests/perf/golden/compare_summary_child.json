@@ -8,6 +8,7 @@
       "fromDateIso": "<timestamp>",
       "fromDateLabel": "10 Feb 2026",
       "fromRunId": "20260210T000000",
+      "openTypes": 5,
       "overallGrade": "Exemplary",
       "overallScore": "9.4/10",
       "principles": [
@@ -23,9 +24,9 @@
         "complianceCount": 0,
         "severity": {
           "critical": 0,
-          "major": 0,
+          "major": 5,
           "minor": 0,
-          "unknown": 5
+          "unknown": 0
         },
         "violationCount": 5
       },
@@ -49,7 +50,7 @@
     "previousNumericAverage": null,
     "severity": {
       "critical": 0,
-      "major": 0,
+      "major": 5,
       "minor": 0
     },
     "totalCompliance": 0,

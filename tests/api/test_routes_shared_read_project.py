@@ -1,4 +1,4 @@
-"""Per-project /api/shared mirrors: info, runs, dashboard, accumulated, scores and compare-summary."""
+"""Per-project /api/shared mirrors: info, runs, dashboard, accumulated, scores, compare-summary and the fleet compare."""
 from __future__ import annotations
 
 from tests.api._routes_shared_read_fixtures import app, client  # noqa: F401 -- pytest fixtures
@@ -185,6 +185,29 @@ def test_shared_compare_summary_unconfigured_409(client, monkeypatch, tmp_path):
     resp = client.get("/api/shared/projects/proj-a/compare-summary")
     assert resp.status_code == 409
     assert resp.get_json()["error"] == "no shared repository configured"
+
+
+# --- GET /api/shared/fleet/compare --------------------------------------------
+
+def test_shared_fleet_compare(client, shared_clone_fixture):
+    """Every listed shared project in one response; unknown names land in errors."""
+    resp = client.get("/api/shared/fleet/compare?projects=proj-a,does-not-exist")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert [s["project"] for s in body["summaries"]] == ["proj-a"]
+    assert body["errors"] == {"does-not-exist": "Project not found"}
+    for dim in body["summaries"][0]["dimensions"]:
+        assert "violations" not in dim
+
+
+def test_shared_fleet_compare_requires_projects(client, shared_clone_fixture):
+    assert client.get("/api/shared/fleet/compare").status_code == 400
+    assert client.get("/api/shared/fleet/compare?projects=proj-a,%2e%2e").status_code == 400
+
+
+def test_shared_fleet_compare_unconfigured_409(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("QUODEQ_DIR", str(tmp_path))
+    assert client.get("/api/shared/fleet/compare?projects=proj-a").status_code == 409
 
 
 # --- GET /api/shared/projects/<project>/scores/<run_id> -----------------------

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from quodeq.data.sqlite import score_cache_db
+from quodeq.data.sqlite import score_cache_schema
 from quodeq.data.sqlite.score_cache_rows import RUN_SCALARS_COUNT_COLUMNS
 
 
@@ -35,7 +35,7 @@ class _FailingConn:
 
 def _stale_shape_cache(tmp_path) -> sqlite3.Connection:
     conn = sqlite3.connect(tmp_path / "cache.db")
-    conn.executescript(score_cache_db._SCHEMA)
+    conn.executescript(score_cache_schema.SCHEMA)
     conn.execute("INSERT INTO run_keys VALUES ('p', 'r1', '[]', '[]')")
     conn.execute("INSERT INTO cache_meta VALUES ('run_keys_shape', 'old-shape')")
     conn.commit()
@@ -44,7 +44,7 @@ def _stale_shape_cache(tmp_path) -> sqlite3.Connection:
 
 def test_a_meta_sync_that_fails_after_the_purge_rolls_the_purge_back(tmp_path):
     conn = _stale_shape_cache(tmp_path)
-    score_cache_db._sync_cache_meta(_FailingConn(conn, "INSERT OR REPLACE INTO cache_meta"))
+    score_cache_schema.sync_cache_meta(_FailingConn(conn, "INSERT OR REPLACE INTO cache_meta"))
     assert not conn.in_transaction
     conn.commit()  # a later unrelated write must not carry the purge along
     assert conn.execute("SELECT count(*) FROM run_keys").fetchone()[0] == 1
@@ -54,7 +54,7 @@ def test_a_column_migration_that_fails_midway_adds_no_column(tmp_path):
     conn = sqlite3.connect(tmp_path / "cache.db")
     conn.execute("CREATE TABLE run_scalars (project TEXT, run_id TEXT)")
     conn.commit()
-    score_cache_db._ensure_run_scalars_columns(_FailingConn(conn, "ALTER TABLE", fail_on=2))
+    score_cache_schema.ensure_run_scalars_columns(_FailingConn(conn, "ALTER TABLE", fail_on=2))
     assert not conn.in_transaction
     present = {row[1] for row in conn.execute("PRAGMA table_info(run_scalars)")}
     assert present.isdisjoint(RUN_SCALARS_COUNT_COLUMNS)
@@ -64,6 +64,6 @@ def test_a_column_migration_adds_every_missing_column(tmp_path):
     conn = sqlite3.connect(tmp_path / "cache.db")
     conn.execute("CREATE TABLE run_scalars (project TEXT, run_id TEXT)")
     conn.commit()
-    score_cache_db._ensure_run_scalars_columns(conn)
+    score_cache_schema.ensure_run_scalars_columns(conn)
     present = {row[1] for row in conn.execute("PRAGMA table_info(run_scalars)")}
     assert set(RUN_SCALARS_COUNT_COLUMNS) <= present

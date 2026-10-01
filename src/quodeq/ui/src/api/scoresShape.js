@@ -52,6 +52,17 @@ export function parseUnifiedScores(data) {
 }
 
 /**
+ * Parse a fleet compare response: every summary's slim dimensions, the
+ * per-project errors untouched.
+ */
+export function parseFleetCompare(data) {
+  return {
+    summaries: (data?.summaries || []).map(parseSlimDimensions),
+    errors: data?.errors || {},
+  };
+}
+
+/**
  * Map the `dimensions` array of a slim payload (run scores, compare summary)
  * to SlimDimension models.
  * @param {Object} data Raw slim payload; left untouched when it has no dimensions array.

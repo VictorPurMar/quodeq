@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from quodeq.data.sqlite import score_cache_db
+from quodeq.data.sqlite import score_cache_schema, score_cache_db
 from quodeq.services.score_cache import open_score_cache
 
 
@@ -39,9 +39,15 @@ def _meta(key: str) -> str | None:
     return row[0] if row else None
 
 
+def _bump_epoch(monkeypatch, epoch: str) -> None:
+    """The epoch is bound in the open path (memo identity) and in the schema sync."""
+    monkeypatch.setattr(score_cache_db, "CACHE_WRITER_EPOCH", epoch)
+    monkeypatch.setattr(score_cache_schema, "CACHE_WRITER_EPOCH", epoch)
+
+
 def test_a_payload_epoch_bump_keeps_the_key_sets(db_path, monkeypatch):
     _store_a_key_row()
-    monkeypatch.setattr(score_cache_db, "CACHE_WRITER_EPOCH", "next-epoch")
+    _bump_epoch(monkeypatch, "next-epoch")
 
     assert _key_rows() == 1
     assert _meta("writer_epoch") == "next-epoch"
@@ -49,8 +55,8 @@ def test_a_payload_epoch_bump_keeps_the_key_sets(db_path, monkeypatch):
 
 def test_a_key_shape_bump_purges_the_key_sets(db_path, monkeypatch):
     _store_a_key_row()
-    monkeypatch.setattr(score_cache_db, "RUN_KEYS_SHAPE_VERSION", "next-shape")
-    monkeypatch.setattr(score_cache_db, "CACHE_WRITER_EPOCH", "next-epoch")
+    monkeypatch.setattr(score_cache_schema, "RUN_KEYS_SHAPE_VERSION", "next-shape")
+    _bump_epoch(monkeypatch, "next-epoch")
 
     assert _key_rows() == 0
     assert _meta("run_keys_shape") == "next-shape"
@@ -65,7 +71,7 @@ def test_a_cache_from_before_the_shape_row_adopts_it_without_a_purge(db_path):
     score_cache_db._forget(db_path)
 
     assert _key_rows() == 1
-    assert _meta("run_keys_shape") == score_cache_db.RUN_KEYS_SHAPE_VERSION
+    assert _meta("run_keys_shape") == score_cache_schema.RUN_KEYS_SHAPE_VERSION
 
 
 def test_a_cache_older_than_the_current_key_shape_is_purged(db_path):

@@ -8,8 +8,8 @@ import { cacheEntries, countCommits, countFetches } from './budgets.jsx';
 
 // The helpers are what the budget tests lean on, so each is pinned here on
 // a plain component and a plain cache; the compare case is the first real
-// request budget: 10 projects on the Compare tab cost exactly 10 requests,
-// and a second visit with fresh data costs none.
+// request budget: 10 projects on the Compare tab cost exactly 1 request
+// (10 cache entries), and a second visit with fresh data costs none.
 
 const FLEET_SIZE = 10;
 const FLEET = Array.from({ length: FLEET_SIZE }, (unused, i) => ({ name: `p${i}` }));
@@ -60,9 +60,12 @@ describe('cacheEntries', () => {
 });
 
 describe('compare request budget', () => {
-  it('a fleet of 10 costs 10 requests once and 0 on the next visit', async () => {
+  it('a fleet of 10 costs 1 request once and 0 on the next visit', async () => {
     const client = makeClient();
-    const api = { getCompareSummary: vi.fn(async (id) => ({ project: id })), sharedGetCompareSummary: vi.fn() };
+    const api = {
+      getFleetCompare: vi.fn(async (ids) => ({ summaries: ids.map((id) => ({ project: id })), errors: {} })),
+      sharedGetFleetCompare: vi.fn(),
+    };
     const fetches = countFetches(client);
     const wrapper = ({ children }) => (
       <QueryClientProvider client={client}><ApiProvider value={api}>{children}</ApiProvider></QueryClientProvider>
@@ -71,7 +74,9 @@ describe('compare request budget', () => {
     const first = renderHook(() => useCompareData(FLEET), { wrapper });
     await waitFor(() => expect(first.result.current.allLoaded).toBe(true));
     expect(fetches.count()).toBe(FLEET_SIZE);
-    expect(api.getCompareSummary).toHaveBeenCalledTimes(FLEET_SIZE);
+    expect(api.getFleetCompare).toHaveBeenCalledTimes(1);
+    expect(api.getFleetCompare).toHaveBeenCalledWith(FLEET.map((p) => p.name));
+    expect(api.sharedGetFleetCompare).not.toHaveBeenCalled();
     first.unmount();
 
     fetches.reset();

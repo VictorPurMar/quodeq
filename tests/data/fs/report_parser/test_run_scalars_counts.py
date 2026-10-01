@@ -80,3 +80,28 @@ def test_scalars_keep_a_zero_files_read(tmp_path: Path) -> None:
     (dim,) = read_run_scalars(tmp_path, _PROJECT, _RUN)
 
     assert dim.files_read == 0
+
+
+def test_scalars_carry_the_exit_reason_and_the_manifest_metadata(tmp_path: Path) -> None:
+    """What a full read attaches from the grade row and the run manifest, the scalar read attaches too."""
+    import json
+    import sqlite3
+
+    run_dir = _seed_run(tmp_path, _PROJECT, _RUN, _scorable())
+    with sqlite3.connect(run_dir / "evaluation.db") as conn:
+        conn.execute("UPDATE dimension_scores SET exit_reason = 'failure_streak'")
+    (run_dir / "evidence").mkdir()
+    (run_dir / "evidence" / "manifest.json").write_text(
+        json.dumps({"source_files_count": 1494, "language": "python"}), encoding="utf-8")
+
+    (dim,) = read_run_scalars(tmp_path, _PROJECT, _RUN)
+
+    assert (dim.exit_reason, dim.source_file_count, dim.discipline) == ("failure_streak", 1494, "python")
+
+
+def test_scalars_leave_the_manifest_metadata_unset_without_a_manifest(tmp_path: Path) -> None:
+    _seed_run(tmp_path, _PROJECT, _RUN, _scorable())
+
+    (dim,) = read_run_scalars(tmp_path, _PROJECT, _RUN)
+
+    assert (dim.exit_reason, dim.source_file_count, dim.discipline) == (None, None, None)

@@ -1,9 +1,14 @@
 /**
- * Fan-out data hook for the Compare tab: one slim compare-summary query per
- * project. Per-project queries (rather than one fleet endpoint) so rows
- * render progressively, a single cold project can't block the others, and
- * every payload shares the project-scoped cache subtree that dismiss/rescore
- * mutations already invalidate.
+ * Data hook for the Compare tab: one slim compare-summary cache entry per
+ * project, loaded by one fleet request per source.
+ *
+ * The entries stay per project so every payload shares the project-scoped
+ * cache subtree that dismiss/rescore mutations already invalidate, and one
+ * failing project shows an error in its own row. The requests are batched:
+ * every entry that needs fetching in the same tick joins one
+ * `/fleet/compare` call (see api/fleetCompareLoader.js), so a cold visit
+ * costs one request for the local fleet and one for the shared one, and a
+ * single invalidated row later costs one request of one project.
  *
  * Standards visibility: every summary is filtered by the SAME source the
  * Overview reads — readVisibleStandardIds(), the browser-local visible set
@@ -16,6 +21,7 @@
 import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useApi } from '../../../api/ApiContext.jsx';
+import { makeFleetCompareLoader } from '../../../api/fleetCompareLoader.js';
 import { sharedListProjects } from '../../../api/shared.js';
 import { readVisibleStandardIds } from '../../../utils/visibleStandards.js';
 import { projectKeys, sharedKeys } from '../../../api/queryKeys.js';
@@ -23,10 +29,26 @@ import { applyVisibleStandards } from '../compareModel.js';
 import { PROJECT_SOURCE } from '../../../vocab/projectSource.js';
 import { projectId } from '../../../utils/projectIdentity.js';
 
-// A cold project's first summary can take as long as its Overview takes to
-// compute (the accumulated walk). Match the projects-list ceiling rather
-// than the default 30s so slow projects resolve instead of churning.
+// A cold fleet's first response can take as long as its slowest project's
+// Overview takes to compute. Match the projects-list ceiling rather than
+// the default 30s so slow projects resolve instead of churning.
 const COMPARE_SUMMARY_STALE_MS = 60_000;
+
+// One loader per api client and source, so every hook instance on the page
+// shares the batch and a test's stub api gets loaders of its own.
+const loaders = new WeakMap();
+
+function fleetLoaders(api) {
+  let entry = loaders.get(api);
+  if (!entry) {
+    entry = {
+      [PROJECT_SOURCE.LOCAL]: makeFleetCompareLoader((ids) => api.getFleetCompare(ids)),
+      [PROJECT_SOURCE.SHARED]: makeFleetCompareLoader((ids) => api.sharedGetFleetCompare(ids)),
+    };
+    loaders.set(api, entry);
+  }
+  return entry;
+}
 
 const QUERY_DEFAULTS = {
   staleTime: COMPARE_SUMMARY_STALE_MS,
@@ -45,20 +67,20 @@ const QUERY_DEFAULTS = {
  * @returns {{summariesById: object, errorsById: object}}
  */
 export function useCompareData(projects) {
-  const { getCompareSummary, sharedGetCompareSummary } = useApi();
+  const load = fleetLoaders(useApi());
   const list = (projects || []).filter((p) => p && projectId(p));
   const summaryResults = useQueries({
     queries: list.map((p) => {
       const id = projectId(p);
-      // Remote (shared-repo) rows fetch from the shared mirror route with
+      // Remote (shared-repo) rows fetch from the shared fleet route with
       // the RAW project id; `id` stays the fleet-unique row key. The key's
       // source segment keeps a same-named local project's cache separate.
       const raw = p.sourceId || id;
-      const remote = p.source === PROJECT_SOURCE.SHARED;
+      const source = p.source === PROJECT_SOURCE.SHARED ? PROJECT_SOURCE.SHARED : PROJECT_SOURCE.LOCAL;
       return {
         ...QUERY_DEFAULTS,
-        queryKey: projectKeys.compareSummary(raw, remote ? PROJECT_SOURCE.SHARED : PROJECT_SOURCE.LOCAL),
-        queryFn: () => (remote ? sharedGetCompareSummary(raw) : getCompareSummary(raw)),
+        queryKey: projectKeys.compareSummary(raw, source),
+        queryFn: () => load[source](raw),
       };
     }),
   });

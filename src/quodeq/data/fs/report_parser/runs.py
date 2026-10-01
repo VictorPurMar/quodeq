@@ -15,12 +15,13 @@ from pathlib import Path
 from quodeq.core.run.state import TERMINAL_STATES, RunState, parse_run_state
 from quodeq.core.utils.io import resolve_child_dir
 from quodeq.core.types import DimensionResult
-from quodeq.core.types.finding import SeverityTally, Totals
 from quodeq.data.mappers import parse_dimension_result
-from quodeq.data.sqlite.dimension_counts import DimensionCounts, read_dimension_counts
+from quodeq.data.sqlite.dimension_counts import read_dimension_counts
 from quodeq.data.fs.report_parser._evaluations import load_evaluations
 from quodeq.data.fs.report_parser.external_pid import resolve_external_pid
 from quodeq.data.fs.report_parser._evidence import load_evidence_map
+from quodeq.data.fs.report_parser._evidence_sqlite import manifest_metadata
+from quodeq.data.fs.report_parser._run_scalars import scalars_to_dimension_results
 from quodeq.shared.constants import EVIDENCE_DIRNAME, JSON_SUFFIX, MANIFEST_FILENAME
 from quodeq.data.fs.report_parser._repository import (
     build_repository_info as build_repository_info,
@@ -140,53 +141,6 @@ def _read_run_scalars_from_sql(run_dir: Path) -> "tuple[list[dict], list[dict]] 
     return dim_rows, principle_rows, counts
 
 
-def _scalars_to_dimension_results(
-    dim_rows: list[dict], principle_rows: list[dict],
-    counts: dict[str, DimensionCounts] | None = None,
-) -> list[DimensionResult]:
-    """Build sorted DimensionResults from validated SQL grade rows.
-
-    No eval-time grade fallback here (unlike overlay_sql_grades): the fast
-    path doesn't read the JSON, and a projected dim past the NULL-score
-    guard always carries a real grade label ("Insufficient" or better),
-    never "".
-    """
-    from quodeq.core.types.report import PrincipleGrade  # noqa: PLC0415
-
-    principles_by_dim: dict[str, list[PrincipleGrade]] = {}
-    for r in principle_rows:
-        principles_by_dim.setdefault(r["dimension"], []).append(PrincipleGrade(
-            principle=r["principle_id"],
-            score=f'{r["score"]}/10' if r.get("score") is not None else None,
-            grade=r.get("grade"),
-        ))
-
-    dimensions = [
-        DimensionResult(
-            dimension=r["dimension"],
-            overall_score=f'{r["score"]}/10',
-            overall_grade=r.get("grade"),
-            principles=principles_by_dim.get(r["dimension"], []),
-            files_read=r.get("files_read"),
-            **_scalar_counts((counts or {}).get(r["dimension"])),
-        )
-        for r in dim_rows
-    ]
-    dimensions.sort(key=lambda d: d.dimension)
-    return dimensions
-
-
-def _scalar_counts(c: "DimensionCounts | None") -> dict:
-    """``totals`` and ``open_types`` for a scalar dimension, or nothing when unknown."""
-    if c is None:
-        return {}
-    tally = SeverityTally(critical=c.critical, major=c.major, minor=c.minor)
-    return {
-        "totals": Totals(violation_count=c.violations, compliance_count=c.compliance, severity=tally),
-        "open_types": c.open_types,
-    }
-
-
 def read_run_scalars(
     reports_root: Path,
     project: str,
@@ -194,15 +148,18 @@ def read_run_scalars(
     *,
     fallback_reader: Callable[[Path, str, str], list[DimensionResult]] = _default_fallback_reader,
 ) -> list[DimensionResult]:
-    """Load a run's per-dimension SCALARS (score/grade/principles) only.
+    """Load a run's per-dimension scalars: everything a full read carries but the findings.
 
-    Fast path for the dashboard trend and accumulated carry-forward, which need
-    only ``overall_score`` / ``overall_grade`` per dimension — not the full
-    findings.  Reads the authoritative SQL grade tables directly instead of
-    parsing the evaluation JSON, then falls back to *fallback_reader*
+    Fast path for the trend, the accumulated walk and the Compare screen,
+    which never list findings. Reads the authoritative SQL grade tables
+    directly instead of parsing the evaluation JSON, plus the run manifest
+    for the run-level metadata, then falls back to *fallback_reader*
     (defaults to :func:`read_run_data`) whenever the SQL tables can't
     faithfully reproduce the overlaid result -- see
     :func:`_read_run_scalars_from_sql` for the full list of guards.
+
+    Not available without the report: ``evidence_date`` (the run's date,
+    which ``RunInfo`` carries) and ``quarantined_count`` (0 here).
     """
     validate_path_segment(project, run_id)
     run_dir = reports_root / project / run_id
@@ -211,7 +168,7 @@ def read_run_scalars(
     if sql_result is None:
         return fallback_reader(reports_root, project, run_id)
     dim_rows, principle_rows, counts = sql_result
-    return _scalars_to_dimension_results(dim_rows, principle_rows, counts)
+    return scalars_to_dimension_results(dim_rows, principle_rows, counts, manifest_metadata(run_dir))
 
 
 def _read_run_status(run_dir: Path) -> str | None:

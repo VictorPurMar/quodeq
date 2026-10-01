@@ -59,6 +59,7 @@ from quodeq.services.scoring._accumulated_rows import (  # noqa: F401
     run_rows,
     runs_as_of,
 )
+from quodeq.services.scoring._project_rows import ProjectRows  # noqa: F401
 from quodeq.services.scoring._project_scores import get_project_scores, get_project_scores_stamped
 from quodeq.services.scoring._scores_raw import get_scores_raw, get_scores_slim
 from quodeq.services.wiring import load_suppression_rules
@@ -151,6 +152,7 @@ def rescore_accumulated(
 __all__ = [
     "get_scores_raw",
     "get_scores_slim",
+    "ProjectRows",
     "get_project_scores",
     "get_project_scores_stamped",
     "scored_run_dimensions",
