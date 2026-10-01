@@ -31,6 +31,7 @@ RUN_SCALARS_COUNT_COLUMNS: tuple[str, ...] = (
 RUN_SCALARS_META_COLUMNS: dict[str, str] = {
     "files_read": "INTEGER", "source_file_count": "INTEGER", "quarantined_count": "INTEGER",
     "exit_reason": "TEXT", "evidence_date": "TEXT", "discipline": "TEXT",
+    "dismissed_count": "INTEGER", "suppressed_count": "INTEGER",
 }
 #: Every column after the key, in SELECT and INSERT order. The ones after the
 #: first three are added by migration to a table created before them.
@@ -53,9 +54,10 @@ def scalar_dimension(d: DimensionResult) -> DimensionResult:
     """*d* reduced to what the trend serves: score, grade and counts, no findings.
 
     History's majors and open-types columns read the counts, so they travel
-    with it. Principles and files read stay behind (see the module docstring).
+    with it. Principles, files read and the hidden counts stay behind (see the
+    module docstring); history context never shows what a run's suppressions hid.
     """
-    return replace(row_dimension(d), principles=[], files_read=None)
+    return replace(row_dimension(d), principles=[], files_read=None, dismissed_count=None, suppressed_count=None)
 
 
 def dimension_from_row(row: tuple) -> DimensionResult:
@@ -74,7 +76,9 @@ def dimension_from_row(row: tuple) -> DimensionResult:
                            overall_grade=col["overall_grade"], totals=totals, open_types=col["open_types"],
                            files_read=col["files_read"], source_file_count=col["source_file_count"],
                            quarantined_count=col["quarantined_count"] or 0, exit_reason=col["exit_reason"],
-                           evidence_date=col["evidence_date"], discipline=col["discipline"])
+                           evidence_date=col["evidence_date"], discipline=col["discipline"],
+                           dismissed_count=col["dismissed_count"] or None,
+                           suppressed_count=col["suppressed_count"] or None)
 
 
 def row_values(d: DimensionResult) -> tuple:
@@ -87,4 +91,5 @@ def row_values(d: DimensionResult) -> tuple:
         counts = (t.violation_count, t.compliance_count, *(getattr(sev, s.value) for s in SEVERITY_ORDER),
                   sev.unknown, d.open_types)
     return (d.dimension, d.overall_score, d.overall_grade, *counts, d.files_read, d.source_file_count,
-            d.quarantined_count, d.exit_reason, d.evidence_date, d.discipline)
+            d.quarantined_count, d.exit_reason, d.evidence_date, d.discipline,
+            d.dismissed_count or 0, d.suppressed_count or 0)

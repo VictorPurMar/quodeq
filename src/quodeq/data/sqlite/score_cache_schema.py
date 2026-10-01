@@ -24,6 +24,7 @@ SCHEMA = (
     " critical INTEGER, major INTEGER, minor INTEGER, unknown INTEGER, open_types INTEGER,"
     " files_read INTEGER, source_file_count INTEGER, quarantined_count INTEGER,"
     " exit_reason TEXT, evidence_date TEXT, discipline TEXT,"
+    " dismissed_count INTEGER, suppressed_count INTEGER,"
     " updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
     " PRIMARY KEY (project, run_id, dimension, version));"
     "CREATE INDEX IF NOT EXISTS idx_run_scalars_lookup ON run_scalars(project, version);"

@@ -107,6 +107,12 @@ from quodeq.data.sqlite.findings_queries import (  # noqa: F401
     read_active_findings,
     read_finding_details,
 )
+from quodeq.data.sqlite.findings_queries import read_run_key_sets as read_run_key_sets_from_db  # noqa: F401
+
+# A run's finding identity keys from its evaluation reports (the twin of
+# ``read_run_key_sets_from_db`` for a run without an evaluation.db), and the
+# check that decides between the two.
+from quodeq.data.fs.report_parser import has_evaluation_db, read_report_key_sets  # noqa: F401
 from quodeq.data.sqlite.row_mappers import row_to_finding  # noqa: F401
 
 # Custom-standard file mechanics (see StandardsStore in services/ports.py).

@@ -215,19 +215,40 @@ def _make_history_fetcher(
     )
 
 
+@dataclass(frozen=True)
+class RunHistory:
+    """The history a dashboard request walks, opened before the selected run is read.
+
+    ``get_run_dimensions`` is the shared row-backed fetcher
+    (``_make_history_fetcher``); the Overview serves the selected run's own
+    dimensions from its rows, so the fetcher exists before those are resolved
+    and the selected run's rows are already in hand when the walk reaches it.
+    """
+    window: _HistoryWindow
+    cancelled_runs: list[RunInfo]
+    get_run_dimensions: Callable[[str], list[DimensionResult]]
+
+
+def open_run_history(
+    reports_root: Path, project: str, runs: list[RunInfo], selected_run_id: str,
+    cc: DashboardCacheConfig, params: ScoringParams = DEFAULT_PARAMS,
+) -> RunHistory:
+    """Cut the history window around *selected_run_id* and build its fetcher."""
+    window = _select_history_window(runs, selected_run_id, max_history_runs())
+    # Same scan ceiling as the trend, so an old project's cancelled runs
+    # cannot make the request walk more runs than its history does.
+    cancelled_runs = [r for r in runs if r.status is RunState.CANCELLED][:window.max_history]
+    fetcher = _make_history_fetcher(reports_root, project, window, params, cc, partial_runs=cancelled_runs)
+    return RunHistory(window, cancelled_runs, fetcher)
+
+
 def compute_dashboard_payload(
     reports_root: Path, project: str, ctx: SelectedRunContext,
-    cc: DashboardCacheConfig, params: ScoringParams = DEFAULT_PARAMS,
+    history: RunHistory, params: ScoringParams = DEFAULT_PARAMS,
 ) -> DashboardPayload:
     """Compute history-dependent parts of the dashboard response."""
     selected_dim_names = {d.dimension for d in ctx.dimensions}
-    window = _select_history_window(ctx.runs, ctx.run.run_id, max_history_runs())
-    # Same scan ceiling as the trend, so an old project's cancelled runs
-    # cannot make the request walk more runs than its history does.
-    cancelled_runs = [r for r in ctx.runs if r.status is RunState.CANCELLED][:window.max_history]
-    get_run_dimensions = _make_history_fetcher(
-        reports_root, project, window, params, cc, partial_runs=cancelled_runs,
-    )
+    window, get_run_dimensions = history.window, history.get_run_dimensions
     previous_by_dimension = collect_previous_scores(
         window.runs, window.index, selected_dim_names, get_run_dimensions,
     )
@@ -241,6 +262,6 @@ def compute_dashboard_payload(
         previous_by_dimension=previous_by_dimension,
         stale_previous_by_dimension=stale_previous_by_dimension,
         stale_dimensions=stale_dimensions,
-        partial_runs=build_partial_run_entries(cancelled_runs, get_run_dimensions, params=params),
+        partial_runs=build_partial_run_entries(history.cancelled_runs, get_run_dimensions, params=params),
         since_baseline=since_baseline_summary(reports_root, project, ctx.run.run_id),
     )

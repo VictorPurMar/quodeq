@@ -55,6 +55,7 @@ from quodeq.services.wiring import (  # noqa: F401 — facade re-export
 from quodeq.services._score_cache_fetch import (  # noqa: F401 — facade re-export
     cached_project_summary,
     make_cache_backed_fetcher,
+    run_rows,
 )
 from quodeq.shared.env import get_score_cache_path  # noqa: F401 — facade re-export
 from quodeq.shared.utils import TEXT_ENCODING

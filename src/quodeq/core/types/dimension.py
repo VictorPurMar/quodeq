@@ -48,6 +48,12 @@ class DimensionResult:
     exit_reason: str | None = None
     evidence_date: str | None = None
     discipline: str | None = None
+    # How many of the scan's violations the project's suppression state hid
+    # from this result: the dismissed filter alone (dismissals and rules), and
+    # dismissals plus deletions together. None when nothing was hidden, so a
+    # serialized dimension omits the keys, as one no suppression touches does.
+    dismissed_count: int | None = None
+    suppressed_count: int | None = None
     trend: str | None = None
     previous_run_id: str | None = None
     previous_score: str | None = None

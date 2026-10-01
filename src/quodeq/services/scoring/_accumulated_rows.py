@@ -35,6 +35,7 @@ from quodeq.services.accumulated import (
 )
 from quodeq.services.dismissed import recount_totals
 from quodeq.services.rescore import filter_excluded_violations
+from quodeq.services.score_cache import run_rows
 from quodeq.services.scoring._summary import recompute_summary
 from quodeq.services.scoring_view import select_default_view_runs
 from quodeq.services.suppression_keys import SuppressionKeys
@@ -51,15 +52,6 @@ class AccumulatedScope:
     project: str
     params: ScoringParams
     keys: SuppressionKeys
-
-
-def run_rows(fetcher: Callable[[str], list[DimensionResult]]) -> Callable[[str], list[DimensionResult]]:
-    """*fetcher*'s ``rows`` accessor, or the fetcher itself when it has none.
-
-    The cache kill switch and test doubles hand over a plain callable whose
-    result already carries every scalar the walk reads.
-    """
-    return getattr(fetcher, "rows", fetcher)
 
 
 def runs_as_of(all_runs: list[RunInfo], as_of: str | None) -> list[RunInfo]:

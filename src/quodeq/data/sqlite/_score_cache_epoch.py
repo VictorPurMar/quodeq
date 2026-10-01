@@ -48,7 +48,11 @@ from __future__ import annotations
 # "10": run_scalars rows gained files_read, which the accumulated walk reads
 # to skip coverage-0 stubs when it picks a dimension's winning run from rows.
 # A NULL on an older row would read as "unknown, trusted", so they are retired.
-CACHE_WRITER_EPOCH = "11"
+# "12": run_scalars rows gained dismissed_count and suppressed_count, which
+# the Overview dashboard shows next to each gauge now that it serves the
+# selected run from rows. A NULL on an older row would read as "nothing
+# hidden" for a run whose findings were suppressed, so they are retired.
+CACHE_WRITER_EPOCH = "12"
 
 # Shape of the ``run_keys`` rows, versioned apart from the epoch because the key
 # sets are the costly part of a rebuild and most epoch bumps change only score

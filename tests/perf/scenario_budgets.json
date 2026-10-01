@@ -21,7 +21,7 @@
     "standards_reads": 3
   },
   "project_list_cold": {
-    "eval_report_reads": 66,
+    "eval_report_reads": 67,
     "evaluation_db_opens": 66,
     "response_bytes": 1792,
     "score_cache_opens": 88
@@ -36,8 +36,25 @@
     "response_bytes": 0,
     "score_cache_opens": 110
   },
+  "run_page_full_warm": {
+    "eval_report_reads": 2,
+    "evaluation_db_opens": 5,
+    "peak_kib": 169,
+    "response_bytes": 5926,
+    "score_cache_opens": 1
+  },
+  "run_page_overview_cold": {
+    "eval_report_reads": 1,
+    "response_bytes": 5018,
+    "score_cache_opens": 1
+  },
+  "run_page_overview_warm": {
+    "peak_kib": 161,
+    "response_bytes": 5018,
+    "score_cache_opens": 1
+  },
   "scores_as_of_cold": {
-    "eval_report_reads": 13,
+    "eval_report_reads": 14,
     "evaluation_db_opens": 52,
     "event_log_reads": 1,
     "response_bytes": 3894

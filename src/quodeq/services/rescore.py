@@ -135,6 +135,27 @@ def rescore_dimension(
     return _rescore_legacy_fallback(dim, filtered_violations, params)
 
 
+def with_hidden_counts(
+    raw: DimensionResult, shown: DimensionResult, keys: SuppressionKeys,
+) -> DimensionResult:
+    """*shown* annotated with how many of *raw*'s violations *keys* hid.
+
+    ``suppressed_count`` is the whole gap between what the scan found and what
+    *shown* carries, the total the UI reports. ``dismissed_count`` is the share
+    the dismissed filter alone (dismissals and rules) accounts for; deletions
+    suppress a principle across a file and accumulate over many runs, so the
+    two differ sharply on projects with a triage history. *shown* is returned
+    as is when nothing was hidden: the counts stay None and the serialized
+    dimension omits the keys.
+    """
+    hidden = len(raw.violations) - len(shown.violations)
+    if hidden <= 0:
+        return shown
+    dismissed_only = SuppressionKeys(keys.dismissed, frozenset(), keys.rules)
+    dismissed = len(raw.violations) - len(filter_excluded_violations(raw, dismissed_only))
+    return replace(shown, dismissed_count=dismissed or None, suppressed_count=hidden)
+
+
 def rescore_dimensions(
     dimensions: list[DimensionResult],
     keys: SuppressionKeys,
