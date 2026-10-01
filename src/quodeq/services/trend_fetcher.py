@@ -42,7 +42,7 @@ from quodeq.services.scoring_deps import ScoringDeps, NO_DEPS
 from quodeq.services.deleted import deleted_keys as _default_deleted_keys
 from quodeq.services.dismissed import dismissed_keys as _default_dismissed_keys
 from quodeq.services.wiring import load_suppression_rules, read_run_scalars as _default_read_run_scalars
-from quodeq.services.rescore import rescore_dimension
+from quodeq.services.rescore import rescore_dimension, with_hidden_counts
 from quodeq.services.score_cache import VersionInputs, make_cache_backed_fetcher
 from quodeq.services.suppression_keys import SuppressionKeys
 from quodeq.shared.log_sink import SHARED_LOG
@@ -64,8 +64,9 @@ def make_rescoring_fetcher(
     """Return a dimension fetcher that applies dismiss/delete rescore to results.
 
     Wraps *base_fetcher* (a full-data run-dimension fetcher) so consumers get
-    dismiss-adjusted data. Identity when the project has no active
-    dismissals/deletions. The suppression readers come from *deps*
+    dismiss-adjusted data, each dimension carrying how many findings the
+    suppressions hid (``with_hidden_counts``). Identity when the project has
+    no active dismissals/deletions. The suppression readers come from *deps*
     (production defaults when None or unset).
     """
     validate_path_segment(project)
@@ -85,7 +86,10 @@ def make_rescoring_fetcher(
         # the evidence basis for the rescore.
         validate_path_segment(run_id)
         run_dir = project_dir / run_id
-        return [rescore_dimension(d, keys, params=params, run_dir=run_dir) for d in dims]
+        return [
+            with_hidden_counts(d, rescore_dimension(d, keys, params=params, run_dir=run_dir), keys)
+            for d in dims
+        ]
 
     return rescoring_fetcher
 

@@ -26,7 +26,6 @@ _BASELINE = frozenset({
     "fs_scan.py:quodeq.data.fs.project_files",
     "fs_scan.py:quodeq.data.git_cli",
     "project_index.py:quodeq.data.fs.project_index",
-    "run_keys.py:quodeq.data.sqlite.findings_queries",
     "run_reports.py:quodeq.data.fs.report_parser.runs",
     "score_run.py:quodeq.data.fs.standards_loader",
     "standards_prefs.py:quodeq.data.fs.compiled_standards",

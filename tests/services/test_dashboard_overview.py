@@ -1,8 +1,11 @@
-"""The overview dashboard: same scalars as the full one, no bodies, memoized."""
+"""The overview dashboard: same scalars as the full one, no bodies, served from rows.
+
+The selected run comes from its ``run_scalars`` rows, the same rows the
+history walk serves, so a warm overview never reads the run's findings.
+"""
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,10 +13,9 @@ import pytest
 
 import quodeq.services.dashboard as dashboard_mod
 from quodeq.core.types.dashboard_view import DashboardView
-from quodeq.services import dashboard_overview
 from quodeq.services.dashboard import build_dashboard
+from quodeq.services.deleted import delete_finding
 from quodeq.services.dismissed import dismiss_finding
-from quodeq.shared.stamp_memo import StampCache
 
 RUN = "20260101T000000"
 
@@ -43,9 +45,8 @@ def _write_run(reports: Path, project: str = "proj", run_id: str = RUN) -> Path:
 
 
 @pytest.fixture(autouse=True)
-def _fresh_memo():
-    with patch.object(dashboard_overview, "_CACHE", StampCache()):
-        yield
+def _own_score_cache(tmp_path, monkeypatch):
+    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "score-cache.db"))
 
 
 def _dim(body):
@@ -66,7 +67,7 @@ def test_overview_has_no_bodies_and_same_scalars(tmp_path: Path) -> None:
     assert overview["selectedRun"] == full["selectedRun"]
 
 
-def test_dismissal_invalidates_overview_memo(tmp_path: Path) -> None:
+def test_dismissal_refreshes_the_overview_rows(tmp_path: Path) -> None:
     _write_run(tmp_path)
     before = _dim(build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW))
     dismiss_finding(tmp_path / "proj", {"req": "N/A", "file": "src/a.py", "line": 73})
@@ -75,26 +76,26 @@ def test_dismissal_invalidates_overview_memo(tmp_path: Path) -> None:
     assert before["totals"]["violationCount"] == 2
     assert after["totals"]["violationCount"] == 1 == full["totals"]["violationCount"]
     assert after["dismissedCount"] == 1 == full["dismissedCount"]
+    assert after["suppressedCount"] == 1 == full["suppressedCount"]
     assert after["openTypes"] == 1
 
 
-def test_unchanged_run_is_not_reparsed(tmp_path: Path) -> None:
+def test_deletion_counts_as_suppressed_but_not_dismissed(tmp_path: Path) -> None:
     _write_run(tmp_path)
-    with patch.object(dashboard_mod, "read_run_data", wraps=dashboard_mod.read_run_data) as spy:
-        build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW)
-        build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW)
-    assert spy.call_count == 1
+    delete_finding(tmp_path / "proj", {"dimension": "maintainability", "principle": "Modularity", "file": "src/b.py"})
+    overview = _dim(build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW))
+    full = _dim(build_dashboard(str(tmp_path), "proj", "latest"))
+    assert "dismissedCount" not in overview and "dismissedCount" not in full
+    assert overview["suppressedCount"] == 1 == full["suppressedCount"]
+    assert overview["totals"] == full["totals"]
 
 
-def test_touched_eval_file_reparses(tmp_path: Path) -> None:
-    run_dir = _write_run(tmp_path)
-    path = run_dir / "evaluation" / "maintainability.json"
+def test_warm_overview_does_not_read_the_findings(tmp_path: Path) -> None:
+    _write_run(tmp_path)
+    build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW)
     with patch.object(dashboard_mod, "read_run_data", wraps=dashboard_mod.read_run_data) as spy:
         build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW)
-        st = path.stat()
-        os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
-        build_dashboard(str(tmp_path), "proj", "latest", view=DashboardView.OVERVIEW)
-    assert spy.call_count == 2
+    assert spy.call_count == 0
 
 
 def test_full_view_still_reparses_each_time(tmp_path: Path) -> None:

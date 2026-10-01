@@ -172,3 +172,12 @@ def test_make_rescoring_fetcher_rejects_traversal_project(tmp_path: Path) -> Non
     rejected locally before that join (CodeQL py/path-injection build site)."""
     with pytest.raises(ValueError):
         make_rescoring_fetcher(tmp_path, "../etc", base_fetcher=lambda run_id: [])
+
+
+def test_make_rescoring_fetcher_rejects_traversal_run_id(tmp_path: Path, monkeypatch) -> None:
+    """The per-run ``run_dir`` join is reached only when a suppression is active;
+    a traversal run_id must be rejected before it."""
+    deps = ScoringDeps(dismissed_keys=lambda _pd: {("R1", "a.py", 1)}, deleted_keys=lambda _pd: set())
+    fetch = make_rescoring_fetcher(tmp_path, "proj", base_fetcher=lambda run_id: [], deps=deps)
+    with pytest.raises(ValueError):
+        fetch("../../etc/passwd")

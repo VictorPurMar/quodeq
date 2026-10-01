@@ -884,7 +884,6 @@ tests/services/test_dashboard_freshness.py:161:private-name:quodeq.services.dash
 tests/services/test_dashboard_freshness.py:221:private-name:quodeq.services.dashboard._make_status_aware_fetcher
 tests/services/test_dashboard_freshness.py:34:private-name:quodeq.services.dashboard._make_status_aware_fetcher
 tests/services/test_dashboard_freshness.py:85:private-name:quodeq.services.dashboard._make_status_aware_fetcher
-tests/services/test_dashboard_rescore.py:10:private-name:quodeq.services.dashboard._rescore_run_dimensions
 tests/services/test_dashboard_trend.py:11:private-module:quodeq.services._dashboard_stale.collect_stale_dimensions
 tests/services/test_deleted.py:163:private-name:quodeq.services.deleted._sweep_dismissed_matching
 tests/services/test_dismiss_backfill.py:15:private-module:quodeq.services._dismiss_fingerprints

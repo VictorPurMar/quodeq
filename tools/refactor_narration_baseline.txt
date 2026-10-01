@@ -255,7 +255,6 @@ tests/services/test_dashboard_build_filtering.py:4
 tests/services/test_dashboard_build_sql_overlay.py:3
 tests/services/test_dashboard_freshness.py:3
 tests/services/test_dashboard_freshness_history.py:4
-tests/services/test_dashboard_rescore.py:4
 tests/services/test_dashboard_trend.py:3
 tests/services/test_evaluation_mixin_build.py:3
 tests/services/test_evaluation_mixin_discard.py:3

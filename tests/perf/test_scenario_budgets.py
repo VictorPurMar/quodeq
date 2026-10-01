@@ -153,6 +153,15 @@ def _scores_as_of(client):
     return get_ok(client, f"/api/projects/{PROJECT}/scores?asOf={AS_OF}")
 
 
+# A fleet project, so the in-flight run in PROJECT (read fresh on every
+# history walk by design) does not stand in for the run page's own cost.
+_RUN_PAGE = f"/api/projects/{FLEET[5]}/dashboard?run=20260103T000000"
+
+
+def _run_page(client, view):
+    return get_ok(client, _RUN_PAGE if view == "full" else f"{_RUN_PAGE}&view={view}")
+
+
 def _eval_poll_tick(client):
     dims = ",".join(RUNNING_DIMENSIONS)
     return sum(get_ok(client, url) for url in (
@@ -189,6 +198,22 @@ def _scenarios(client, monkeypatch, budgets) -> dict[str, dict[str, int]]:
         monkeypatch, lambda: _scores_as_of(client), peak_budget=peak_budget("scores_as_of_warm"))
     out["eval_poll_tick"] = _measure(
         monkeypatch, lambda: _eval_poll_tick(client), peak_budget=peak_budget("eval_poll_tick"))
+    calls = _count_score_cache_opens(monkeypatch)
+
+    def run_page(view):
+        def run():
+            calls["score_cache_opens"] = 0
+            return _run_page(client, view)
+        return run
+
+    out["run_page_overview_cold"] = _measure(
+        monkeypatch, run_page("overview"), extra=lambda: dict(calls), peak_budget=False)
+    out["run_page_overview_warm"] = _measure(
+        monkeypatch, run_page("overview"), extra=lambda: dict(calls),
+        peak_budget=peak_budget("run_page_overview_warm"))
+    out["run_page_full_warm"] = _measure(
+        monkeypatch, run_page("full"), extra=lambda: dict(calls),
+        peak_budget=peak_budget("run_page_full_warm"))
     out["agent_spawn"] = _measure(
         monkeypatch, lambda: _agent_spawn(client), peak_budget=peak_budget("agent_spawn"))
     return out

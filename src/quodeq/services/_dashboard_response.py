@@ -7,7 +7,7 @@ nothing here reads history or resolves runs. Declared in
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from quodeq.core.types.dashboard_view import DashboardView
@@ -24,14 +24,11 @@ class DimensionAnnotations:
     """Selected-run values stamped onto each serialized dimension.
 
     ``exit_reason`` is the run-level ``status.json`` exit reason (also reported
-    on ``selectedRun``); the two count maps are keyed by dimension name and
-    explain how many scan findings the dismissed filter alone, and dismissals
-    plus deletions together, hid from the response. ``view`` is the payload
-    shape asked for: the overview drops each dimension's bodies.
+    on ``selectedRun``). ``view`` is the payload shape asked for: the overview
+    drops each dimension's bodies. What the suppressions hid travels on each
+    dimension itself (``dismissed_count`` / ``suppressed_count``).
     """
     exit_reason: str | None = None
-    dismissed_counts: dict[str, int] = field(default_factory=dict)
-    suppressed_counts: dict[str, int] = field(default_factory=dict)
     view: DashboardView = DashboardView.FULL
 
 
@@ -53,31 +50,6 @@ def attach_exit_reason_to_dim(
     out.pop("exit_reason", None)
     if chosen is not None:
         out["exitReason"] = chosen
-    return out
-
-
-def attach_dismissed_count_to_dim(
-    dim_dict: dict[str, Any], dismissed_counts: dict[str, int],
-    suppressed_counts: dict[str, int] | None = None,
-) -> dict[str, Any]:
-    """Add ``dismissedCount`` / ``suppressedCount`` to a dimension dict when > 0.
-
-    Both explain the gap between "what the scan found" and "what the view
-    shows". ``dismissedCount`` covers the dismissed filter alone;
-    ``suppressedCount`` covers dismissals *and* deletions, so it is the total
-    the UI reports. They differ sharply on projects with a triage history:
-    deletions suppress a whole principle across a file and accumulate over
-    many runs, so a scan can re-find several times what the report displays.
-    Omitted when nothing was filtered, mirroring the exitReason convention.
-    """
-    key = dim_dict.get("dimension") or ""
-    out = dim_dict
-    count = dismissed_counts.get(key, 0)
-    if count > 0:
-        out = {**out, "dismissedCount": count}
-    total = (suppressed_counts or {}).get(key, 0)
-    if total > 0:
-        out = {**out, "suppressedCount": total}
     return out
 
 
@@ -111,11 +83,7 @@ def build_dashboard_result(
     exit_reason = annotations.exit_reason
     selected_info = run_info_payload(selected_run)
     dim_dicts = [
-        attach_dismissed_count_to_dim(
-            attach_exit_reason_to_dim(to_camel_dict(d), exit_reason),
-            annotations.dismissed_counts,
-            annotations.suppressed_counts,
-        )
+        attach_exit_reason_to_dim(to_camel_dict(d), exit_reason)
         for d in payload.dimensions_with_trend
     ]
     if annotations.view is DashboardView.OVERVIEW:

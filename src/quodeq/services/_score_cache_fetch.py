@@ -184,6 +184,15 @@ class RowFetcher:
         return rows
 
 
+def run_rows(fetcher: Callable[[str], list[DimensionResult]]) -> Callable[[str], list[DimensionResult]]:
+    """*fetcher*'s ``rows`` accessor, or the fetcher itself when it has none.
+
+    The cache kill switch and test doubles hand over a plain callable whose
+    result already carries every scalar the row readers need.
+    """
+    return getattr(fetcher, "rows", fetcher)
+
+
 def make_cache_backed_fetcher(
     project: str, version_for: Callable[[str], str],
     base_fetcher: Callable[[str], list[DimensionResult]],
