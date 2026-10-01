@@ -53,3 +53,24 @@ def windows_unlink_semantics(monkeypatch):
         return real_unlink(path, *args, dir_fd=dir_fd, **kwargs)
 
     monkeypatch.setattr(os, "unlink", unlink)
+
+
+def stub_row_fetcher(monkeypatch, rows_for_run) -> list[str]:
+    """Serve every project's score-cache rows from *rows_for_run(reports_root, project, run_id)*.
+
+    The project card and ``/scores`` read runs through the row fetcher that
+    ``_fetchers.make_scoring_trend_fetcher`` builds; replacing it here is the
+    seam for tests that want to dictate per-run dimensions without a score
+    cache. Returns the list of run ids fetched, in order.
+    """
+
+    fetched: list[str] = []
+
+    def factory(reports_root, project, params=DEFAULT_PARAMS, cacheable_run_ids=None, deps=None):
+        def fetch(run_id: str):
+            fetched.append(run_id)
+            return rows_for_run(reports_root, project, run_id)
+        return fetch
+
+    monkeypatch.setattr("quodeq.services.scoring._fetchers.make_scoring_trend_fetcher", factory)
+    return fetched

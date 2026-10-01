@@ -11,7 +11,6 @@ from unittest import mock
 from quodeq.data.cache_store.index import close_all_for_tests
 from quodeq.data.fs._index_cache import clear_index_cache
 from quodeq.services.dashboard import clear_shared_dimension_cache
-from quodeq.services.score_cache import clear_stale_payloads
 from tests._sharding import ENV_VAR, parse_shard, select_shard
 
 # Deep enough to exhaust the C JSON decoder's call stack on a default 8MB
@@ -155,18 +154,6 @@ def _fresh_index_cache() -> None:
     next test that resolves the same path. Suite-wide isolation by default.
     """
     clear_index_cache()
-    yield
-
-
-@pytest.fixture(autouse=True)
-def _fresh_stale_payloads() -> None:
-    """Clear the accumulated stale-while-revalidate slots before every test.
-
-    Module-level like the index cache (``services/_score_cache_stale.py``), and
-    keyed by project name, so a payload from one test would be served as
-    "stale" to the next test that reuses the name.
-    """
-    clear_stale_payloads()
     yield
 
 

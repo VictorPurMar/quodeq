@@ -44,11 +44,13 @@ def _project_display_name(reports_dir: str, project_id: str) -> str:
     return info.get("displayName") or info.get("name") or project_id
 
 
-def _warm_project(reports_dir: str, project_id: str) -> None:
-    """Compute-and-cache one project's summary and accumulated payloads.
+def warm_project(reports_dir: str, project_id: str) -> None:
+    """Compute-and-cache one project's card summary and dashboard payload.
 
-    Both go through the single-flight read-through helpers, so this is a
-    version-check no-op on a warm cache and dedupes with on-demand requests.
+    What the engine does per queued project; callable inline for tests and
+    budgets. The card goes through the single-flight read-through helper and
+    the payload through the stamp memo, so this is a version-check no-op on
+    a warm process and dedupes with on-demand requests.
     """
     from quodeq.services.wiring import find_children  # noqa: PLC0415
     from quodeq.services._fs_metadata import warm_project_summary  # noqa: PLC0415
@@ -56,8 +58,8 @@ def _warm_project(reports_dir: str, project_id: str) -> None:
 
     reports_root = Path(reports_dir)
     warm_project_summary(reports_root, project_id)
-    # Parents bypass the accumulated cache entirely (scoring/__init__.py),
-    # so warming them would recompute on every boot for nothing. Skip.
+    # A parent's payload is never memoized (its stamp cannot see children),
+    # so warming it would recompute on every boot for nothing. Skip.
     if not find_children(reports_root, project_id):
         get_project_scores(reports_root, project_id)
 
@@ -70,7 +72,7 @@ class WarmupEngine:
         warm_fn: Callable[[str, str], None] | None = None,
         list_fn: Callable[[str], list[tuple[str, str]]] | None = None,
     ) -> None:
-        self._warm_fn = warm_fn or _warm_project
+        self._warm_fn = warm_fn or warm_project
         self._list_fn = list_fn or _enumerate_projects
         self._cond = threading.Condition()
         self._shutdown = threading.Event()

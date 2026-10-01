@@ -31,7 +31,7 @@ from quodeq.data.fs.report_parser._run_info import (
     parse_run_date,
     safe_read_dir as safe_read_dir,
 )
-from quodeq.data.fs.report_parser.run_dates import project_run_dates
+from quodeq.data.fs.report_parser.run_dates import remember_run_dates, remembered_run_dates
 from quodeq.shared.validation import validate_path_segment
 
 _DEFAULT_RUN_LIMIT = 100
@@ -226,7 +226,8 @@ def list_runs(reports_root: Path, project: str, *, limit: int = _DEFAULT_RUN_LIM
     if resolved is None:
         return []
     project_dir = Path(resolved)
-    index_dates = project_run_dates(reports_root, project)
+    index_dates = remembered_run_dates(reports_root, project)
+    parsed: dict[str, tuple[str | None, str]] = {}
     run_infos: list[RunInfo] = []
     for entry in safe_read_dir(project_dir):
         if not entry.is_dir() or entry.name.startswith("."):
@@ -246,7 +247,13 @@ def list_runs(reports_root: Path, project: str, *, limit: int = _DEFAULT_RUN_LIM
             date_iso, date_label = cached
         else:
             date_iso, date_label = parse_run_date(reports_root, project, entry.name)
+            # Remembered so this read happens once. An undated run is parsed
+            # again while it runs (a report may still bring a date) and
+            # remembered as undated once it has finished.
+            if date_iso is not None or status in TERMINAL_STATES:
+                parsed[entry.name] = (date_iso, date_label)
         run_infos.append(RunInfo(run_id=entry.name, date_iso=date_iso, date_label=date_label, status=status))
+    remember_run_dates(project, parsed)
     run_infos.sort(key=lambda r: (r.date_iso or "", r.run_id), reverse=True)
     if limit > 0:
         return run_infos[:limit]

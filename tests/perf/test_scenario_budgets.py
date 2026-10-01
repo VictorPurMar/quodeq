@@ -25,6 +25,7 @@ from quodeq.api.app import create_app
 from quodeq.config.paths import default_paths
 from quodeq.data.sqlite import score_cache_db
 from quodeq.services import compare as compare_service
+from quodeq.services.warmup import engine as warmup_engine, warm_project
 from tests.perf._budget_fixture import PROJECT, count_io, seed_project
 from tests.perf._scenario_fixture import (
     AS_OF, FLEET, RUNNING_DIMENSIONS, RUNNING_JOB, RUNNING_RUN,
@@ -82,6 +83,19 @@ def _measure(monkeypatch, run, *, extra=lambda: {}, peak_budget=None) -> dict[st
     return out
 
 
+def _count_score_cache_opens(monkeypatch) -> dict[str, int]:
+    """Count score-cache connections; the caller zeroes the counter per run."""
+    calls = {"score_cache_opens": 0}
+    real_open = score_cache_db._open_locked
+
+    def spy_open(path):
+        calls["score_cache_opens"] += 1
+        return real_open(path)
+
+    monkeypatch.setattr(score_cache_db, "_open_locked", spy_open)
+    return calls
+
+
 def _compare_fleet(client, monkeypatch, peak_budget):
     """The Compare screen's one request for a fleet of ten.
 
@@ -89,20 +103,15 @@ def _compare_fleet(client, monkeypatch, peak_budget):
     path, which only a parent project may take; the fleet has none) and
     ``score_cache_opens`` (the whole fleet shares one connection).
     """
-    calls = {"get_project_scores": 0, "score_cache_opens": 0}
+    calls = _count_score_cache_opens(monkeypatch)
+    calls["get_project_scores"] = 0
     real_scores = compare_service.get_project_scores
-    real_open = score_cache_db._open_locked
 
     def spy_scores(*args, **kwargs):
         calls["get_project_scores"] += 1
         return real_scores(*args, **kwargs)
 
-    def spy_open(path):
-        calls["score_cache_opens"] += 1
-        return real_open(path)
-
     monkeypatch.setattr(compare_service, "get_project_scores", spy_scores)
-    monkeypatch.setattr(score_cache_db, "_open_locked", spy_open)
     url = f"/api/fleet/compare?projects={','.join(FLEET)}"
 
     def run():
@@ -110,6 +119,30 @@ def _compare_fleet(client, monkeypatch, peak_budget):
         return get_ok(client, url)
 
     return _measure(monkeypatch, run, extra=lambda: dict(calls), peak_budget=peak_budget)
+
+
+def _project_list(client, monkeypatch, *, peak_budget):
+    """The dashboard's project list in one request (cards pending until warmed)."""
+    calls = _count_score_cache_opens(monkeypatch)
+
+    def run():
+        calls["score_cache_opens"] = 0
+        return get_ok(client, "/api/projects")
+
+    return _measure(monkeypatch, run, extra=lambda: dict(calls), peak_budget=peak_budget)
+
+
+def _warm_fleet(client, monkeypatch):
+    """What the warm-up engine does for a dashboard of ten: card and payload per fleet project."""
+    calls = _count_score_cache_opens(monkeypatch)
+
+    def run():
+        calls["score_cache_opens"] = 0
+        for name in FLEET:
+            warm_project(str(client.reports), name)
+        return 0
+
+    return _measure(monkeypatch, run, extra=lambda: dict(calls), peak_budget=False)
 
 
 def _scores_as_of(client):
@@ -157,15 +190,45 @@ def _scenarios(client, monkeypatch, budgets) -> dict[str, dict[str, int]]:
     return out
 
 
+def _check_or_update(measured: dict[str, dict[str, int]], budgets: dict[str, dict[str, int]]) -> None:
+    """Compare *measured* with its scenarios' budgets, or rewrite just those scenarios."""
+    if not os.environ.get("QUODEQ_UPDATE_BUDGETS"):
+        check_budgets(measured, {name: budgets[name] for name in measured})
+        return
+    current = json.loads(_BUDGETS.read_text(encoding="utf-8")) if _BUDGETS.exists() else {}
+    current.update(measured)
+    _BUDGETS.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    pytest.skip("budgets rewritten")
+
+
+def _load_budgets() -> dict[str, dict[str, int]]:
+    if os.environ.get("QUODEQ_UPDATE_BUDGETS"):
+        return {}
+    return json.loads(_BUDGETS.read_text(encoding="utf-8"))
+
+
 # Each scenario runs two to three times over ~1500 file operations; ~100s on
 # the Windows runners when idle, which the suite-wide 240s cap does not cover
 # once the runner is saturated.
 @pytest.mark.timeout(480)
 def test_scenario_reads_stay_within_budget(client, monkeypatch):
-    updating = bool(os.environ.get("QUODEQ_UPDATE_BUDGETS"))
-    budgets = {} if updating else json.loads(_BUDGETS.read_text(encoding="utf-8"))
-    measured = _scenarios(client, monkeypatch, budgets)
-    if updating:
-        _BUDGETS.write_text(json.dumps(measured, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        pytest.skip("budgets rewritten")
-    check_budgets(measured, budgets)
+    budgets = _load_budgets()
+    _check_or_update(_scenarios(client, monkeypatch, budgets), budgets)
+
+
+@pytest.mark.timeout(480)
+def test_project_list_reads_stay_within_budget(client, monkeypatch):
+    """A dashboard load, in its own fixture so the cold list is cold.
+
+    The list comes back with pending cards, the warm-up engine computes them
+    (``project_warm_10`` runs that work inline), and the next list is served
+    settled once the engine's generation moves, which is the signal the
+    list cache keys its pending tier on.
+    """
+    budgets = _load_budgets()
+    measured = {"project_list_cold": _project_list(client, monkeypatch, peak_budget=False)}
+    measured["project_warm_10"] = _warm_fleet(client, monkeypatch)
+    monkeypatch.setattr(warmup_engine, "generation", lambda: len(FLEET))
+    measured["project_list_settled"] = _project_list(
+        client, monkeypatch, peak_budget=budgets.get("project_list_settled", {}).get("peak_kib"))
+    _check_or_update(measured, budgets)

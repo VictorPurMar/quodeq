@@ -265,9 +265,6 @@ tests/services/test_evaluation_mixin_register_onboarding.py:3
 tests/services/test_evaluation_mixin_register_origin.py:4
 tests/services/test_evaluation_mixin_scoring.py:3
 tests/services/test_external_jobs.py:265
-tests/services/test_fs_metadata_accumulated.py:3
-tests/services/test_fs_metadata_accumulated_card.py:3
-tests/services/test_fs_metadata_accumulated_rescore.py:3
 tests/services/test_fs_metadata_repo_info.py:3
 tests/services/test_grade_formula_apply.py:3
 tests/services/test_grade_formula_event_log.py:3

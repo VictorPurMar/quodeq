@@ -14,7 +14,7 @@ from pathlib import Path
 
 _logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _RUN_INDEX_BUSY_TIMEOUT_MS = 3000  # kept at its historical value; the other sqlite stores use 5000 (SQLITE_BUSY_TIMEOUT_MS)
 
@@ -51,13 +51,38 @@ CREATE INDEX IF NOT EXISTS idx_runs_started_at ON runs(started_at DESC);
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
 """
 
+# v2: the date ``list_runs`` had to parse from a run's files because the run
+# has no usable ``started_at`` (no ``status.json``, or one from before the
+# field). Written once, so the per-run file read is paid once per run. A
+# finished run with no date anywhere is remembered as undated (NULL) too,
+# since nothing will add one later.
+_RUN_DATES_VERSION = 2
+_SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS run_dates (
+    project_uuid TEXT NOT NULL,
+    run_id       TEXT NOT NULL,
+    date_iso     TEXT,
+    date_label   TEXT NOT NULL,
+    PRIMARY KEY (project_uuid, run_id)
+);
+"""
 
-def _apply_schema_v1(db: sqlite3.Connection) -> None:
+
+def _apply_schema(db: sqlite3.Connection) -> None:
+    """Create the full current schema on a fresh (or wiped) index."""
     with db:
-        db.executescript(_SCHEMA_V1)
+        db.executescript(_SCHEMA_V1 + _SCHEMA_V2)
         have_version = db.execute("SELECT COUNT(*) FROM schema_version").fetchone()[0]
         if have_version == 0:
             db.execute("INSERT INTO schema_version(version) VALUES (?)", (SCHEMA_VERSION,))
+
+
+def _migrate(db: sqlite3.Connection, version: int) -> None:
+    """Bring an index at *version* (< SCHEMA_VERSION) up to date, additively."""
+    with db:
+        if version < _RUN_DATES_VERSION:
+            db.executescript(_SCHEMA_V2)
+        db.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
 
 
 def _read_schema_version(db: sqlite3.Connection) -> int | None:
@@ -186,7 +211,7 @@ def _open_or_rebuild(db_path: Path) -> sqlite3.Connection:
 
     version = _read_schema_version(db)
     if version is None:
-        _apply_schema_v1(db)
+        _apply_schema(db)
         return db
     if version > SCHEMA_VERSION:
         # Downgrade: a newer quodeq migrated the index forward. It's a derived
@@ -198,6 +223,8 @@ def _open_or_rebuild(db_path: Path) -> sqlite3.Connection:
         )
         _close_quietly(db)
         db = _recreate_index_db(db_path)
-        _apply_schema_v1(db)
+        _apply_schema(db)
         return db
+    if version < SCHEMA_VERSION:
+        _migrate(db, version)
     return db

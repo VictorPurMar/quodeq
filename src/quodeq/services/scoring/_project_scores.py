@@ -19,8 +19,6 @@ from quodeq.services.accumulated import compute_accumulated
 from quodeq.services.grade_formula import is_custom, load_params
 from quodeq.services.score_cache import (
     accumulated_cache_version,
-    accumulated_stale_scope,
-    cached_accumulated,
     per_run_versions,
     suppression_state_fingerprint,
 )
@@ -98,25 +96,19 @@ def _state_fingerprint(req: _ScoresRequest, keys: SuppressionKeys) -> str:
 
 
 def _resolve_accumulated(
-    req: _ScoresRequest, rescore_complete: list[bool],
-    run_versions: list[tuple], keys: SuppressionKeys, all_runs: list, fetcher,
+    req: _ScoresRequest, rescore_complete: list[bool], keys: SuppressionKeys, all_runs: list, fetcher,
 ) -> dict:
-    """Compute (or fetch from cache) the accumulated dims + summary."""
+    """The accumulated dims + summary: from rows for a plain project, full reads for a parent.
+
+    Built on every call; ``_PAYLOADS`` memoizes the whole payload above this.
+    A persisted accumulated slot used to sit here too, but with the rows
+    cached per run it saved nothing a warm process could measure.
+    """
     if find_children(req.reports_root, req.project):
         # Parent aggregation pulls child projects' dismissals/runs into the
-        # payload, which the project-scoped cache version can't see -- bypass
-        # the cache for parents to avoid serving stale data.
+        # payload, which the project-scoped stamp can't see.
         return _compute_parent_payload(req, rescore_complete)
-    stale_scope = accumulated_stale_scope(
-        req.params, run_versions, req.as_of,
-        _state_fingerprint(req, keys),
-    )
-    return (req.deps.cached_accumulated or cached_accumulated)(
-        req.project, accumulated_cache_version(req.params, run_versions, req.as_of),
-        lambda: _compute_accumulated_payload(req, rescore_complete, all_runs, fetcher, keys),
-        cacheable=lambda _payload: rescore_complete[0],
-        stale_scope=stale_scope, log=SHARED_LOG,
-    )
+    return _compute_accumulated_payload(req, rescore_complete, all_runs, fetcher, keys)
 
 
 def _empty_project_scores(scoring_meta: dict) -> dict[str, Any]:
@@ -157,16 +149,15 @@ def _payload_stamp(
 
 
 def _build_project_scores(
-    req: _ScoresRequest, all_runs: list, scoring_meta: dict,
-    run_versions: list[tuple], keys: SuppressionKeys,
+    req: _ScoresRequest, all_runs: list, scoring_meta: dict, keys: SuppressionKeys,
 ) -> tuple[dict[str, Any], bool]:
     """The payload and whether its rescore covered every dimension."""
-    # The rescore-coverage flag rides in a cell so the cacheable gate can see
-    # it: a payload whose rescore missed dimensions must be served but never
-    # persisted (its version hash can't self-invalidate).
+    # The rescore-coverage flag rides in a cell so the memo gate can see it:
+    # a payload whose rescore missed dimensions must be served but never
+    # memoized (its stamp can't self-invalidate).
     rescore_complete = [True]
     fetcher = make_row_fetcher(req.reports_root, req.project, req.params, all_runs, req.deps)
-    accumulated = _resolve_accumulated(req, rescore_complete, run_versions, keys, all_runs, fetcher)
+    accumulated = _resolve_accumulated(req, rescore_complete, keys, all_runs, fetcher)
     trend = resolve_trend(req.params, all_runs, fetcher)
     payload = {
         "accumulated": accumulated,
@@ -212,14 +203,11 @@ def get_project_scores_stamped(
     req = _ScoresRequest(reports_root, project, as_of, params, d)
     project_dir = reports_root / project
     keys = SuppressionKeys(dismissed_keys(project_dir), deleted_keys(project_dir))
-    parent = find_children(reports_root, project)
-    # Parents never had per-run versions (they bypass the accumulated cache);
-    # an as-of payload is frozen client-side already, so only the latest
-    # payload of a project is worth an entry.
-    if parent or as_of is not None:
-        run_versions = [] if parent else per_run_versions(
-            project_dir, project, params, [(r.run_id, r.status) for r in all_runs], keys=keys)
-        return _build_project_scores(req, all_runs, scoring_meta, run_versions, keys)[0], None
+    # A parent's payload folds in children the stamp cannot see; an as-of
+    # payload is frozen client-side already. Only the latest payload of a
+    # plain project is worth an entry.
+    if as_of is not None or find_children(reports_root, project):
+        return _build_project_scores(req, all_runs, scoring_meta, keys)[0], None
     run_versions = per_run_versions(project_dir, project, params,
                                     [(r.run_id, r.status) for r in all_runs], keys=keys)
     stamp = _payload_stamp(req, all_runs, run_versions, keys, scoring_meta["customFormula"])
@@ -227,7 +215,7 @@ def get_project_scores_stamped(
     hit = _PAYLOADS.get(key, stamp)
     if hit is not None:
         return hit, stamp  # type: ignore[return-value]
-    payload, complete = _build_project_scores(req, all_runs, scoring_meta, run_versions, keys)
+    payload, complete = _build_project_scores(req, all_runs, scoring_meta, keys)
     if complete:
         _PAYLOADS.put(key, stamp, payload)
     return payload, stamp

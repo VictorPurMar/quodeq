@@ -4,15 +4,14 @@ Every function on that path (``compute_accumulated`` down through
 ``_read_run_data_safely``) defaults its ``log`` parameter to ``NULL_LOG``, so
 a best-effort per-run read failure during the accumulated walk was silently
 invisible unless a caller opted in. ``scoring/_project_scores.py`` is that
-opt-in: it already imports ``SHARED_LOG`` for ``cached_accumulated`` (see
-``services/_score_cache_fetch.py``), so it is the nearest caller with a real
-sink in scope for ``compute_accumulated`` too.
+opt-in: it imports ``SHARED_LOG`` and is the nearest caller with a real sink
+in scope for ``compute_accumulated``.
 
 Driven through the public ``get_project_scores`` entry point (not the
 private ``_project_scores``/``_ScoresRequest`` it's built from), taking the
-cache-bypass branch (a project with children skips the score cache
-entirely -- see ``_resolve_accumulated``) so ``compute_accumulated`` is
-reached directly and deterministically.
+parent branch (a project with children is built from full reads, see
+``_resolve_accumulated``) so ``compute_accumulated`` is reached directly and
+deterministically.
 """
 from __future__ import annotations
 

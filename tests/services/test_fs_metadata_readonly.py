@@ -158,7 +158,7 @@ def test_metadata_read_failure_is_logged(caplog, tmp_path):
     card falls back to an empty summary, but an operator needs a trace to
     diagnose which project's data is broken."""
     with patch(
-        "quodeq.services._fs_metadata._select_accumulated_dims",
+        "quodeq.services.dismissed.dismissed_keys",
         side_effect=json.JSONDecodeError("Expecting value", "doc", 0),
     ), caplog.at_level(logging.WARNING):
         result = _compute_summary(tmp_path, "proj", [], DEFAULT_PARAMS, set())

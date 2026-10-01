@@ -6,7 +6,6 @@ from quodeq.core.run.state import RunState
 from quodeq.core.scoring.params import DEFAULT_PARAMS
 from quodeq.services.score_cache import (
     accumulated_cache_version,
-    cached_accumulated,
     load_run_keys,
     open_score_cache,
     per_run_versions,
@@ -48,19 +47,6 @@ def test_version_folds_visible_dims_only_when_given():
     # Selection is order-independent (sorted before hashing).
     assert six == accumulated_cache_version(
         DEFAULT_PARAMS, runs, None, visible_dims=("reliability", "security"))
-
-
-def test_cached_accumulated_miss_then_hit(tmp_path, monkeypatch):
-    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
-    calls = []
-
-    def compute():
-        calls.append(1)
-        return {"dimensions": [], "summary": {"x": 1}}
-    r1 = cached_accumulated("proj", "v1", compute)     # miss -> compute + cache
-    r2 = cached_accumulated("proj", "v1", lambda: (_ for _ in ()).throw(AssertionError("recomputed on hit")))
-    assert r1 == r2 == {"dimensions": [], "summary": {"x": 1}}
-    assert calls == [1]
 
 
 def test_per_run_versions_status_flip_reinvalidates(tmp_path, monkeypatch):
@@ -124,53 +110,3 @@ def test_per_run_versions_degrades_on_unopenable_cache(tmp_path, monkeypatch):
     finally:
         os.chmod(ro_dir, 0o700)
     assert [(rid, status) for rid, status, _ in out] == [("r1", RunState.DONE)]
-
-
-def test_cached_accumulated_not_cacheable_serves_without_persisting(tmp_path, monkeypatch):
-    """A payload the caller flags as incomplete must be served but never written.
-
-    Regression: a rescore built from a partial run read (1 of 6 dims in the
-    process LRU) was persisted under a version hash identical to the complete
-    payload's, so the half-rescored row was a permanent cache hit.
-    """
-    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
-    calls = []
-
-    def compute():
-        calls.append(1)
-        return {"dimensions": [], "summary": {"partial": True}}
-    r1 = cached_accumulated("proj", "v1", compute, cacheable=lambda _p: False)
-    assert r1 == {"dimensions": [], "summary": {"partial": True}}
-    # Same version misses again: nothing was persisted.
-    r2 = cached_accumulated("proj", "v1", compute, cacheable=lambda _p: False)
-    assert r2 == r1
-    assert calls == [1, 1]
-
-
-def test_cached_accumulated_cacheable_true_persists(tmp_path, monkeypatch):
-    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
-    calls = []
-
-    def compute():
-        calls.append(1)
-        return {"dimensions": [], "summary": {"x": 1}}
-    cached_accumulated("proj", "v1", compute, cacheable=lambda _p: True)
-    r2 = cached_accumulated(
-        "proj", "v1",
-        lambda: (_ for _ in ()).throw(AssertionError("recomputed on hit")),
-        cacheable=lambda _p: True,
-    )
-    assert r2 == {"dimensions": [], "summary": {"x": 1}}
-    assert calls == [1]
-
-
-def test_cached_accumulated_kill_switch(tmp_path, monkeypatch):
-    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
-    monkeypatch.setenv("QUODEQ_DISABLE_SCORE_CACHE", "1")
-    calls = []
-
-    def compute():
-        calls.append(1); return {"y": 2}
-    assert cached_accumulated("proj", "v1", compute) == {"y": 2}
-    assert cached_accumulated("proj", "v1", compute) == {"y": 2}
-    assert calls == [1, 1]  # never cached

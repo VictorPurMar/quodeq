@@ -43,7 +43,6 @@ class ScoringDeps:
     dismissed_keys: Callable | None = None
     deleted_keys: Callable | None = None
     load_suppression_rules: Callable | None = None
-    cached_accumulated: Callable | None = None
     rescore_dimension: Callable | None = None
     rescore_runs_by_dimension: Callable | None = None
     recompute_summary: Callable | None = None

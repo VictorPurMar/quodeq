@@ -66,7 +66,7 @@ class TestDebugMetrics:
         assert rss is None if sys.platform == "win32" else rss > 0
         assert body["process"]["cpu_user_s"] >= 0
         names = {cache["name"] for cache in body["caches"]}
-        assert {"scores.wire", "project_scores.payloads", "default"} <= names
+        assert {"project_scores.payloads", "default"} <= names
         for cache in body["caches"]:
             assert set(cache) == {"name", "entries", "max_entries", "hits", "misses", "approx_bytes"}
         assert body["requests_last_minute"]["/api/projects/<project>/scores"] == 1

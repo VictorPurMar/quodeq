@@ -9,16 +9,10 @@ from __future__ import annotations
 
 import threading
 import time
-from contextlib import contextmanager
-
 import pytest
 
-from quodeq.services.score_cache import (
-    cached_accumulated,
-    cached_project_summary,
-    open_score_cache,
-)
-from quodeq.services.wiring import DEFAULT_SINGLE_FLIGHT, SingleFlight
+from quodeq.services.score_cache import cached_project_summary, open_score_cache
+from quodeq.services.wiring import SingleFlight
 
 
 def _race(n: int, call):
@@ -40,22 +34,6 @@ def _race(n: int, call):
     for t in threads:
         t.join()
     return results, errors
-
-
-def test_concurrent_accumulated_misses_compute_once(tmp_path, monkeypatch):
-    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
-    calls = []
-
-    def compute():
-        calls.append(1)
-        time.sleep(0.05)
-        return {"summary": {"x": 1}}
-
-    results, errors = _race(3, lambda _i: cached_accumulated("proj", "v1", compute))
-
-    assert not errors
-    assert calls == [1], "concurrent misses on one key must share one compute"
-    assert results == [{"summary": {"x": 1}}] * 3
 
 
 def test_concurrent_summary_misses_compute_once(tmp_path, monkeypatch):
@@ -85,7 +63,7 @@ def test_distinct_keys_still_compute_independently(tmp_path, monkeypatch):
         return compute
 
     results, errors = _race(
-        2, lambda i: cached_accumulated(f"proj-{i}", "v1", make_compute(i)),
+        2, lambda i: cached_project_summary(f"proj-{i}", "v1", make_compute(i)),
     )
 
     assert not errors
@@ -120,16 +98,15 @@ def test_failed_compute_does_not_wedge_the_key(tmp_path, monkeypatch):
         raise RuntimeError("compute failed")
 
     with pytest.raises(RuntimeError):
-        cached_accumulated("proj", "v1", boom)
+        cached_project_summary("proj", "v1", boom)
 
-    out = cached_accumulated("proj", "v1", lambda: {"summary": {"ok": True}})
+    out = cached_project_summary("proj", "v1", lambda: {"summary": {"ok": True}})
     assert out == {"summary": {"ok": True}}
 
 
 # ---------------------------------------------------------------------------
 # SingleFlight (the G3 process-scoped owner): low-level hold() semantics,
-# event-based (no sleeps), plus proof the two public call paths share one
-# process-wide instance.
+# event-based (no sleeps).
 # ---------------------------------------------------------------------------
 
 class TestSingleFlightHold:
@@ -203,7 +180,7 @@ class TestSingleFlightHold:
 def test_two_concurrent_misses_on_one_key_the_second_genuinely_waits(tmp_path, monkeypatch):
     """Event-based (no sleeps): the second caller for the SAME key must be
     genuinely blocked until the first compute finishes, not just lucky with
-    timing -- this is what test_concurrent_accumulated_misses_compute_once
+    timing -- this is what test_concurrent_summary_misses_compute_once
     above cannot distinguish from an unlucky race."""
     monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
     entered = threading.Event()
@@ -219,7 +196,7 @@ def test_two_concurrent_misses_on_one_key_the_second_genuinely_waits(tmp_path, m
     results: list[dict] = [None, None]
 
     def _first():
-        results[0] = cached_accumulated("proj", "v1", compute)
+        results[0] = cached_project_summary("proj", "v1", compute)
 
     t1 = threading.Thread(target=_first)
     t1.start()
@@ -228,7 +205,7 @@ def test_two_concurrent_misses_on_one_key_the_second_genuinely_waits(tmp_path, m
     second_done = threading.Event()
 
     def _second():
-        results[1] = cached_accumulated("proj", "v1", lambda: {"summary": {"x": 2}})
+        results[1] = cached_project_summary("proj", "v1", lambda: {"summary": {"x": 2}})
         second_done.set()
 
     t2 = threading.Thread(target=_second)
@@ -241,24 +218,3 @@ def test_two_concurrent_misses_on_one_key_the_second_genuinely_waits(tmp_path, m
 
     assert calls == [1]
     assert results == [{"summary": {"x": 1}}, {"summary": {"x": 1}}]
-
-
-def test_cached_accumulated_and_cached_project_summary_share_one_registry(tmp_path, monkeypatch):
-    """Two different call paths (cached_accumulated, cached_project_summary)
-    are different CacheSlot construction sites; both must resolve their
-    default single_flight to the SAME process-wide instance, not one each."""
-    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
-    seen: list[tuple] = []
-    real_hold = DEFAULT_SINGLE_FLIGHT.hold
-
-    @contextmanager
-    def spying_hold(key):
-        seen.append(key)
-        with real_hold(key):
-            yield
-
-    monkeypatch.setattr(DEFAULT_SINGLE_FLIGHT, "hold", spying_hold)
-    cached_accumulated("proj", "v1", lambda: {"summary": {"x": 1}})
-    cached_project_summary("proj", "v1", lambda: {"grade": "B"})
-
-    assert seen == [("accumulated", "proj", "v1"), ("summary", "proj", "v1")]

@@ -170,18 +170,6 @@ def run_source_file_count(run_dir: Path) -> int | None:
     return count if isinstance(count, int) and count > 0 else None
 
 
-def hydrate_winning_dimensions(
-    winners_by_run: dict[str, list[str]], latest_by_dim: dict,
-    fetch_full: Callable[[str], list[DimensionResult]],
-) -> None:
-    """Swap each winning scalar dimension for its full read, one read per winning run."""
-    for run_id, names in winners_by_run.items():
-        full_by_name = {d.dimension: d for d in fetch_full(run_id)}
-        for name in names:
-            if name in full_by_name:
-                latest_by_dim[name] = full_by_name[name]
-
-
 def _read_run_data_safely(
     reports_root: Path, project: str, run_id: str, *, log: LogSink = NULL_LOG,
 ) -> list[DimensionResult]:

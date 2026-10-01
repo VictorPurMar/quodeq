@@ -12,14 +12,13 @@ from unittest.mock import patch
 
 from quodeq.services._fs_metadata import read_accumulated_summary
 
-from tests.services.conftest import seed_security_findings
+from tests.services.conftest import seed_security_findings, stub_row_fetcher
 
 
 class TestReadAccumulatedSummary:
     @patch("quodeq.services._fs_metadata.summarize_dimensions")
-    @patch("quodeq.services._fs_metadata.read_run_data")
     def test_card_summary_keeps_dims_not_in_latest_config(
-        self, mock_read, mock_summarize, tmp_path,
+        self, mock_summarize, tmp_path, monkeypatch,
     ):
         """Dims absent from the latest run's config are KEPT (show all,
         count all) so the card grade matches the accumulated overview."""
@@ -38,11 +37,12 @@ class TestReadAccumulatedSummary:
             }),
             encoding="utf-8",
         )
-        mock_read.return_value = [
+        rows = [
             DimensionResult(dimension="security", overall_score="8.0", source_file_count=10),
             DimensionResult(dimension="reliability", overall_score="7.0"),
             DimensionResult(dimension="performance", overall_score="4.0"),
         ]
+        stub_row_fetcher(monkeypatch, lambda root, proj, rid: rows)
         mock_summarize.return_value = type(
             "S", (), {"overall_grade": "A", "numeric_average": 7.5},
         )()
@@ -59,9 +59,8 @@ class TestReadAccumulatedSummary:
         assert names == ["performance", "reliability", "security"], names
 
     @patch("quodeq.services._fs_metadata.summarize_dimensions")
-    @patch("quodeq.services._fs_metadata.read_run_data")
     def test_card_summary_excludes_hidden_standards(
-        self, mock_read, mock_summarize, tmp_path,
+        self, mock_summarize, tmp_path, monkeypatch,
     ):
         """Dims outside the visible-standards selection must not move the
         card grade: the Overview headline excludes them (the client filters
@@ -80,10 +79,11 @@ class TestReadAccumulatedSummary:
             json.dumps({"name": project, "path": str(repo), "location": "local"}),
             encoding="utf-8",
         )
-        mock_read.return_value = [
+        rows = [
             DimensionResult(dimension="Security", overall_score="8.0"),
             DimensionResult(dimension="reliability", overall_score="7.0"),
         ]
+        stub_row_fetcher(monkeypatch, lambda root, proj, rid: rows)
         mock_summarize.return_value = type(
             "S", (), {"overall_grade": "A", "numeric_average": 8.0},
         )()
@@ -96,9 +96,8 @@ class TestReadAccumulatedSummary:
         assert [d.dimension for d in called_dims] == ["Security"]
 
     @patch("quodeq.services._fs_metadata.summarize_dimensions")
-    @patch("quodeq.services._fs_metadata.read_run_data")
     def test_card_summary_default_selection_hides_non_iso_dims(
-        self, mock_read, mock_summarize, tmp_path,
+        self, mock_summarize, tmp_path, monkeypatch,
     ):
         """Without a visibility file the six ISO defaults apply, so a retired
         non-default dim (clean-architecture) no longer drags the card grade
@@ -109,10 +108,11 @@ class TestReadAccumulatedSummary:
         reports_root = tmp_path / "evaluations"
         project = "proj"
         (reports_root / project / "run-new").mkdir(parents=True)
-        mock_read.return_value = [
+        rows = [
             DimensionResult(dimension="security", overall_score="8.0"),
             DimensionResult(dimension="clean-architecture", overall_score="4.0"),
         ]
+        stub_row_fetcher(monkeypatch, lambda root, proj, rid: rows)
         mock_summarize.return_value = type(
             "S", (), {"overall_grade": "A", "numeric_average": 8.0},
         )()
@@ -123,9 +123,8 @@ class TestReadAccumulatedSummary:
         called_dims = mock_summarize.call_args[0][0]
         assert [d.dimension for d in called_dims] == ["security"]
 
-    @patch("quodeq.services._fs_metadata.read_run_data")
     def test_card_summary_recomputes_when_visibility_changes(
-        self, mock_read, tmp_path, monkeypatch,
+        self, tmp_path, monkeypatch,
     ):
         """The selection is folded into the cache version: editing
         standards-visibility.json must invalidate the persisted card summary,
@@ -144,12 +143,13 @@ class TestReadAccumulatedSummary:
             json.dumps({"name": project, "path": str(repo), "location": "local"}),
             encoding="utf-8",
         )
-        mock_read.return_value = [
+        rows = [
             DimensionResult(dimension="security", overall_score="9.0",
                             overall_grade="Exemplary"),
             DimensionResult(dimension="reliability", overall_score="5.0",
                             overall_grade="Adequate"),
         ]
+        stub_row_fetcher(monkeypatch, lambda root, proj, rid: rows)
         runs = [RunInfo(run_id="run-new", date_iso="2026-01-02", date_label="Jan 02")]
 
         save_visible_standard_ids(repo, ["security", "reliability"])
