@@ -53,6 +53,12 @@ from quodeq.services.scoring._rescoring import (  # noqa: F401
     rescore_accumulated_with_coverage,
     rescore_runs_by_dimension,
 )
+from quodeq.services.scoring._accumulated_rows import (  # noqa: F401
+    AccumulatedScope,
+    build_accumulated_from_rows,
+    run_rows,
+    runs_as_of,
+)
 from quodeq.services.scoring._project_scores import get_project_scores, get_project_scores_stamped
 from quodeq.services.scoring._scores_raw import get_scores_raw, get_scores_slim
 from quodeq.services.wiring import load_suppression_rules

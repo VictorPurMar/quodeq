@@ -50,6 +50,5 @@ def make_scoring_trend_fetcher(
             read_run_scalars=d.read_run_scalars or read_run_scalars,
             dismissed_keys=d.dismissed_keys or dismissed_keys,
             deleted_keys=d.deleted_keys or deleted_keys,
-            max_history=max_history_runs(),
         ),
     )

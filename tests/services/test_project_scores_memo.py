@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -87,12 +88,12 @@ def test_run_status_change_alone_changes_the_stamp(tmp_path: Path) -> None:
 
 
 def test_incomplete_rescore_is_not_memoized(tmp_path: Path) -> None:
+    """A winning run whose full read lacks a graded dimension is served, not memoized."""
     _write_run(tmp_path)
     deps, calls = _counting_deps()
-    with patch(f"{_MODULE}.rescore_accumulated_with_coverage",
-               side_effect=lambda acc, *a, **k: (acc, False)):
-        get_project_scores_stamped(tmp_path, "proj", None, deps)
-        get_project_scores_stamped(tmp_path, "proj", None, deps)
+    deps = replace(deps, base_fetcher_factory=lambda _rr, _p: (lambda _run_id: []))
+    get_project_scores_stamped(tmp_path, "proj", None, deps)
+    get_project_scores_stamped(tmp_path, "proj", None, deps)
     assert len(calls) == 2
 
 

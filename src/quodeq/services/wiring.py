@@ -231,7 +231,7 @@ from quodeq.data.sqlite.score_cache_db import (  # noqa: F401
     open_score_cache,
     score_cache_path_override,
 )
-from quodeq.data.sqlite.score_cache_rows import scalar_dimension  # noqa: F401
+from quodeq.data.sqlite.score_cache_rows import row_dimension, scalar_dimension  # noqa: F401
 from quodeq.data.sqlite.score_cache_store import (  # noqa: F401
     load_run_keys,
     load_run_keys_or_empty,
@@ -246,7 +246,6 @@ from quodeq.data.sqlite.score_cache_store import (  # noqa: F401
     write_cached_project_summary,
     write_cached_rows,
 )
-from quodeq.data.sqlite.score_cache_principles import principle_rows  # noqa: F401
 
 # Live evidence tally (heartbeat + scan-progress counters).
 from quodeq.data.fs.evidence_tally import (  # noqa: F401

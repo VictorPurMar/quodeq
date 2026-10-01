@@ -137,14 +137,16 @@ def read_scalar_dimensions(
     reports_root: Path, project: str, run_id: str,
     *, log: LogSink = NULL_LOG,
     full_reader: Callable[[Path, str, str], list[DimensionResult]] | None = None,
+    scalar_reader: Callable[..., list[DimensionResult]] = read_run_scalars,
 ) -> list[DimensionResult]:
     """One run's per-dimension scores, grades, counts and files read, without its findings.
 
-    Served from the run database's grade tables (``read_run_scalars``), a few
-    aggregate rows instead of every finding, whenever that answers exactly what
-    the full read would (``_scalars_match_reports``); otherwise *full_reader*
-    (default: the tolerant full read). Winning dimensions that need their
-    findings are re-read in full by the caller.
+    Served from the run database's grade tables (*scalar_reader*, default
+    ``read_run_scalars``), a few aggregate rows instead of every finding,
+    whenever that answers exactly what the full read would
+    (``_scalars_match_reports``); otherwise *full_reader* (default: the
+    tolerant full read). Winning dimensions that need their findings are
+    re-read in full by the caller.
     """
     def _full(root: Path, proj: str, rid: str) -> list[DimensionResult]:
         if full_reader is not None:
@@ -155,7 +157,7 @@ def read_scalar_dimensions(
     if not reports:
         return _full(reports_root, project, run_id)
     try:
-        dims = read_run_scalars(reports_root, project, run_id, fallback_reader=_full)
+        dims = scalar_reader(reports_root, project, run_id, fallback_reader=_full)
     except (OSError, ValueError, KeyError) as exc:
         log.warning(f"read_run_scalars failed for {run_id}: {exc}")
         return []

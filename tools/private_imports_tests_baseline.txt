@@ -846,7 +846,7 @@ tests/menubar/test_runner_spawn.py:9:private-name:quodeq.dashboard.runner._maybe
 tests/services/_jobs_run_log_fixtures.py:5:private-module:quodeq.services._job_model.Job
 tests/services/scoring/test_custom_formula_flag.py:16:private-module:quodeq.services.scoring._deps.ScoringDeps
 tests/services/scoring/test_recompute_summary_exclusion.py:5:private-module:quodeq.services.scoring._summary.recompute_summary
-tests/services/test_accumulated_partial_not_persisted.py:19:private-module:quodeq.services._score_cache_fetch
+tests/services/test_accumulated_partial_not_persisted.py:20:private-module:quodeq.services._score_cache_fetch
 tests/services/test_accumulated_phases.py:12:private-name:quodeq.services.accumulated._load_run_dimensions
 tests/services/test_accumulated_phases.py:12:private-name:quodeq.services.accumulated._suppress_run_dimensions
 tests/services/test_accumulated_scoring.py:28:private-module:quodeq.services._accumulated_data.read_all_run_data

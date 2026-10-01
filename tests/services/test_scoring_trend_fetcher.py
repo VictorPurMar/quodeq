@@ -1,4 +1,4 @@
-"""Tests for the trend fetcher selection (scalar fast-path vs heavy rescoring)."""
+"""Tests for the trend fetcher: untouched runs read their scalars, touched runs rescore."""
 from pathlib import Path
 
 import pytest
@@ -8,9 +8,13 @@ from quodeq.services.trend_fetcher import make_rescoring_fetcher, make_trend_fet
 from quodeq.services.scoring import ScoringDeps, make_scoring_trend_fetcher
 
 
-def _make_project(tmp_path: Path) -> tuple[Path, str]:
+def _make_project(tmp_path: Path, runs: tuple[str, ...] = ("r1",)) -> tuple[Path, str]:
+    """A project whose *runs* each hold one security report (the scalar guard's disk set)."""
     reports = tmp_path / "evaluations"
-    (reports / "proj").mkdir(parents=True)
+    for run_id in runs:
+        evaluation = reports / "proj" / run_id / "evaluation"
+        evaluation.mkdir(parents=True)
+        (evaluation / "security.json").write_text("{}")
     return reports, "proj"
 
 
@@ -19,7 +23,7 @@ def test_no_dismissals_uses_scalar_reader(tmp_path: Path) -> None:
 
     calls: list[str] = []
 
-    def fake_scalar(rr, p, rid):
+    def fake_scalar(rr, p, rid, **_kw):
         calls.append(rid)
         return [DimensionResult(dimension="security", overall_score="8.0/10", overall_grade="Good")]
 
@@ -118,7 +122,7 @@ def test_a_run_no_suppression_touches_reads_its_scalars(tmp_path: Path, monkeypa
     monkeypatch.setattr("quodeq.services.trend_fetcher.make_rescoring_fetcher", fake_rescoring_fetcher)
     scalar_calls: list[str] = []
 
-    def fake_scalar(rr, p, rid):
+    def fake_scalar(rr, p, rid, **_kw):
         scalar_calls.append(rid)
         return [DimensionResult(dimension="security", overall_score="8.0/10", overall_grade="Good")]
 
@@ -133,21 +137,33 @@ def test_a_run_no_suppression_touches_reads_its_scalars(tmp_path: Path, monkeypa
     assert scalar_calls == ["r1"]
 
 
-def test_make_trend_fetcher_requires_max_history_on_heavy_path(tmp_path: Path) -> None:
-    """``max_history`` is validated before path selection, so a caller that
-    omits it must get ``TypeError`` even on the heavy path (active
-    dismissals), not just the fast path -- regression: the check used to
-    live only inside the fast-path branch, so the heavy path silently
-    succeeded without ``max_history`` ever being set."""
+def test_make_trend_fetcher_requires_a_base_fetcher_factory(tmp_path: Path) -> None:
+    """``base_fetcher_factory`` has no leaf-level default, so omitting it fails
+    up front instead of at the first cache miss."""
     reports, project = _make_project(tmp_path)
 
-    deps = ScoringDeps(
-        base_fetcher_factory=lambda rr, p: (lambda run_id: []),
-        dismissed_keys=lambda _pd: {("R1", "a.py", 1)},
-        deleted_keys=lambda _pd: set(),
-    )
     with pytest.raises(TypeError):
-        make_trend_fetcher(reports, project, deps=deps)
+        make_trend_fetcher(reports, project, deps=ScoringDeps(dismissed_keys=lambda _pd: set()))
+
+
+def test_a_scalar_set_that_disagrees_with_the_reports_reads_the_run_in_full(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """The grade tables answer for a run only when they cover every report on disk."""
+    reports, project = _make_project(tmp_path)
+    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
+    full = [DimensionResult(dimension="security", overall_score="5.0/10", overall_grade="Fair")]
+    deps = ScoringDeps(
+        read_run_scalars=lambda rr, p, rid, **_kw: [],
+        base_fetcher_factory=lambda rr, p: (lambda _rid: full),
+        dismissed_keys=lambda _pd: set(), deleted_keys=lambda _pd: set(),
+    )
+    monkeypatch.setattr(
+        "quodeq.services._accumulated_data._read_run_data_safely",
+        lambda rr, p, rid, **_kw: full,
+    )
+    result = make_scoring_trend_fetcher(reports, project, deps=deps)("r1")
+    assert [d.overall_score for d in result] == ["5.0/10"]
 
 
 def test_make_rescoring_fetcher_rejects_traversal_project(tmp_path: Path) -> None:

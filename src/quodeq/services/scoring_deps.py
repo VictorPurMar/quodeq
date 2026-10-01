@@ -32,11 +32,10 @@ class ScoringDeps:
     patching this module's attributes — the namespace-patch coupling is
     what made the previous decomposition attempt revert.
 
-    ``base_fetcher_factory`` and ``max_history`` are the exception: the
-    trend-fetcher leaf module (``trend_fetcher.py``) has no production
-    default for either (the former needs the non-leaf full-data fetcher;
-    the latter is a caller-chosen history window size), so callers of
-    ``make_trend_fetcher``/``_make_heavy_trend_fetcher`` must set them.
+    ``base_fetcher_factory`` is the exception: the trend-fetcher leaf module
+    (``trend_fetcher.py``) has no production default for it (it needs the
+    non-leaf full-data fetcher), so callers of ``make_trend_fetcher`` must
+    set it.
     """
 
     read_run_data: Callable | None = None
@@ -52,7 +51,6 @@ class ScoringDeps:
     grade_tables_factory: Callable[[Path], GradeTablesReader] | None = None
     is_custom_formula: Callable[[], bool] | None = None
     base_fetcher_factory: Callable[[Path, str], Callable[[str], list[DimensionResult]]] | None = None
-    max_history: int | None = None
 
 
 NO_DEPS = ScoringDeps()

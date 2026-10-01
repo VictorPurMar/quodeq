@@ -219,9 +219,9 @@ class TestBuildDashboard:
         dims = [_dim("security", "B", "7.0")]
         summary = DimensionSummary(dimensions_count=1, overall_grade="B", numeric_average=7.0)
 
-        # The history fetcher goes through read_run_scalars. For these tmp runs
-        # (no events.jsonl / evaluation.db) the scalar reader falls back to
-        # read_run_data at the runs-module level -- a distinct seam from the
+        # The history fetcher goes through read_scalar_dimensions. For these
+        # tmp runs (no reports, no evaluation.db) it reads the run through the
+        # accumulated reader's tolerant full read -- a distinct seam from the
         # dashboard-scope read_run_data used for the SELECTED run. Tracking the
         # two seams separately proves history never uses the full-data
         # dashboard fetcher.
@@ -243,12 +243,13 @@ class TestBuildDashboard:
             patch("quodeq.services.dashboard.list_runs", return_value=runs),
             patch("quodeq.services.dashboard.read_run_data", side_effect=tracked_selected),
             patch("quodeq.data.fs.report_parser.runs.read_run_data", side_effect=tracked_history),
+            patch("quodeq.services._accumulated_data.read_run_data", side_effect=tracked_history),
             patch("quodeq.services.dashboard.summarize_dimensions", return_value=summary),
         ):
             build_dashboard(str(tmp_path), "proj-shared", "r3")
 
         # History runs are read via the scalar reader (which fell back to the
-        # runs-module read_run_data for these no-db tmp runs).
+        # accumulated reader's full read for these report-less tmp runs).
         assert history_reads, "expected history path to use the scalar reader"
         # The selected run's full data is read via the dashboard fetcher; the
         # history path must NOT touch that full-data seam.

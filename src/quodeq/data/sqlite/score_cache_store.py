@@ -10,57 +10,56 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from collections.abc import Iterable
 from dataclasses import dataclass
 
 from quodeq.core.types import DimensionResult
 from quodeq.data.sqlite.score_cache_db import open_score_cache
-from quodeq.data.sqlite.score_cache_principles import PrincipleRow, write_principle_rows
-from quodeq.data.sqlite.score_cache_rows import (
-    RUN_SCALARS_COUNT_COLUMNS, dimension_from_row, row_counts,
+from quodeq.data.sqlite.score_cache_principles import (
+    attach_principles, principle_rows, read_principle_rows, write_principle_rows,
 )
+from quodeq.data.sqlite.score_cache_rows import RUN_SCALARS_COLUMNS, dimension_from_row, row_values
 
 _logger = logging.getLogger(__name__)
 
-_SCALAR_COLUMNS = "dimension, overall_score, overall_grade, " + ", ".join(RUN_SCALARS_COUNT_COLUMNS)
-_SCALAR_PLACEHOLDERS = ", ".join("?" * (3 + len(RUN_SCALARS_COUNT_COLUMNS)))
+_SCALAR_COLUMNS = ", ".join(RUN_SCALARS_COLUMNS)
+_SCALAR_PLACEHOLDERS = ", ".join("?" * len(RUN_SCALARS_COLUMNS))
 
 
 def read_cached_rows(
     conn: sqlite3.Connection, project: str, run_id: str, version: str,
 ) -> list[DimensionResult] | None:
-    """Return cached scalar dims for (project, run_id, version), or None on miss/error."""
+    """The run's row dimensions at *version*, principles attached; None on miss or error."""
     try:
         rows = conn.execute(
             f"SELECT {_SCALAR_COLUMNS} FROM run_scalars"
             " WHERE project=? AND run_id=? AND version=? ORDER BY dimension",
             (project, run_id, version),
         ).fetchall()
+        principles = read_principle_rows(conn, project, run_id) if rows else {}
     except sqlite3.Error:
         return None
     if not rows:
         return None
-    return [dimension_from_row(r) for r in rows]
+    return attach_principles([dimension_from_row(r) for r in rows], principles.get((run_id, version), {}))
 
 
 def write_cached_rows(
     conn: sqlite3.Connection, project: str, run_id: str, version: str,
-    dims: list[DimensionResult], principles: Iterable[PrincipleRow] = (),
+    dims: list[DimensionResult],
 ) -> None:
     """Replace all cached rows for (project, run_id) with *dims* at *version*.
 
-    *principles* (``score_cache_principles.principle_rows``) land in
-    ``run_principle_scalars`` in the same commit. Best-effort: logs and returns
-    on any SQLite error (the caller still has the computed result).
+    Each dimension's scalars go to ``run_scalars`` and its principle grades to
+    ``run_principle_scalars``, in one commit. Best-effort: logs and returns on
+    any SQLite error (the caller still has the computed result).
     """
     try:
         conn.execute("DELETE FROM run_scalars WHERE project=? AND run_id=?", (project, run_id))
-        write_principle_rows(conn, project, run_id, version, list(principles))
+        write_principle_rows(conn, project, run_id, version, principle_rows(dims))
         conn.executemany(
             f"INSERT OR REPLACE INTO run_scalars (project, run_id, version, {_SCALAR_COLUMNS})"
             f" VALUES (?, ?, ?, {_SCALAR_PLACEHOLDERS})",
-            [(project, run_id, version, d.dimension, d.overall_score, d.overall_grade, *row_counts(d))
-             for d in dims if d.dimension],
+            [(project, run_id, version, *row_values(d)) for d in dims if d.dimension],
         )
         conn.commit()
     except sqlite3.Error:
@@ -246,7 +245,7 @@ def store_run_keys_best_effort(
 def read_all_cached_rows(
     conn: sqlite3.Connection, project: str,
 ) -> dict[tuple[str, str], list[DimensionResult]]:
-    """Every cached scalar row for *project*, grouped by (run_id, version).
+    """Every cached row dimension of *project*, principles attached, grouped by (run_id, version).
 
     Empty dict on any sqlite3.Error (missing table included) -- the caller
     (the bulk-load path in ``services._score_cache_fetch``) treats an empty
@@ -261,9 +260,10 @@ def read_all_cached_rows(
         )
         for rid, ver, *row in rows:
             by_run_version.setdefault((rid, ver), []).append(dimension_from_row(tuple(row)))
+        principles = read_principle_rows(conn, project)
     except sqlite3.Error:
         return {}
-    return by_run_version
+    return {key: attach_principles(dims, principles.get(key, {})) for key, dims in by_run_version.items()}
 
 
 def read_project_summary_cached(project: str, version: str) -> dict | None:

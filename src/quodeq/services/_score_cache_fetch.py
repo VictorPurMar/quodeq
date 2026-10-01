@@ -14,13 +14,13 @@ from quodeq.core.observability import NULL_LOG, LogSink
 from quodeq.core.types import DimensionResult
 from quodeq.services._score_cache_stale import recall, refresh_in_background, remember
 from quodeq.services.wiring import (
-    principle_rows,
     DEFAULT_SINGLE_FLIGHT,
     SingleFlight,
     open_score_cache,
     read_all_cached_rows,
     read_cached_accumulated,
     read_cached_project_summary,
+    row_dimension,
     scalar_dimension,
     write_cached_accumulated,
     write_cached_project_summary,
@@ -199,6 +199,52 @@ def cached_project_summary(
     )
 
 
+class RowFetcher:
+    """Per-run dimensions served from ``run_scalars`` rows, versioned per run.
+
+    Calling it returns the trend shape (``scalar_dimension``: score, grade,
+    counts). ``rows`` returns what the store keeps for the same run: the
+    scalars plus files read and principle grades, which the accumulated walk
+    needs to pick and grade a winning run without reading its findings. Both
+    come from one bulk read of the project's rows; a miss computes the run
+    once through *base_fetcher* and serves both shapes from that.
+    """
+
+    def __init__(
+        self, project: str, version_for: Callable[[str], str],
+        base_fetcher: Callable[[str], list[DimensionResult]],
+        is_cacheable: Callable[[str], bool] | None, *, log: LogSink,
+    ) -> None:
+        self._project, self._version_for, self._base = project, version_for, base_fetcher
+        self._is_cacheable, self._log = is_cacheable, log
+        try:
+            with open_score_cache() as conn:
+                self._by_run_version = read_all_cached_rows(conn, project)
+        except sqlite3.Error as exc:
+            log.warning(f"score-cache bulk read failed for {project}: {exc}")
+            self._by_run_version = {}
+
+    def __call__(self, run_id: str) -> list[DimensionResult]:
+        """The run's dimensions in the trend shape."""
+        return [scalar_dimension(d) for d in self.rows(run_id)]
+
+    def rows(self, run_id: str) -> list[DimensionResult]:
+        """The run's row dimensions: scalars, files read and principles."""
+        version = self._version_for(run_id)
+        hit = self._by_run_version.get((run_id, version))
+        if hit is not None:
+            return hit
+        rows = [row_dimension(d) for d in self._base(run_id) if d.dimension]
+        self._by_run_version[(run_id, version)] = rows
+        if self._is_cacheable is None or self._is_cacheable(run_id):
+            try:
+                with open_score_cache() as conn:
+                    write_cached_rows(conn, self._project, run_id, version, rows)
+            except sqlite3.Error as exc:
+                _log_write_failure("write_cached_rows", exc, log=self._log)
+        return rows
+
+
 def make_cache_backed_fetcher(
     project: str, version_for: Callable[[str], str],
     base_fetcher: Callable[[str], list[DimensionResult]],
@@ -210,7 +256,7 @@ def make_cache_backed_fetcher(
     suppressions touching it). Bulk-loads every cached row for *project* keyed by
     (run_id, version); a hit requires the row's version to equal the run's
     current version, so a dismiss/delete only misses the runs it touches. Misses
-    compute via *base_fetcher*, cache scalars at the run's version (only when
+    compute via *base_fetcher*, cache the run's rows at its version (only when
     ``is_cacheable``), and return them. Kill switch -> *base_fetcher* unchanged.
 
     ``is_cacheable`` gates *persistence* per run: only terminal (complete) runs
@@ -220,31 +266,9 @@ def make_cache_backed_fetcher(
     dimension forever while run-detail shows all six. Non-cacheable runs
     compute-through and are served for the current build but never written to
     disk. Defaults to "always cacheable" for backward compatibility.
+
+    The result is a :class:`RowFetcher` unless the cache is disabled.
     """
     if score_cache_disabled():
         return base_fetcher
-
-    try:
-        with open_score_cache() as conn:
-            by_run_version = read_all_cached_rows(conn, project)
-    except sqlite3.Error as exc:
-        log.warning(f"score-cache bulk read failed for {project}: {exc}")
-        by_run_version = {}
-
-    def fetch(run_id: str) -> list[DimensionResult]:
-        version = version_for(run_id)
-        hit = by_run_version.get((run_id, version))
-        if hit is not None:
-            return hit
-        dims = base_fetcher(run_id)
-        scalars = [scalar_dimension(d) for d in dims if d.dimension]
-        by_run_version[(run_id, version)] = scalars
-        if is_cacheable is None or is_cacheable(run_id):
-            try:
-                with open_score_cache() as conn:
-                    write_cached_rows(conn, project, run_id, version, scalars, principle_rows(dims))
-            except sqlite3.Error as exc:
-                _log_write_failure("write_cached_rows", exc, log=log)
-        return scalars
-
-    return fetch
+    return RowFetcher(project, version_for, base_fetcher, is_cacheable, log=log)

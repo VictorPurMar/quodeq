@@ -17,7 +17,7 @@ from quodeq.data.sqlite.constants import SQLITE_BUSY_TIMEOUT_MS
 from quodeq.data.sqlite._score_cache_epoch import (
     CACHE_WRITER_EPOCH, RUN_KEYS_SHAPE_SINCE_EPOCH, RUN_KEYS_SHAPE_VERSION,
 )
-from quodeq.data.sqlite.score_cache_rows import RUN_SCALARS_COUNT_COLUMNS
+from quodeq.data.sqlite.score_cache_rows import RUN_SCALARS_COLUMNS
 from quodeq.shared.env import get_score_cache_path
 
 _logger = logging.getLogger(__name__)
@@ -52,6 +52,7 @@ _SCHEMA = (
     " dimension TEXT NOT NULL, overall_score TEXT, overall_grade TEXT,"
     " violation_count INTEGER, compliance_count INTEGER,"
     " critical INTEGER, major INTEGER, minor INTEGER, unknown INTEGER, open_types INTEGER,"
+    " files_read INTEGER,"
     " updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
     " PRIMARY KEY (project, run_id, dimension, version));"
     "CREATE INDEX IF NOT EXISTS idx_run_scalars_lookup ON run_scalars(project, version);"
@@ -130,15 +131,15 @@ def _sync_cache_meta(conn: sqlite3.Connection) -> None:
 
 
 def _ensure_run_scalars_columns(conn: sqlite3.Connection) -> None:
-    """Add the count columns to a ``run_scalars`` table created before them.
+    """Add the columns a ``run_scalars`` table created before them lacks.
 
     ``CREATE TABLE IF NOT EXISTS`` leaves an existing table as it is, so an
-    older cache file keeps its narrow table. The counts are NULL on its old
-    rows (which the epoch bump retires anyway) and stored on new ones.
+    older cache file keeps its narrow table. The added columns are NULL on its
+    old rows (which the epoch bump retires anyway) and stored on new ones.
     """
     try:
         present = {row[1] for row in conn.execute("PRAGMA table_info(run_scalars)")}
-        missing = [c for c in RUN_SCALARS_COUNT_COLUMNS if c not in present]
+        missing = [c for c in RUN_SCALARS_COLUMNS if c not in present]
         if not missing:
             return
         # sqlite3 autocommits each DDL statement unless a transaction is

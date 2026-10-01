@@ -174,11 +174,12 @@ class TestHistoryContextSlimming:
             patch("quodeq.services.dashboard.list_runs", return_value=runs),
             # Selected-run path reads via dashboard.read_run_data; the history
             # trend/previous/stale path reads via the scalar fetcher. In this
-            # no-events/no-db tmp project the scalar reader falls back to
-            # read_run_data at the runs-module level, so patch there too.
+            # no-reports/no-db tmp project the scalar reader falls back to the
+            # accumulated reader's full read, so patch there too.
             patch("quodeq.services.dashboard.read_run_data", side_effect=read_by_run),
             patch("quodeq.services.cache.read_run_data", side_effect=read_by_run),
             patch("quodeq.data.fs.report_parser.runs.read_run_data", side_effect=read_by_run),
+            patch("quodeq.services._accumulated_data.read_run_data", side_effect=read_by_run),
             patch("quodeq.services.dashboard.summarize_dimensions", return_value=summary),
         ):
             result = build_dashboard(str(tmp_path), "proj-slim-history", "r-new")

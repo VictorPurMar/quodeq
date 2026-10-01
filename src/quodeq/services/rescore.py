@@ -26,7 +26,7 @@ from quodeq.services.suppression import FindingRef, is_deleted, is_dismissed
 from quodeq.services.suppression_keys import SuppressionKeys
 
 
-def _filter_excluded_violations(dim: DimensionResult, keys: SuppressionKeys) -> list[Finding]:
+def filter_excluded_violations(dim: DimensionResult, keys: SuppressionKeys) -> list[Finding]:
     """Violations minus anything dismissed or deleted."""
     dim_id = dim.dimension or ""
     return [
@@ -123,7 +123,7 @@ def rescore_dimension(
     excluded findings (single scoring basis). The legacy in-place formula
     (_rescore_legacy_fallback) is only a fallback for runs without evidence.
     """
-    filtered_violations = _filter_excluded_violations(dim, keys)
+    filtered_violations = filter_excluded_violations(dim, keys)
     if len(filtered_violations) == len(dim.violations):
         return dim
 

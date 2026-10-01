@@ -6,11 +6,11 @@
     "standards_reads": 5
   },
   "compare_fleet_10": {
-    "eval_report_reads": 300,
-    "evaluation_db_opens": 930,
+    "eval_report_reads": 120,
+    "evaluation_db_opens": 450,
     "get_project_scores": 10,
-    "peak_kib": 270,
-    "response_bytes": 30460
+    "peak_kib": 289,
+    "response_bytes": 30610
   },
   "eval_poll_tick": {
     "eval_report_reads": 3,
@@ -20,7 +20,7 @@
     "standards_reads": 3
   },
   "scores_as_of_cold": {
-    "eval_report_reads": 19,
+    "eval_report_reads": 13,
     "evaluation_db_opens": 52,
     "event_log_reads": 1,
     "response_bytes": 3894
@@ -28,7 +28,7 @@
   "scores_as_of_warm": {
     "eval_report_reads": 8,
     "evaluation_db_opens": 10,
-    "peak_kib": 168,
+    "peak_kib": 204,
     "response_bytes": 3894
   }
 }
