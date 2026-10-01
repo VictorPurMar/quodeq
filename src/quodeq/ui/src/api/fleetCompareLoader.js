@@ -38,10 +38,9 @@ export function makeFleetCompareLoader(fetchFleet) {
   function flush() {
     const waiters = pending;
     pending = null;
-    fetchFleet([...waiters.keys()]).then(
-      (response) => settle(waiters, response),
-      (err) => waiters.forEach((list) => list.forEach(({ reject }) => reject(err))),
-    );
+    const rejectAll = (err) => waiters.forEach((list) => list.forEach(({ reject }) => reject(err)));
+    // Both outcomes settle the waiters; nothing is left for a caller to await.
+    void fetchFleet([...waiters.keys()]).then((response) => settle(waiters, response), rejectAll);
   }
 
   return (projectId) =>
