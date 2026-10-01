@@ -1,7 +1,7 @@
 /**
- * Finding detail that /scores and /scores/<run> defer.
+ * Finding detail that /scores, /scores/<run> and a run's dimension eval defer.
  *
- * Both send violation and compliance items without `reason`, `snippet`,
+ * All three send violation and compliance items without `reason`, `snippet`,
  * `context` and `reqRefs` (flagged `detailDeferred`), since those fields are
  * most of their payload. Pages that render finding cards fetch the detail
  * from /compliance-detail (per kind; `?asOf=` for accumulated items, `?run=`
@@ -39,8 +39,17 @@ export function attachFindingDetailRefs(data, project, asOf, generation) {
 /** `attachFindingDetailRefs` under its pre-kind name. */
 export const attachComplianceDetailRefs = attachFindingDetailRefs;
 
-// Numbers each /scores/<run> response (both sources), see attachFindingDetailRefs.
+// Numbers each /scores/<run> and eval response (both sources), see attachFindingDetailRefs.
 let runScoresGeneration = 0;
+
+function attachRunRefs(node, project, run, source) {
+  for (const [kind, list] of Object.entries(LIST_BY_KIND)) {
+    const ref = { project, run, dimension: node.dimension, generation: runScoresGeneration, kind, source };
+    for (const item of node[list] || []) {
+      if (item?.detailDeferred) item.detailRef = ref;
+    }
+  }
+}
 
 /**
  * `attachFindingDetailRefs` for a run-scores payload: its items' detail
@@ -53,14 +62,23 @@ let runScoresGeneration = 0;
  */
 export function attachRunFindingDetailRefs(data, project, run, source = DEFAULT_PROJECT_SOURCE) {
   runScoresGeneration += 1;
-  for (const dim of data?.dimensions || []) {
-    for (const [kind, list] of Object.entries(LIST_BY_KIND)) {
-      const ref = { project, run, dimension: dim.dimension, generation: runScoresGeneration, kind, source };
-      for (const item of dim[list] || []) {
-        if (item?.detailDeferred) item.detailRef = ref;
-      }
-    }
-  }
+  for (const dim of data?.dimensions || []) attachRunRefs(dim, project, run, source);
+  return data;
+}
+
+/**
+ * `attachRunFindingDetailRefs` for one dimension's eval payload: its flat
+ * lists live at `/compliance-detail?run=` for the eval's run and dimension.
+ * @param {Object} data Parsed dimension eval (mutated and returned).
+ * @param {string} project
+ * @param {string} run
+ * @param {string} [source] PROJECT_SOURCE value.
+ * @returns {Object}
+ */
+export function attachEvalFindingDetailRefs(data, project, run, source = DEFAULT_PROJECT_SOURCE) {
+  if (!data?.dimension) return data;
+  runScoresGeneration += 1;
+  attachRunRefs(data, project, run, source);
   return data;
 }
 

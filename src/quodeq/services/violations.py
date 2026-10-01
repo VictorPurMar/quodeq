@@ -76,10 +76,34 @@ def _try_evidence_formats(
     return None
 
 
+def _finding_identity(row: Any) -> tuple:
+    """The identity /compliance-detail matches rows by, for a camelCase dict
+    row or a ``Finding``."""
+    if isinstance(row, dict):
+        return (row.get("file"), row.get("line"), row.get("endLine"), row.get("practiceId"), row.get("title"))
+    return (row.file, row.line, row.end_line, row.practice_id, row.title)
+
+
+def _keep_rescored_rows(result: dict[str, Any], dim: Any) -> None:
+    """Drop flat eval rows the rescore hid (a pattern suppression, say), so
+    the eval lists the same findings the run's rescored lists do and every
+    row has detail to refill. The per-principle rows (``file:line``, no
+    principle) have no such identity and are left to the wire, which omits
+    them."""
+    kept = {
+        "violations": {_finding_identity(f) for f in dim.violations},
+        "compliance": {_finding_identity(f) for f in dim.compliance},
+    }
+    for key, identities in kept.items():
+        if isinstance(result.get(key), list):
+            result[key] = [row for row in result[key] if _finding_identity(row) in identities]
+
+
 def _apply_rescored_grades(
     result: "dict[str, Any] | None", base: Path, project: str, run_id: str, dimension: str,
 ) -> "dict[str, Any] | None":
-    """Overlay the current score/grade onto a parsed eval dict.
+    """Overlay the current score/grade onto a parsed eval dict, and keep only
+    the rows the rescore kept.
 
     ``parse_eval_from_json`` carries the overall + principle grades frozen at
     eval time (in ``principleGrades`` / ``principles``). Those go stale in two
@@ -90,7 +114,9 @@ def _apply_rescored_grades(
     run use (it reads the grade tables and applies suppressions), then
     substitute the dimension's overall score/grade (the ``isOverall`` entry)
     and its per-principle score/grade so the dimension detail agrees with
-    every other view.
+    every other view. The lists are narrowed to the rescored rows for the
+    same reason: a suppressed row must not show here when no other view
+    has it, and the wire defers each row's detail to the rescored lists.
     """
     if not isinstance(result, dict):
         return result
@@ -115,6 +141,7 @@ def _apply_rescored_grades(
     for p in result.get("principles", []):
         if p.get("name") in principle_grade:
             p["score"], p["grade"] = principle_grade[p["name"]]
+    _keep_rescored_rows(result, dim)
     return result
 
 

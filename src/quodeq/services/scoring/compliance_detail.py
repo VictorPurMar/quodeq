@@ -1,11 +1,12 @@
-"""Defer finding detail out of the /scores and /scores/<run> payloads.
+"""Defer finding detail out of the /scores, /scores/<run> and
+.../dimensions/<d>/eval payloads.
 
 Violation and compliance items carry ``context``, ``snippet``, ``reason``
 and ``reqRefs``, most of the payload's bytes. Only the Principle, File and
-Finding pages and the reports render them, so /scores and /scores/<run>
-send the items without those fields (marked ``detailDeferred``) and
-/compliance-detail serves them on demand, per kind, from the same payload
-(``?asOf=`` for the accumulated lists, ``?run=`` for one run's).
+Finding pages and the reports render them, so those routes send the items
+without those fields (marked ``detailDeferred``) and /compliance-detail
+serves them on demand, per kind, from the run's rescored lists (``?asOf=``
+for the accumulated lists, ``?run=`` for one run's).
 """
 from __future__ import annotations
 
@@ -30,6 +31,27 @@ def defer_dimension_detail(dimensions: list[dict[str, Any]]) -> list[dict[str, A
         {**dim, **{key: [_slim_item(c) for c in dim.get(key) or []] for key in _LIST_KEY.values()}}
         for dim in dimensions
     ]
+
+
+def _defer_lists(node: dict[str, Any]) -> dict[str, Any]:
+    """*node* with detail dropped from whichever of its two lists it has."""
+    return {**node, **{key: [_slim_item(c) for c in node[key]] for key in _LIST_KEY.values() if isinstance(node.get(key), list)}}
+
+
+def defer_eval_detail(payload: dict[str, Any]) -> dict[str, Any]:
+    """A stored dimension eval with detail dropped from its flat lists and
+    the per-principle lists left out: they repeat the flat rows in a shape
+    (``file:line``, no principle) detail cannot be matched back to, so the
+    UI groups the flat rows by principle instead. Keys the payload does
+    not have stay absent. Copies every level it changes."""
+    deferred = _defer_lists(payload)
+    principles = payload.get("principles")
+    if isinstance(principles, list):
+        deferred["principles"] = [
+            {k: v for k, v in p.items() if k not in _LIST_KEY.values()} if isinstance(p, dict) else p
+            for p in principles
+        ]
+    return deferred
 
 
 def defer_finding_detail(payload: dict[str, Any]) -> dict[str, Any]:
