@@ -78,7 +78,7 @@ def test_rollback_and_report_runs_the_callable() -> None:
     assert result.message == "bad url"
 
 
-def test_cached_accumulated_logs_recheck_read_failure(monkeypatch, recording_log) -> None:
+def test_cached_project_summary_logs_recheck_read_failure(monkeypatch, recording_log) -> None:
     reads = {"n": 0}
 
     def _read(_conn, _project, _version):
@@ -91,11 +91,10 @@ def test_cached_accumulated_logs_recheck_read_failure(monkeypatch, recording_log
     def _fake_cache():
         yield object()
 
-    monkeypatch.setattr(_score_cache_fetch, "read_cached_accumulated", _read)
+    monkeypatch.setattr(_score_cache_fetch, "read_cached_project_summary", _read)
     monkeypatch.setattr(_score_cache_fetch, "open_score_cache", _fake_cache)
-    monkeypatch.setattr(_score_cache_fetch, "write_cached_accumulated", lambda *_a, **_k: None)
-    # signature: cached_accumulated(project, version, compute, cacheable=None, *, log=NULL_LOG)
-    result = _score_cache_fetch.cached_accumulated(
+    monkeypatch.setattr(_score_cache_fetch, "write_cached_project_summary", lambda *_a, **_k: None)
+    result = _score_cache_fetch.cached_project_summary(
         project="p", version="v1", compute=lambda: {"score": 1}, log=recording_log,
     )
     assert result == {"score": 1}

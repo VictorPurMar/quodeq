@@ -11,7 +11,6 @@ from unittest import mock
 from quodeq.data.cache_store.index import close_all_for_tests
 from quodeq.data.fs._index_cache import clear_index_cache
 from quodeq.services.dashboard import clear_shared_dimension_cache
-from quodeq.services.score_cache import clear_stale_payloads
 from tests._sharding import ENV_VAR, parse_shard, select_shard
 
 # Deep enough to exhaust the C JSON decoder's call stack on a default 8MB
@@ -159,18 +158,6 @@ def _fresh_index_cache() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _fresh_stale_payloads() -> None:
-    """Clear the accumulated stale-while-revalidate slots before every test.
-
-    Module-level like the index cache (``services/_score_cache_stale.py``), and
-    keyed by project name, so a payload from one test would be served as
-    "stale" to the next test that reuses the name.
-    """
-    clear_stale_payloads()
-    yield
-
-
-@pytest.fixture(autouse=True)
 def _fresh_dimension_caches() -> None:
     """Clear the process-wide run-dimension caches before every test.
 
@@ -215,6 +202,24 @@ def _reset_cancellation() -> None:
     cancellation.reset()
     yield
     cancellation.reset()
+
+
+@pytest.fixture(autouse=True)
+def _global_warmup_engine_stays_idle() -> Iterator[None]:
+    """Fail any test that leaves the process-wide warm-up engine running.
+
+    ``quodeq.services.warmup.engine`` is one object per process; ``start``
+    spawns a daemon thread that outlives the test and, under xdist, the rest
+    of the worker. A later test's ``/api/projects`` then carries a ``warmup``
+    snapshot and competes with real background warming. Tests that need a
+    running engine build their own ``WarmupEngine`` (see test_warmup_engine).
+    """
+    from quodeq.services.warmup import engine
+
+    yield
+    if engine.snapshot() is not None:
+        engine.reset_for_tests()
+        pytest.fail("test left the global warm-up engine running; patch _start_background_work or use a local WarmupEngine")
 
 
 class DummyProcess:

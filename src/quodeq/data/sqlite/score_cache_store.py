@@ -72,17 +72,9 @@ class _PayloadSlot:
 
     table: str  # a module constant below, never caller input (it is formatted into the SQL)
     write_failed_log: str  # %s is the project
-    unserializable_log: str | None  # None: skip an unserializable payload silently
 
 
-_ACCUMULATED = _PayloadSlot(
-    "accumulated_cache",
-    "accumulated cache write failed for %s",
-    "accumulated payload for %s not serializable; skipping cache",
-)
-_PROJECT_SUMMARY = _PayloadSlot(
-    "project_summary_cache", "project summary cache write failed for %s", None,
-)
+_PROJECT_SUMMARY = _PayloadSlot("project_summary_cache", "project summary cache write failed for %s")
 
 
 def _read_payload(conn: sqlite3.Connection, slot: _PayloadSlot, project: str, version: str) -> dict | None:
@@ -109,8 +101,6 @@ def _write_payload(
     try:
         blob = json.dumps(payload)
     except (TypeError, ValueError):
-        if slot.unserializable_log is not None:
-            _logger.warning(slot.unserializable_log, project)
         return
     try:
         conn.execute(f"DELETE FROM {slot.table} WHERE project=?", (project,))
@@ -121,28 +111,6 @@ def _write_payload(
         conn.commit()
     except sqlite3.Error:
         _logger.warning(slot.write_failed_log, project, exc_info=True)
-
-
-def read_cached_accumulated(
-    conn: sqlite3.Connection, project: str, version: str,
-) -> dict | None:
-    """Return the cached accumulated payload for (project, version), or None."""
-    return _read_payload(conn, _ACCUMULATED, project, version)
-
-
-def write_cached_accumulated(
-    conn: sqlite3.Connection, project: str, version: str, payload: dict,
-) -> None:
-    """Replace the cached accumulated payload for *project* at *version*.
-
-    Single-slot per project: the DELETE clears any prior version first, so the
-    table holds at most one accumulated payload per project. The default
-    dashboard uses ``as_of=None`` (one version), so this is stable; rapidly
-    alternating distinct ``as_of`` historical views would each miss + overwrite.
-
-    Best-effort: logs and returns on any SQLite/serialization error.
-    """
-    _write_payload(conn, _ACCUMULATED, project, version, payload)
 
 
 def read_cached_project_summary(

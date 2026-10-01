@@ -222,6 +222,29 @@ def get_run(db: sqlite3.Connection, job_id: str) -> RunRow | None:
     return _row_to_runrow(row) if row else None
 
 
+def read_run_dates(db: sqlite3.Connection, project_uuid: str) -> dict[str, tuple[str | None, str]]:
+    """``{run_id: (date_iso, date_label)}`` remembered for runs without a usable ``started_at``.
+
+    ``date_iso`` is None for a finished run that has no date anywhere.
+    """
+    rows = db.execute(
+        "SELECT run_id, date_iso, date_label FROM run_dates WHERE project_uuid = ?", (project_uuid,),
+    ).fetchall()
+    return {run_id: (date_iso, date_label) for run_id, date_iso, date_label in rows}
+
+
+def write_run_dates(
+    db: sqlite3.Connection, project_uuid: str, dates: dict[str, tuple[str | None, str]],
+) -> None:
+    """Remember *dates* (``{run_id: (date_iso, date_label)}``) for *project_uuid*."""
+    with db:
+        db.executemany(
+            "INSERT OR REPLACE INTO run_dates (project_uuid, run_id, date_iso, date_label) "
+            "VALUES (?, ?, ?, ?)",
+            [(project_uuid, run_id, iso, label) for run_id, (iso, label) in dates.items()],
+        )
+
+
 def rebuild_index(
     db: sqlite3.Connection, evaluations_root: Path,
 ) -> tuple[int, int]:

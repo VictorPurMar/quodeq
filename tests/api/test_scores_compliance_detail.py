@@ -10,7 +10,6 @@ import copy
 import pytest
 
 from quodeq.api.app import create_app
-from quodeq.shared.stamp_memo import StampCache
 
 
 def _item(file: str, line: int, principle: str, **extra) -> dict:
@@ -56,9 +55,7 @@ def served(tmp_path, monkeypatch):
         calls.append((project, as_of))
         return payload
 
-    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores_stamped",
-                        lambda root, project, as_of=None, *a, **kw: (fake_scores(root, project, as_of), ("v",)))
-    monkeypatch.setattr("quodeq.api._scores_routes._WIRE", StampCache())
+    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores", fake_scores)
     app = create_app(test_config={"TESTING": True})
     with app.test_client() as c:
         yield c, payload, calls
@@ -152,7 +149,7 @@ def test_detail_rejects_traversal_project(served) -> None:
 
 def test_detail_missing_project_is_404(served, monkeypatch) -> None:
     client, _, _ = served
-    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores_stamped", lambda *a, **kw: (None, None))
+    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores", lambda *a, **kw: None)
     resp = client.get("/api/projects/demo/compliance-detail?dimension=security")
 
     assert resp.status_code == 404

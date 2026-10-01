@@ -179,17 +179,17 @@ def test_start_is_a_noop_when_score_cache_disabled(tmp_path, monkeypatch, make_e
 def test_default_warm_project_runs_against_a_real_project_dir(tmp_path, monkeypatch):
     """Smoke: the production warm_fn imports and executes end to end.
 
-    Every other engine test injects warm_fn; a typo inside _warm_project
+    Every other engine test injects warm_fn; a typo inside warm_project
     would otherwise pass the suite and silently push every project into
     failure backoff in production."""
-    from quodeq.services.warmup import _warm_project
+    from quodeq.services.warmup import warm_project
 
     monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
     project = tmp_path / "proj"
     project.mkdir()
     (project / "repository_info.json").write_text('{"name": "proj"}', encoding="utf-8")
 
-    _warm_project(str(tmp_path), "proj")  # must not raise
+    warm_project(str(tmp_path), "proj")  # must not raise
 
 
 def test_start_survives_a_project_listing_failure(tmp_path, make_engine):

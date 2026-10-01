@@ -1,14 +1,12 @@
 {
   "overview_after_dismiss": {
     "actions_log_reads": 3,
-    "eval_report_reads": 17,
+    "eval_report_reads": 5,
     "evaluation_db_opens": 11
   },
   "overview_cold": {
-    "eval_report_reads": 21,
+    "eval_report_reads": 15,
     "evaluation_db_opens": 50
   },
-  "overview_warm": {
-    "eval_report_reads": 12
-  }
+  "overview_warm": {}
 }

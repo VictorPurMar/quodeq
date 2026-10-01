@@ -1,6 +1,5 @@
-"""The accumulated and project-summary caches each keep one version per
-project and never share rows; only the accumulated slot logs a warning on
-an unserializable payload."""
+"""The project-summary cache keeps one version per project, never logs an
+unserializable payload, and reads a corrupt row as a miss."""
 from __future__ import annotations
 
 import logging
@@ -10,17 +9,11 @@ import pytest
 
 from quodeq.data.sqlite.score_cache_db import open_score_cache
 from quodeq.data.sqlite.score_cache_store import (
-    read_cached_accumulated,
     read_cached_project_summary,
-    write_cached_accumulated,
     write_cached_project_summary,
 )
 
 _LOGGER = "quodeq.data.sqlite.score_cache_store"
-_SLOTS = [
-    (read_cached_accumulated, write_cached_accumulated),
-    (read_cached_project_summary, write_cached_project_summary),
-]
 
 
 @pytest.fixture
@@ -30,48 +23,40 @@ def conn(monkeypatch, tmp_path):
         yield c
 
 
-@pytest.mark.parametrize(("read", "write"), _SLOTS)
-def test_each_slot_keeps_one_version_per_project(conn, read, write):
-    write(conn, "P", "v1", {"a": 1})
-    write(conn, "P", "v2", {"a": 2})
-    assert read(conn, "P", "v1") is None
-    assert read(conn, "P", "v2") == {"a": 2}
+def test_the_slot_keeps_one_version_per_project(conn):
+    write_cached_project_summary(conn, "P", "v1", {"a": 1})
+    write_cached_project_summary(conn, "P", "v2", {"a": 2})
+    assert read_cached_project_summary(conn, "P", "v1") is None
+    assert read_cached_project_summary(conn, "P", "v2") == {"a": 2}
 
 
-def test_the_slots_do_not_share_rows(conn):
-    write_cached_accumulated(conn, "P", "v1", {"kind": "acc"})
-    write_cached_project_summary(conn, "P", "v1", {"kind": "sum"})
-    assert read_cached_accumulated(conn, "P", "v1") == {"kind": "acc"}
-    assert read_cached_project_summary(conn, "P", "v1") == {"kind": "sum"}
-
-
-def test_only_the_accumulated_slot_warns_on_an_unserializable_payload(conn, caplog):
+def test_an_unserializable_payload_is_skipped_silently(conn, caplog):
     caplog.set_level(logging.WARNING, logger=_LOGGER)
-    write_cached_accumulated(conn, "P", "v1", {"x": object()})
-    assert [r.getMessage() for r in caplog.records] == [
-        "accumulated payload for P not serializable; skipping cache",
-    ]
-    caplog.clear()
     write_cached_project_summary(conn, "P", "v1", {"x": object()})
     assert caplog.records == []
     assert read_cached_project_summary(conn, "P", "v1") is None
 
 
-@pytest.mark.parametrize(("write", "message"), [
-    (write_cached_accumulated, "accumulated cache write failed for P"),
-    (write_cached_project_summary, "project summary cache write failed for P"),
-])
-def test_a_failed_write_logs_its_own_message(caplog, write, message):
+def test_a_failed_write_logs_its_own_message(caplog):
     caplog.set_level(logging.WARNING, logger=_LOGGER)
     closed = sqlite3.connect(":memory:")
     closed.close()
-    write(closed, "P", "v1", {"a": 1})
-    assert [r.getMessage() for r in caplog.records] == [message]
+    write_cached_project_summary(closed, "P", "v1", {"a": 1})
+    assert [r.getMessage() for r in caplog.records] == ["project summary cache write failed for P"]
 
 
-@pytest.mark.parametrize(("read", "write"), _SLOTS)
-def test_a_corrupt_payload_reads_as_a_miss(conn, read, write):
-    write(conn, "P", "v1", {"a": 1})
-    conn.execute("UPDATE accumulated_cache SET payload='{'")
+def test_a_corrupt_payload_reads_as_a_miss(conn):
+    write_cached_project_summary(conn, "P", "v1", {"a": 1})
     conn.execute("UPDATE project_summary_cache SET payload='{'")
-    assert read(conn, "P", "v1") is None
+    assert read_cached_project_summary(conn, "P", "v1") is None
+
+
+def test_an_old_accumulated_table_is_dropped_on_first_open(monkeypatch, tmp_path):
+    """A cache file from before the slot was removed loses its table on init."""
+    path = tmp_path / "score_cache.db"
+    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(path))
+    with sqlite3.connect(path) as raw:
+        raw.execute("CREATE TABLE accumulated_cache (project TEXT, version TEXT, payload TEXT)")
+    with open_score_cache() as c:
+        names = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "accumulated_cache" not in names and "project_summary_cache" in names

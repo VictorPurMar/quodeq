@@ -32,10 +32,7 @@ SCHEMA = (
     " dimension TEXT NOT NULL, principle TEXT NOT NULL, score TEXT, grade TEXT,"
     " PRIMARY KEY (project, run_id, dimension, principle, version));"
     "CREATE INDEX IF NOT EXISTS idx_run_principle_scalars_lookup ON run_principle_scalars(project, version);"
-    "CREATE TABLE IF NOT EXISTS accumulated_cache ("
-    " project TEXT NOT NULL, version TEXT NOT NULL, payload TEXT NOT NULL,"
-    " updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
-    " PRIMARY KEY (project, version));"
+    "DROP TABLE IF EXISTS accumulated_cache;"
     "CREATE TABLE IF NOT EXISTS project_summary_cache ("
     " project TEXT PRIMARY KEY, version TEXT NOT NULL, payload TEXT NOT NULL);"
     "CREATE TABLE IF NOT EXISTS run_keys ("
@@ -77,7 +74,7 @@ def _rollback_quietly(conn: sqlite3.Connection) -> None:
 def sync_cache_meta(conn: sqlite3.Connection) -> None:
     """Record the writer epoch, purging ``run_keys`` once when its shape changed.
 
-    ``run_scalars`` / ``accumulated_cache`` / ``project_summary_cache`` embed the
+    ``run_scalars`` / ``project_summary_cache`` embed the
     epoch in their version hash and self-invalidate on a bump. ``run_keys`` rows
     are not version-keyed, so a stale shape would stay frozen; they are purged
     when ``RUN_KEYS_SHAPE_VERSION`` changes, and kept across a payload-only

@@ -12,17 +12,14 @@ from typing import Callable
 
 from quodeq.core.observability import NULL_LOG, LogSink
 from quodeq.core.types import DimensionResult
-from quodeq.services._score_cache_stale import recall, refresh_in_background, remember
 from quodeq.services.wiring import (
     DEFAULT_SINGLE_FLIGHT,
     SingleFlight,
     open_score_cache,
     read_all_cached_rows,
-    read_cached_accumulated,
     read_cached_project_summary,
     row_dimension,
     scalar_dimension,
-    write_cached_accumulated,
     write_cached_project_summary,
     write_cached_rows,
 )
@@ -37,10 +34,9 @@ def _log_write_failure(operation: str, exc: sqlite3.Error, *, log: LogSink) -> N
     signal anywhere. The caller still degrades exactly as before; this only
     adds visibility. ``log`` defaults to :data:`NULL_LOG`, matching the
     injected-LogSink discipline for inner layers -- see
-    ``quodeq.core.observability``. ``_fs_metadata.py``, ``trend_fetcher.py``
-    and ``scoring/_project_scores.py`` thread ``log=SHARED_LOG`` through their
-    calls to ``cached_project_summary``, ``make_cache_backed_fetcher`` and
-    ``cached_accumulated`` respectively.
+    ``quodeq.core.observability``. ``_fs_metadata.py`` and ``trend_fetcher.py``
+    thread ``log=SHARED_LOG`` through their calls to ``cached_project_summary``
+    and ``make_cache_backed_fetcher`` respectively.
     """
     log.warning(f"score-cache write failed for {operation}, degrading to recompute: {exc}")
 
@@ -122,63 +118,6 @@ def _read_row(table: CacheTable, project: str, version: str) -> dict | None:
     """The exact-version cached payload, or None on a miss. SQLite errors propagate."""
     with open_score_cache() as conn:
         return table.read(conn, project, version)
-
-
-def _peek(table: CacheTable, project: str, version: str, *, log: LogSink = NULL_LOG) -> dict | None:
-    """The exact-version cached payload, or None on a miss or SQLite error."""
-    try:
-        return _read_row(table, project, version)
-    except sqlite3.Error as exc:
-        log.warning(f"score-cache peek failed for {table.label} {project}: {exc}")
-        return None
-
-
-def cached_accumulated(
-    project: str, version: str, compute: Callable[[], dict],
-    cacheable: Callable[[dict], bool] | None = None,
-    *, stale_scope: str | None = None, log: LogSink = NULL_LOG,
-) -> dict:
-    """Read-through cache for the accumulated payload (see ``read_through``).
-
-    *cacheable*, when given, is called with the computed result before it is
-    persisted; returning False serves the result without caching it. This lets
-    the caller withhold payloads it knows are incomplete (e.g. a rescore that
-    covered only part of the dimensions), which would otherwise freeze under a
-    version hash that cannot self-invalidate.
-
-    *stale_scope* (``score_cache.accumulated_stale_scope``) opts into
-    stale-while-revalidate: an exact-version miss inside the same scope serves
-    the scope's last payload and refreshes it once in the background (see
-    ``_score_cache_stale``). Without a stored payload, the miss computes
-    synchronously as before.
-
-    *log* receives a warning if the best-effort cache write or a background
-    refresh fails; defaults to a silent no-op (``NULL_LOG``).
-    """
-    table = CacheTable("accumulated", "accumulated", read_cached_accumulated,
-                        write_cached_accumulated, "write_cached_accumulated")
-    # Resolved once here (the composition point for this read-through call),
-    # not inside read_through, which takes the resolved bool.
-    enabled = not score_cache_disabled()
-    cache_slot = CacheSlot(table, project, version)
-    if stale_scope is None or not enabled:
-        return read_through(cache_slot, compute, cacheable, log, enabled)
-    slot = (table.kind, project, stale_scope)
-    hit = _peek(table, project, version, log=log)
-    if hit is not None:
-        remember(slot, hit)
-        return hit
-
-    def fresh() -> dict:
-        return read_through(cache_slot, compute, cacheable, log, enabled)
-
-    stale = recall(slot)
-    if stale is None:
-        payload = fresh()
-        remember(slot, payload)
-        return payload
-    refresh_in_background(slot, fresh, log)
-    return stale
 
 
 def cached_project_summary(

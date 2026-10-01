@@ -1,10 +1,9 @@
-"""/scores ships one memoized wire payload per stamp; the detail route reads per kind."""
+"""/scores ships the deferred payload; the detail route reads per kind."""
 from __future__ import annotations
 
 import pytest
 
 from quodeq.api.app import create_app
-from quodeq.shared.stamp_memo import StampCache
 
 
 def _payload() -> dict:
@@ -21,20 +20,19 @@ def _payload() -> dict:
 @pytest.fixture()
 def served(tmp_path, monkeypatch):
     monkeypatch.setenv("QUODEQ_EVALUATIONS_DIR", str(tmp_path / "reports"))
-    state = {"stamp": ("v1",), "calls": 0, "payload": _payload()}
+    state = {"calls": 0, "payload": _payload()}
 
-    def fake_stamped(root, project, as_of=None, *a, **kw):
+    def fake_scores(root, project, as_of=None, *a, **kw):
         state["calls"] += 1
-        return state["payload"], state["stamp"]
+        return state["payload"]
 
-    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores_stamped", fake_stamped)
-    monkeypatch.setattr("quodeq.api._scores_routes._WIRE", StampCache())
+    monkeypatch.setattr("quodeq.api._scores_routes.get_project_scores", fake_scores)
     app = create_app(test_config={"TESTING": True})
     with app.test_client() as c:
         yield c, state
 
 
-def test_same_stamp_serves_the_same_deferred_payload(served):
+def test_scores_defers_finding_detail(served):
     c, state = served
     a = c.get("/api/projects/p/scores").get_json()
     b = c.get("/api/projects/p/scores").get_json()
@@ -44,21 +42,10 @@ def test_same_stamp_serves_the_same_deferred_payload(served):
     assert state["calls"] == 2
 
 
-def test_new_stamp_rebuilds(served):
+def test_deferring_does_not_mutate_the_service_payload(served):
     c, state = served
     c.get("/api/projects/p/scores")
-    state["stamp"] = ("v2",)
-    state["payload"]["accumulated"]["dimensions"][0]["violations"][0]["title"] = "changed"
-    body = c.get("/api/projects/p/scores").get_json()
-    assert body["accumulated"]["dimensions"][0]["violations"][0]["title"] == "changed"
-
-
-def test_unchanged_stamp_keeps_the_memoized_body_even_if_the_source_mutates(served):
-    c, state = served
-    c.get("/api/projects/p/scores")
-    state["payload"]["accumulated"]["dimensions"][0]["violations"][0]["title"] = "mutated"
-    body = c.get("/api/projects/p/scores").get_json()
-    assert body["accumulated"]["dimensions"][0]["violations"][0]["title"] == "t"
+    assert state["payload"]["accumulated"]["dimensions"][0]["violations"][0]["snippet"] == "s"
 
 
 def test_detail_endpoint_serves_violations_and_compliance(served):

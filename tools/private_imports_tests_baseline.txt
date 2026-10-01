@@ -343,11 +343,11 @@ tests/analysis/test_verify_io_coverage.py:83:private-module:quodeq.analysis.suba
 tests/analysis/test_verify_io_coverage.py:90:private-name:quodeq.analysis.subagents._verify_io._find_previous_evidence
 tests/analysis/test_verify_io_coverage.py:96:private-name:quodeq.analysis.subagents._verify_io._find_previous_evidence
 tests/api/_log_stream_routes_fixtures.py:9:private-module:quodeq.api._log_stream_routes.register_log_stream_routes
-tests/api/test_app_factory.py:160:private-name:quodeq.api.app._build_rate_limit_store
-tests/api/test_app_factory.py:161:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
-tests/api/test_app_factory.py:174:private-name:quodeq.api.app._build_rate_limit_store
-tests/api/test_app_factory.py:175:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
-tests/api/test_app_factory.py:188:private-name:quodeq.api.app._build_rate_limit_store
+tests/api/test_app_factory.py:162:private-name:quodeq.api.app._build_rate_limit_store
+tests/api/test_app_factory.py:163:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
+tests/api/test_app_factory.py:176:private-name:quodeq.api.app._build_rate_limit_store
+tests/api/test_app_factory.py:177:private-module:quodeq.api._rate_limit.InMemoryRateLimitStore
+tests/api/test_app_factory.py:190:private-name:quodeq.api.app._build_rate_limit_store
 tests/api/test_app_factory.py:8:private-name:quodeq.api.app._default_provider
 tests/api/test_app_rate_limit_env.py:14:private-name:quodeq.api.app._DEFAULT_EVALUATION_RATE_LIMIT_MAX
 tests/api/test_app_rate_limit_env.py:14:private-name:quodeq.api.app._DEFAULT_EVALUATION_RATE_LIMIT_WINDOW
@@ -743,7 +743,7 @@ tests/data/fs/report_parser/test_cluster6_evidence_sqlite_batch.py:14:private-mo
 tests/data/fs/report_parser/test_eval_parsing_standard_guard.py:13:private-module:quodeq.data.fs.report_parser._eval_parsing.parse_eval_from_json
 tests/data/fs/report_parser/test_evidence_sqlite_first.py:4:private-module:quodeq.data.fs.report_parser._evidence.load_evidence_map
 tests/data/fs/report_parser/test_evidence_sqlite_first.py:5:private-name:quodeq.data.fs.report_parser._evidence_sqlite._load_run_metadata
-tests/data/fs/report_parser/test_list_runs_index_date.py:5:private-module:quodeq.data.fs.report_parser._date_utils.normalize_date
+tests/data/fs/report_parser/test_list_runs_index_date.py:7:private-module:quodeq.data.fs.report_parser._date_utils.normalize_date
 tests/data/fs/report_parser/test_report_parsing_exit_reason.py:10:private-module:quodeq.data.fs.report_parser._report_parsing.parse_report_json
 tests/data/fs/report_parser/test_report_parsing_scope_downgrade.py:6:private-module:quodeq.data.fs.report_parser._report_parsing.build_finding
 tests/data/fs/report_parser/test_repository.py:4:private-module:quodeq.data.fs.report_parser._repository.build_repository_info
@@ -846,7 +846,6 @@ tests/menubar/test_runner_spawn.py:9:private-name:quodeq.dashboard.runner._maybe
 tests/services/_jobs_run_log_fixtures.py:5:private-module:quodeq.services._job_model.Job
 tests/services/scoring/test_custom_formula_flag.py:16:private-module:quodeq.services.scoring._deps.ScoringDeps
 tests/services/scoring/test_recompute_summary_exclusion.py:5:private-module:quodeq.services.scoring._summary.recompute_summary
-tests/services/test_accumulated_partial_not_persisted.py:20:private-module:quodeq.services._score_cache_fetch
 tests/services/test_accumulated_phases.py:12:private-name:quodeq.services.accumulated._load_run_dimensions
 tests/services/test_accumulated_phases.py:12:private-name:quodeq.services.accumulated._suppress_run_dimensions
 tests/services/test_accumulated_scoring.py:28:private-module:quodeq.services._accumulated_data.read_all_run_data
@@ -944,9 +943,9 @@ tests/services/test_external_jobs_pid.py:6:private-module:quodeq.services._exter
 tests/services/test_external_jobs_pid.py:6:private-module:quodeq.services._external_jobs.resolve_external_pid
 tests/services/test_filesystem_helpers_dimensions.py:14:private-module:quodeq.services._filesystem_helpers.reset_dimensions_cache
 tests/services/test_fs_metadata_accumulated.py:16:private-module:quodeq.services._fs_metadata.read_accumulated_summary
-tests/services/test_fs_metadata_accumulated.py:86:private-name:quodeq.services._fs_metadata._compute_summary
-tests/services/test_fs_metadata_accumulated_card.py:14:private-module:quodeq.services._fs_metadata.read_accumulated_summary
-tests/services/test_fs_metadata_accumulated_rescore.py:16:private-module:quodeq.services._fs_metadata.read_accumulated_summary
+tests/services/test_fs_metadata_accumulated.py:63:private-name:quodeq.services._fs_metadata._compute_summary
+tests/services/test_fs_metadata_accumulated_card.py:13:private-module:quodeq.services._fs_metadata.read_accumulated_summary
+tests/services/test_fs_metadata_accumulated_rescore.py:15:private-module:quodeq.services._fs_metadata.read_accumulated_summary
 tests/services/test_fs_metadata_accumulated_visibility.py:13:private-module:quodeq.services._fs_metadata.read_accumulated_summary
 tests/services/test_fs_metadata_readonly.py:15:private-module:quodeq.data.fs.report_parser._run_info.RunInfo
 tests/services/test_fs_metadata_readonly.py:16:private-module:quodeq.services._fs_metadata.read_accumulated_summary
@@ -1017,7 +1016,7 @@ tests/services/test_jobs_run_log_batching.py:9:private-name:quodeq.services._job
 tests/services/test_per_run_versions_memo.py:15:private-name:quodeq.services.trend_fetcher._make_version_for
 tests/services/test_plugin_discovery.py:6:private-name:quodeq.services.plugin_discovery._discover_from_detection
 tests/services/test_post_run_hook.py:19:private-module:quodeq.services._post_run_hook.PostRunHook
-tests/services/test_project_summary_cache.py:5:private-module:quodeq.services._fs_metadata
+tests/services/test_project_summary_cache.py:6:private-module:quodeq.services._fs_metadata
 tests/services/test_projects_cache_entities.py:13:private-module:quodeq.services._projects_cache.mod
 tests/services/test_projects_cache_entities.py:15:private-module:quodeq.services._projects_cache.ProjectsCache
 tests/services/test_provenance_downgrade_read_paths.py:24:private-module:quodeq.analysis._report_assembly.build_report_json
@@ -1049,8 +1048,8 @@ tests/services/test_scan_progress_live_tally.py:24:private-module:quodeq.service
 tests/services/test_scan_progress_tally_factory.py:16:private-module:quodeq.services._scan_progress_dims.dims
 tests/services/test_scoped_accumulated.py:10:private-name:quodeq.services.accumulated._find_children
 tests/services/test_score_cache_in_progress.py:15:private-module:quodeq.services._external_jobs
-tests/services/test_score_cache_write_failure_logging.py:31:private-module:quodeq.services._fs_metadata
-tests/services/test_score_cache_write_failure_logging.py:32:private-module:quodeq.services._score_cache_fetch
+tests/services/test_score_cache_write_failure_logging.py:30:private-module:quodeq.services._fs_metadata
+tests/services/test_score_cache_write_failure_logging.py:31:private-module:quodeq.services._score_cache_fetch
 tests/services/test_scoring_parity.py:124:private-module:quodeq.services._fs_metadata.read_accumulated_summary
 tests/services/test_scoring_parity.py:94:private-module:quodeq.services._fs_metadata.read_accumulated_summary
 tests/services/test_scoring_parity_assistant.py:91:private-module:quodeq.assistant.tools._read_tools.finding_keys_in_scope
@@ -1101,7 +1100,6 @@ tests/services/test_violations_stream_coverage.py:71:private-name:quodeq.service
 tests/services/test_violations_stream_coverage.py:83:private-name:quodeq.services._violations_stream._StreamAccumulator
 tests/services/test_violations_stream_coverage.py:94:private-name:quodeq.services._violations_stream._StreamAccumulator
 tests/services/test_violations_stream_coverage.py:94:private-name:quodeq.services._violations_stream._parse_stream_line
-tests/services/test_warmup_engine.py:185:private-name:quodeq.services.warmup._warm_project
 tests/shared/test_coerce_line.py:36:private-module:quodeq.assistant.tools._read_tools_violations
 tests/shared/test_config_loader.py:5:private-module:quodeq.shared._config
 tests/shared/test_copilot.py:7:private-module:quodeq.assistant.adapters._cli_spawn.build_chat_env

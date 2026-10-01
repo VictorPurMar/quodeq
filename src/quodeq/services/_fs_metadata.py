@@ -19,11 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from quodeq.services._accumulated_data import (
-    has_valid_score, hydrate_winning_dimensions, read_scalar_dimensions, run_source_file_count,
-)
 from quodeq.core.scoring.report_grades import summarize_dimensions
-from quodeq.services.wiring import RunInfo, load_visible_standard_ids, read_run_data
+from quodeq.services.wiring import RunInfo, load_visible_standard_ids
 from quodeq.services._fs_project_primitives import local_repo_root
 from quodeq.services._fs_project_primitives import (  # noqa: F401 — re-export
     check_path_exists,
@@ -38,124 +35,63 @@ from quodeq.services._fs_discipline import (  # noqa: F401 — re-export
     read_language_stats,
 )
 from quodeq.shared.log_sink import SHARED_LOG
-from quodeq.shared.validation import validate_path_segment
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from quodeq.core.scoring.params import ScoringParams
+    from quodeq.services.scoring import ProjectRows
 
 
-def _select_accumulated_dims(
-    reports_root: Path, entry_name: str, runs: list[RunInfo], visible_set: set[str],
-) -> tuple[dict[str, object], dict[str, Path], int | None]:
-    """Pick each dimension's latest valid result across the default view runs.
-
-    Same run-set selection as the accumulated Overview (done-only,
-    cancelled fallback, never failed or running). Iterating ALL runs
-    newest-first gave the card a different grade than the Overview whenever
-    the newest run was cancelled/failed/running.
-
-    Each dimension may come from a DIFFERENT run (last valid run per
-    dimension), so ``run_dir_by_dim`` remembers the source run's directory
-    per dimension: the rescore in ``_compute_summary`` must use THAT run's
-    evidence, not the newest run's.
-    """
-    from quodeq.services.scoring_view import select_default_view_runs  # noqa: PLC0415
-
-    project_dir = reports_root / entry_name
-    view_runs = select_default_view_runs(runs)
-    latest_by_dim: dict[str, object] = {}
-    run_dir_by_dim: dict[str, Path] = {}
-    files_count: int | None = None
-    winners_by_run: dict[str, list[str]] = {}
-    for run in view_runs:
-        dims = read_scalar_dimensions(reports_root, entry_name, run.run_id, full_reader=read_run_data)
-        for d in dims:
-            if _is_first_visible_score(d, visible_set, latest_by_dim):
-                latest_by_dim[d.dimension] = d
-                validate_path_segment(run.run_id)
-                run_dir_by_dim[d.dimension] = project_dir / run.run_id
-                winners_by_run.setdefault(run.run_id, []).append(d.dimension)
-        if files_count is None and dims:
-            files_count = next((d.source_file_count for d in dims if d.source_file_count), None) \
-                or run_source_file_count(project_dir / run.run_id)
-    hydrate_winning_dimensions(winners_by_run, latest_by_dim, lambda rid: read_run_data(reports_root, entry_name, rid))
-    return latest_by_dim, run_dir_by_dim, files_count
-
-
-def _is_first_visible_score(d, visible_set: set, latest_by_dim: dict) -> bool:
-    """True when *d* is the newest scorable run of a dimension the user can see.
-
-    Same trust gate as the accumulated Overview (``has_valid_score``): a
-    coverage-0 stub is skipped so the card falls through to a real older run
-    instead of showing the stub's inflated grade. Hidden standards are
-    skipped entirely -- the Overview headline excludes them, and a dimension
-    the user cannot see must not move the grade.
-    """
-    return bool(
-        d.dimension
-        and d.dimension.lower() in visible_set
-        and d.dimension not in latest_by_dim
-        and has_valid_score(d)
-    )
-
-
-def _apply_dismiss_delete_rescore(
-    latest_by_dim: dict[str, object], run_dir_by_dim: dict[str, Path],
-    dismissed: set, deleted: set, params: "ScoringParams",
-) -> list:
-    """Rescore each dimension from the run it was sourced from, if needed.
-
-    Applies the project-wide dismiss/delete rescore so the card agrees with
-    every other read path (detail/explorer/dashboard/trend all route through
-    ``scored_run_dimensions``, i.e. read_run_data + ``rescore_dimension``).
-    ``read_run_data`` returns the raw scan; its SQL grade overlay reflects
-    dismisses only when the run is freshly projected, and NEVER reflects
-    deletions. Without this the project-card grade kept a stale, too-low
-    value for any project with deletions (or dismissals on a
-    not-yet-reprojected run) -- diverging from the score shown everywhere
-    else.
-    """
-    if not (dismissed or deleted):
-        return list(latest_by_dim.values())
-    from quodeq.services.rescore import rescore_dimension  # noqa: PLC0415
+def _project_rows(
+    reports_root: Path, entry_name: str, runs: list[RunInfo], params: "ScoringParams",
+) -> "ProjectRows":
+    """The project's row-backed fetcher over *runs*, graded under *params*."""
+    from quodeq.services.deleted import deleted_keys  # noqa: PLC0415
+    from quodeq.services.dismissed import dismissed_keys  # noqa: PLC0415
+    from quodeq.services.scoring import ProjectRows, make_row_fetcher  # noqa: PLC0415
     from quodeq.services.suppression_keys import SuppressionKeys  # noqa: PLC0415
 
-    keys = SuppressionKeys(dismissed, deleted)
-    return [
-        rescore_dimension(d, keys, params=params, run_dir=run_dir_by_dim.get(dim_name))
-        for dim_name, d in latest_by_dim.items()
-    ]
+    project_dir = reports_root / entry_name
+    keys = SuppressionKeys(dismissed_keys(project_dir), deleted_keys(project_dir))
+    fetcher = make_row_fetcher(reports_root, entry_name, params, runs)
+    return ProjectRows(reports_root, entry_name, params, keys, runs, fetcher)
+
+
+def summarize_card(rows: "ProjectRows", visible_set: set[str]) -> dict:
+    """The card's grade, score and file count from *rows* alone.
+
+    Walks the same default-view runs as the accumulated Overview (done-only,
+    cancelled fallback) over the row-backed fetcher, whose rows already carry
+    the project-wide dismiss/delete rescore, so the card agrees with the
+    Overview headline without reading a report. Hidden standards are left
+    out: the Overview headline averages only visible dimensions, and a
+    dimension the user cannot see must not move the grade.
+    """
+    latest = rows.latest_rows()
+    files_count = rows.source_file_count()
+    dims = [d for name, d in latest.items() if name.lower() in visible_set]
+    if not dims:
+        return {"grade": None, "score": None, "files": files_count}
+    summary = summarize_dimensions(dims, rows.params)
+    return {"grade": summary.overall_grade, "score": summary.numeric_average, "files": files_count}
 
 
 def _compute_summary(
     reports_root: Path, entry_name: str, runs: list[RunInfo],
     params: "ScoringParams", visible_set: set[str],
 ) -> dict:
+    """``summarize_card`` over the project's rows; an unreadable project is an empty card."""
     try:
-        latest_by_dim, run_dir_by_dim, files_count = _select_accumulated_dims(
-            reports_root, entry_name, runs, visible_set)
-        acc_dims = list(latest_by_dim.values())
-        project_dir = reports_root / entry_name
-        from quodeq.services.deleted import deleted_keys  # noqa: PLC0415
-        from quodeq.services.dismissed import dismissed_keys  # noqa: PLC0415
-        dismissed = dismissed_keys(project_dir)
-        deleted = deleted_keys(project_dir)
+        rows = _project_rows(reports_root, entry_name, runs, params)
     except (OSError, json.JSONDecodeError, KeyError) as exc:
-        # Adapter errors only: a run/triage file that is missing, unreadable,
-        # or malformed genuinely means "no data for the card".
+        # Adapter errors only: a triage file that is missing, unreadable, or
+        # malformed genuinely means "no data for the card". The fetcher
+        # tolerates unreadable runs itself; a bug in the summarising math
+        # below must surface, not silently empty the card.
         logger.warning("Unreadable/malformed run metadata for card: %s", exc)
         return {"grade": None, "score": None, "files": None}
-    # From here on it is business math over already-loaded data. It stays
-    # OUTSIDE the try: a KeyError raised by a rescoring/summarising bug must
-    # surface, not silently downgrade the card to {"grade": None}.
-    acc_dims = _apply_dismiss_delete_rescore(
-        latest_by_dim, run_dir_by_dim, dismissed, deleted, params)
-    if not acc_dims:
-        return {"grade": None, "score": None, "files": files_count}
-    summary = summarize_dimensions(acc_dims, params)
-    return {"grade": summary.overall_grade, "score": summary.numeric_average, "files": files_count}
+    return summarize_card(rows, visible_set)
 
 
 @dataclass(frozen=True, slots=True)

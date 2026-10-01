@@ -9,7 +9,7 @@
     "eval_report_reads": 100,
     "evaluation_db_opens": 400,
     "get_project_scores": 0,
-    "peak_kib": 238,
+    "peak_kib": 239,
     "response_bytes": 30778,
     "score_cache_opens": 1
   },
@@ -20,6 +20,22 @@
     "response_bytes": 1784,
     "standards_reads": 3
   },
+  "project_list_cold": {
+    "eval_report_reads": 66,
+    "evaluation_db_opens": 66,
+    "response_bytes": 1792,
+    "score_cache_opens": 88
+  },
+  "project_list_settled": {
+    "response_bytes": 2232,
+    "score_cache_opens": 11
+  },
+  "project_warm_10": {
+    "eval_report_reads": 60,
+    "evaluation_db_opens": 390,
+    "response_bytes": 0,
+    "score_cache_opens": 110
+  },
   "scores_as_of_cold": {
     "eval_report_reads": 13,
     "evaluation_db_opens": 52,
@@ -27,9 +43,9 @@
     "response_bytes": 3894
   },
   "scores_as_of_warm": {
-    "eval_report_reads": 8,
+    "eval_report_reads": 2,
     "evaluation_db_opens": 10,
-    "peak_kib": 204,
+    "peak_kib": 203,
     "response_bytes": 3894
   }
 }

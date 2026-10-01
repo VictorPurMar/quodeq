@@ -19,6 +19,7 @@ from typing import Any, Callable
 from quodeq.core.run.state import RunState
 from quodeq.core.scoring.params import ScoringParams
 from quodeq.core.types import DimensionResult
+from quodeq.services.accumulated import read_all_run_data, run_source_file_count
 from quodeq.services.dashboard_trend import build_accumulated_trend
 from quodeq.services.deleted import deleted_keys
 from quodeq.services.dismissed import dismissed_keys
@@ -31,7 +32,7 @@ from quodeq.services.scoring._accumulated_rows import (
     runs_as_of,
 )
 from quodeq.services.scoring._deps import ScoringDeps
-from quodeq.services.scoring_view import select_trend_runs
+from quodeq.services.scoring_view import select_default_view_runs, select_trend_runs
 from quodeq.services.suppression_keys import SuppressionKeys
 from quodeq.services.wiring import RunInfo, list_runs
 
@@ -97,6 +98,29 @@ class ProjectRows:
         """
         date = next((r.date_iso for r in self.runs if r.run_id == run_id), None)
         return [replace(d, evidence_date=d.evidence_date or date) for d in run_rows(self.fetcher)(run_id)]
+
+    def latest_rows(self, as_of: str | None = None) -> dict[str, DimensionResult]:
+        """Each dimension's newest valid row across the default-view runs, by name.
+
+        The accumulated walk without the hydration step: rows carry the
+        rescored score, grade and principles, which is all a headline needs.
+        """
+        eligible = select_default_view_runs(runs_as_of(self.runs, as_of))
+        if not eligible:
+            return {}
+        latest, _prev, _prev_run = read_all_run_data(
+            self.reports_root, self.project, eligible, get_run_data=run_rows(self.fetcher))
+        return latest
+
+    def source_file_count(self) -> int | None:
+        """The newest graded run's source file count, from its rows or its evidence manifest."""
+        for run in select_default_view_runs(self.runs):
+            rows = run_rows(self.fetcher)(run.run_id)
+            if not rows:
+                continue
+            counted = next((d.source_file_count for d in rows if d.source_file_count), None)
+            return counted or run_source_file_count(self.reports_root / self.project / run.run_id)
+        return None
 
     def accumulated(self, as_of: str | None = None) -> dict[str, Any]:
         """The accumulated dims + summary from rows alone; dimensions carry no findings."""
