@@ -32,7 +32,7 @@ _SELECT_TYPES = (
 
 # Own store: the memo is keyed by database path, which other per-run reads
 # (the run key sets) memoize under too.
-_COUNTS_CACHE = StampCache(max_entries=512)
+_COUNTS_CACHE = StampCache(max_entries=512, name="dimension_counts")
 
 
 @dataclass(frozen=True, slots=True)

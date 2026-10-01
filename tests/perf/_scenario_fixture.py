@@ -111,7 +111,8 @@ def check_budgets(measured: dict[str, dict[str, int]], budgets: dict[str, dict[s
     """Exact match for counts and bytes; a PEAK_HEADROOM band for ``peak_kib``.
 
     The band is one-sided: a lower peak never fails, so the memory metric
-    stays coarse and only a real growth trips it.
+    stays coarse and only a real growth trips it. Scenarios without a
+    ``peak_kib`` are not checked for memory.
     """
     over = {
         f"{scenario}.{kind}": (value, budgets.get(scenario, {}).get(kind, 0))
@@ -128,7 +129,7 @@ def check_budgets(measured: dict[str, dict[str, int]], budgets: dict[str, dict[s
     peaks_over = {
         scenario: (metrics["peak_kib"], budgets[scenario]["peak_kib"])
         for scenario, metrics in measured.items()
-        if metrics["peak_kib"] > budgets[scenario]["peak_kib"] * (1 + PEAK_HEADROOM)
+        if "peak_kib" in metrics and metrics["peak_kib"] > budgets[scenario]["peak_kib"] * (1 + PEAK_HEADROOM)
     }
     assert not peaks_over, f"tracemalloc peak over budget by more than {PEAK_HEADROOM:.0%} (measured, budget): {peaks_over}"
 

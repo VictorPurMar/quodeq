@@ -44,7 +44,7 @@ from quodeq.core.types.finding import Finding, SeverityTally, Totals
 
 # One fold per actions.jsonl change: a scores or dashboard request asks for
 # the dismissed state 7-8 times. DismissedKeys is frozen, so sharing is safe.
-_FOLDS = StampCache(max_entries=256)  # a few entries per project
+_FOLDS = StampCache(max_entries=256, name="dismissed.folds")  # a few entries per project
 
 
 def _target_of(finding: dict) -> DismissedEntry:

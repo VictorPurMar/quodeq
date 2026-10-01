@@ -30,7 +30,7 @@ _logger = logging.getLogger(__name__)
 #: Shipped (deferred) payloads per (reports dir, project), reused while the
 #: stamp holds; the service only stamps a project's latest payload.
 WIRE_MEMO_MAX = 8
-_WIRE = StampCache(max_entries=WIRE_MEMO_MAX)
+_WIRE = StampCache(max_entries=WIRE_MEMO_MAX, name="scores.wire")
 
 KIND_PARAM = "kind"
 

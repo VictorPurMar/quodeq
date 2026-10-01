@@ -29,9 +29,9 @@ def _bump(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_run_scoped_version_changes_with_algo_version(monkeypatch: pytest.MonkeyPatch) -> None:
-    before = run_scoped_version(DEFAULT_PARAMS, set(), set(), set(), set())
+    before = run_scoped_version(DEFAULT_PARAMS, set(), set(), set(), set(), standards="")
     _bump(monkeypatch)
-    assert run_scoped_version(DEFAULT_PARAMS, set(), set(), set(), set()) != before
+    assert run_scoped_version(DEFAULT_PARAMS, set(), set(), set(), set(), standards="") != before
 
 
 def test_accumulated_version_changes_with_algo_version(monkeypatch: pytest.MonkeyPatch) -> None:

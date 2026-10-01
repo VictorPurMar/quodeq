@@ -26,6 +26,7 @@ from quodeq.services.score_cache import (
     per_run_versions,
     suppression_state_fingerprint,
 )
+from quodeq.services.standards_version import standards_fingerprint
 from quodeq.services.deleted import deleted_keys
 from quodeq.services.dismissed import dismissed_keys
 from quodeq.services.suppression_keys import SuppressionKeys
@@ -64,6 +65,12 @@ def _compute_accumulated_payload(req: _ScoresRequest, rescore_complete: list[boo
     return payload
 
 
+def _state_fingerprint(req: _ScoresRequest, keys: SuppressionKeys) -> str:
+    return suppression_state_fingerprint(
+        req.params, keys.dismissed, keys.deleted,
+        standards=standards_fingerprint(req.reports_root / req.project))
+
+
 def _resolve_accumulated(
     req: _ScoresRequest, rescore_complete: list[bool],
     run_versions: list[tuple], keys: SuppressionKeys,
@@ -76,7 +83,7 @@ def _resolve_accumulated(
         return _compute_accumulated_payload(req, rescore_complete)
     stale_scope = accumulated_stale_scope(
         req.params, run_versions, req.as_of,
-        suppression_state_fingerprint(req.params, keys.dismissed, keys.deleted),
+        _state_fingerprint(req, keys),
     )
     return (req.deps.cached_accumulated or cached_accumulated)(
         req.project, accumulated_cache_version(req.params, run_versions, req.as_of),
@@ -122,7 +129,7 @@ def _empty_project_scores(scoring_meta: dict) -> dict[str, Any]:
 #: One full payload per project (latest only); a decoded payload can be tens
 #: of MB, so the bound is a handful of projects, like the stale slots.
 PAYLOAD_MEMO_MAX = 8
-_PAYLOADS = StampCache(max_entries=PAYLOAD_MEMO_MAX)
+_PAYLOADS = StampCache(max_entries=PAYLOAD_MEMO_MAX, name="project_scores.payloads")
 
 
 def _payload_stamp(
@@ -140,7 +147,7 @@ def _payload_stamp(
     )
     return (
         accumulated_cache_version(req.params, run_versions, req.as_of),
-        suppression_state_fingerprint(req.params, keys.dismissed, keys.deleted),
+        _state_fingerprint(req, keys),
         tuple((r.run_id, str(r.status)) for r in all_runs),
         in_flight,
         custom,

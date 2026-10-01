@@ -9,6 +9,7 @@ from flask import Flask
 from quodeq.api._error_handlers import register_unhandled_error_handler
 from quodeq.api._log_buffer import LogBuffer
 from quodeq.api._index_routes import register_index_routes
+from quodeq.api._metrics_routes import register_metrics_routes
 from quodeq.api._log_routes import register_log_routes
 from quodeq.api._log_stream_routes import register_log_stream_routes
 from quodeq.api._run_events_routes import register_run_events_routes
@@ -89,4 +90,5 @@ def register_all_routes(
     register_update_routes(app)
     register_menubar_routes(app)
     register_index_routes(app)
+    register_metrics_routes(app)
     register_static_routes(app, static_dist)

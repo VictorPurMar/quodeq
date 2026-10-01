@@ -40,7 +40,12 @@ from __future__ import annotations
 # severities, open types) next to its score; rows written by the prior writer
 # have none, which History rendered as 0 majors and 0 types for every finished
 # run. This bump retires them so they rebuild with the counts.
-CACHE_WRITER_EPOCH = "8"
+# "9": run_scalars rows gained a companion table, run_principle_scalars, with
+# each dimension's principle scores and grades at the same version. Rows
+# written by the prior writer have no principle rows, and a reader cannot tell
+# that from a dimension without principles. This bump retires them so every
+# cached run carries its principles.
+CACHE_WRITER_EPOCH = "9"
 
 # Shape of the ``run_keys`` rows, versioned apart from the epoch because the key
 # sets are the costly part of a rebuild and most epoch bumps change only score

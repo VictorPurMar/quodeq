@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, request
 
 from quodeq.shared.utils import get_evaluations_dir
 
@@ -32,3 +32,11 @@ def reports_dir() -> str:
 def standards_compiled_dir(app: Flask) -> Path:
     """The compiled-standards directory ``create_app`` configured on *app*."""
     return Path(app.config["STANDARDS_COMPILED_DIR"])
+
+
+LOCALHOST_ADDRS = frozenset({"127.0.0.1", "::1"})
+
+
+def is_local_request() -> bool:
+    """True when the current request comes from a loopback address."""
+    return (request.remote_addr or "") in LOCALHOST_ADDRS

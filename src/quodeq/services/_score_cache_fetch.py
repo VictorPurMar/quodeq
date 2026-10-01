@@ -14,6 +14,7 @@ from quodeq.core.observability import NULL_LOG, LogSink
 from quodeq.core.types import DimensionResult
 from quodeq.services._score_cache_stale import recall, refresh_in_background, remember
 from quodeq.services.wiring import (
+    principle_rows,
     DEFAULT_SINGLE_FLIGHT,
     SingleFlight,
     open_score_cache,
@@ -241,7 +242,7 @@ def make_cache_backed_fetcher(
         if is_cacheable is None or is_cacheable(run_id):
             try:
                 with open_score_cache() as conn:
-                    write_cached_rows(conn, project, run_id, version, scalars)
+                    write_cached_rows(conn, project, run_id, version, scalars, principle_rows(dims))
             except sqlite3.Error as exc:
                 _log_write_failure("write_cached_rows", exc, log=log)
         return scalars

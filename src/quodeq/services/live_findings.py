@@ -51,7 +51,7 @@ VIOLATIONS_KEY = "violations"
 MEMO_MAX_ENTRIES = 16
 
 #: Process-wide memo; tests patch this with a fresh ``StampCache``.
-_CACHE = StampCache(max_entries=MEMO_MAX_ENTRIES)
+_CACHE = StampCache(max_entries=MEMO_MAX_ENTRIES, name="live_findings")
 
 #: The feed polls every 2 s per dimension, so a persistent read failure is
 #: logged at most once per interval.
