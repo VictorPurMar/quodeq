@@ -159,6 +159,8 @@ _RUN_PAGE_RUN = "20260103T000000"
 _RUN_PAGE = f"/api/projects/{FLEET[5]}/dashboard?run={_RUN_PAGE_RUN}&view=overview"
 # The run page's second request: the run's finding lists, detail deferred.
 _RUN_FINDINGS = f"/api/projects/{FLEET[5]}/scores/{_RUN_PAGE_RUN}"
+# The Explorer's dimension page: one stored eval, detail deferred.
+_DIMENSION_EVAL = f"/api/projects/{FLEET[5]}/runs/{_RUN_PAGE_RUN}/dimensions/security/eval"
 
 
 def _run_page(client, url):
@@ -217,6 +219,9 @@ def _scenarios(client, monkeypatch, budgets) -> dict[str, dict[str, int]]:
     out["run_page_findings_warm"] = _measure(
         monkeypatch, run_page(_RUN_FINDINGS), extra=lambda: dict(calls),
         peak_budget=peak_budget("run_page_findings_warm"))
+    out["dimension_eval_warm"] = _measure(
+        monkeypatch, run_page(_DIMENSION_EVAL), extra=lambda: dict(calls),
+        peak_budget=peak_budget("dimension_eval_warm"))
     out["agent_spawn"] = _measure(
         monkeypatch, lambda: _agent_spawn(client), peak_budget=peak_budget("agent_spawn"))
     return out

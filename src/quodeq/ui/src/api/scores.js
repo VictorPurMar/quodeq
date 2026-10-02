@@ -6,7 +6,7 @@
 import { createDashboard } from '../models/dashboard.js';
 import { createDimensionEval } from '../models/dimension.js';
 import { request } from './request.js';
-import { attachFindingDetailRefs, attachRunFindingDetailRefs } from './complianceDetail.js';
+import { attachEvalFindingDetailRefs, attachFindingDetailRefs, attachRunFindingDetailRefs } from './complianceDetail.js';
 import { FINDING_TYPE } from '../vocab/findingType.js';
 import { createViolations } from '../models/violation.js';
 import { asOfQuery, findingDetailQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores } from './scoresShape.js';
@@ -106,12 +106,16 @@ export async function getAccumulated(projectId, asOfRun = null) {
 
 // ── Dimension Eval ──────────────────────────────────────────────────────
 
-/** @returns {Promise<import('../models/dimension.js').DimensionEval>} */
+/**
+ * One run's eval for a dimension. A finished run's items come with their
+ * detail deferred to /compliance-detail?run= (see attachEvalFindingDetailRefs).
+ * @returns {Promise<import('../models/dimension.js').DimensionEval>}
+ */
 export async function getDimensionEval(projectId, runId, dimension) {
   const data = await request(
     `${projectPath(projectId)}/runs/${encodeURIComponent(runId)}/dimensions/${encodeURIComponent(dimension)}/eval`
   );
-  return createDimensionEval(data);
+  return attachEvalFindingDetailRefs(createDimensionEval(data), projectId, runId);
 }
 
 const SINCE_PAIR_SEP = ',';

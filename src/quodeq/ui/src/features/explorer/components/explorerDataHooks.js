@@ -37,7 +37,9 @@ function useDerivedExplorerStats(evalData, allViolations) {
   const topFiles = useMemo(() => evalData ? buildTopOffendingFiles([{ dimension: evalData.dimension, violations: allViolations }]) : [], [evalData, allViolations]);
   const severityCounts = useMemo(() => computeSeverityCounts(allViolations), [allViolations]);
   const uniquePrinciples = useMemo(() => new Set(allViolations.map((v) => v.principle).filter(Boolean)).size, [allViolations]);
-  const totalCompliant = useMemo(() => (evalData?.principles || []).reduce((sum, p) => sum + (p.compliance?.length || 0), 0), [evalData]);
+  // The flat list; a markdown eval has only the per-principle rows.
+  const totalCompliant = useMemo(() => evalData?.compliance?.length
+    || (evalData?.principles || []).reduce((sum, p) => sum + (p.compliance?.length || 0), 0), [evalData]);
   const complianceByPrinciple = useMemo(() => computeComplianceByPrinciple(evalData), [evalData]);
   return { topFiles, severityCounts, uniquePrinciples, totalCompliant, complianceByPrinciple };
 }

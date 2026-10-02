@@ -1,12 +1,12 @@
 """Route-level exact-equality characterization: GET .../dimensions/<dim>/eval.
 
-The dimension-eval wire shaping (``to_camel_dict``, the waiting/202 body)
-lives in the routes, not in ``services/fs_reports.py``. This pins the exact
-JSON body and status code for ``get_dimension_eval``'s four return shapes --
-a JSONL partial with progress, a markdown dimension, a stored JSON eval, and
-a pending dimension -- on both the local project route and its
-``/api/shared`` mirror. The refactor that moves the shaping must not change
-a byte on the wire.
+The dimension-eval wire shaping (``to_camel_dict``, the waiting/202 body,
+the stored eval's deferred detail) lives in the routes, not in
+``services/fs_reports.py``. This pins the exact JSON body and status code
+for ``get_dimension_eval``'s four return shapes -- a JSONL partial with
+progress (sent in full), a markdown dimension, a stored JSON eval (detail
+deferred), and a pending dimension -- on both the local project route and
+its ``/api/shared`` mirror.
 
 Each test patches ``quodeq.services.fs_reports.resolve_dimension_eval``, the
 seam ``get_dimension_eval`` calls after its path-traversal guard: this only
@@ -17,6 +17,7 @@ characterized by ``tests/services/test_violations*.py``).
 """
 from __future__ import annotations
 
+import copy
 from unittest.mock import patch
 
 import pytest
@@ -51,18 +52,36 @@ _JSONL_BODY = {
     "schemaVersion": 1,
 }
 
+_FULL_ITEM = {
+    "practiceId": "P1", "file": "a.py", "line": 10, "title": "Bad thing", "severity": "major",
+    "reason": "explanation", "snippet": "x = 1", "context": "def f():", "reqRefs": [{"req": "R1"}],
+}
+_SLIM_ITEM = {
+    "practiceId": "P1", "file": "a.py", "line": 10, "title": "Bad thing", "severity": "major",
+    "detailDeferred": True,
+}
+# Markdown-only evals are not in the run's rescored lists, so their detail
+# is sent in full.
 _MARKDOWN_BODY = {
     "dimension": "maintainability", "runId": "run1", "project": "proj",
     "principleGrades": [{"principle": "Overall", "score": "7.0/10", "grade": "Good", "isOverall": True}],
-    "principles": [],
+    "principles": [{"name": "P1", "violations": [_FULL_ITEM], "compliance": []}],
+    "violations": [_FULL_ITEM], "compliance": [],
     "priorityRemediation": {"critical": [], "major": [], "minor": []},
     "rawContent": "# Maintainability Evaluation\n\n**Overall Score**: 7.0/10\n",
 }
-
-_JSON_EVAL_BODY = {
+_JSON_EVAL_STORED = {
     "dimension": "maintainability", "runId": "run1", "project": "proj",
     "overallScore": "7.0/10", "overallGrade": "Good",
-    "principles": [], "violations": [], "compliance": [],
+    "principles": [{"name": "P1", "violations": [_FULL_ITEM], "compliance": [_FULL_ITEM]}],
+    "violations": [_FULL_ITEM], "compliance": [_FULL_ITEM], "rawContent": None,
+}
+# The stored eval on the wire: a finished run's detail is deferred to
+# /compliance-detail?run=, and the principles carry no rows of their own.
+_JSON_EVAL_BODY = {
+    **_JSON_EVAL_STORED,
+    "principles": [{"name": "P1"}],
+    "violations": [_SLIM_ITEM], "compliance": [_SLIM_ITEM],
 }
 
 
@@ -102,7 +121,7 @@ class TestProjectRouteDimensionEval:
         assert resp.get_json() == _MARKDOWN_BODY
 
     def test_stored_json_eval(self, project_client):
-        with _resolve_patch(_JSON_EVAL_BODY):
+        with _resolve_patch(copy.deepcopy(_JSON_EVAL_STORED)):
             resp = project_client.get(self._URL)
         assert resp.status_code == 200
         assert resp.get_json() == _JSON_EVAL_BODY
@@ -134,7 +153,7 @@ class TestSharedMirrorDimensionEval:
         assert resp.get_json() == _MARKDOWN_BODY
 
     def test_stored_json_eval(self, client, shared_clone_fixture):
-        with _resolve_patch(_JSON_EVAL_BODY):
+        with _resolve_patch(copy.deepcopy(_JSON_EVAL_STORED)):
             resp = client.get(self._URL)
         assert resp.status_code == 200
         assert resp.get_json() == _JSON_EVAL_BODY

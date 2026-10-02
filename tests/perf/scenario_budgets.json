@@ -13,6 +13,14 @@
     "response_bytes": 30778,
     "score_cache_opens": 1
   },
+  "dimension_eval_warm": {
+    "eval_report_reads": 3,
+    "evaluation_db_opens": 5,
+    "peak_kib": 408,
+    "response_bytes": 1201,
+    "score_cache_opens": 0,
+    "standards_reads": 1
+  },
   "eval_poll_tick": {
     "eval_report_reads": 3,
     "evaluation_db_opens": 5,

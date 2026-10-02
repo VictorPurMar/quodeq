@@ -11,7 +11,7 @@ import { createDimensionEval } from '../models/dimension.js';
 import { epochSecondsToMs } from './sharedStatus.js';
 import { LATEST_RUN_ID } from '../constants.js';
 import { asOfQuery, findingDetailQuery, parseAccumulated, parseFleetCompare, parseSlimDimensions, parseUnifiedScores, runQuery } from './scoresShape.js';
-import { attachRunFindingDetailRefs } from './complianceDetail.js';
+import { attachEvalFindingDetailRefs, attachRunFindingDetailRefs } from './complianceDetail.js';
 import { createViolations } from '../models/violation.js';
 import { PROJECT_SOURCE } from '../vocab/projectSource.js';
 import { fleetQuery, sharedProjectPath } from './paths.js';
@@ -174,7 +174,7 @@ export async function sharedGetDimensionEval(projectId, runId, dimension) {
   const data = await request(
     `${sharedProjectPath(projectId)}/dimensions/${encodeURIComponent(dimension)}/eval?run=${encodeURIComponent(runId)}`
   );
-  return createDimensionEval(data);
+  return attachEvalFindingDetailRefs(createDimensionEval(data), projectId, runId, PROJECT_SOURCE.SHARED);
 }
 
 /**
