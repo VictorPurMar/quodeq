@@ -14,18 +14,17 @@
     "score_cache_opens": 1
   },
   "dimension_eval_warm": {
-    "eval_report_reads": 3,
-    "evaluation_db_opens": 5,
+    "eval_report_reads": 1,
     "peak_kib": 408,
-    "response_bytes": 1201,
+    "response_bytes": 1969,
     "score_cache_opens": 0,
     "standards_reads": 1
   },
   "eval_poll_tick": {
-    "eval_report_reads": 3,
+    "eval_report_reads": 1,
     "evaluation_db_opens": 5,
     "peak_kib": 151,
-    "response_bytes": 1784,
+    "response_bytes": 2280,
     "standards_reads": 3
   },
   "project_list_cold": {
@@ -46,7 +45,7 @@
   },
   "run_page_findings_warm": {
     "evaluation_db_opens": 5,
-    "peak_kib": 42,
+    "peak_kib": 18,
     "response_bytes": 2249,
     "score_cache_opens": 0
   },

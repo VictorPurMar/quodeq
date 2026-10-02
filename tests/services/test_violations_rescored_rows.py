@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from quodeq.core.types import DimensionResult, Finding
 from quodeq.services.violations import resolve_dimension_eval
+from quodeq.shared.serialization import to_camel_dict
 
 
 def _row(file: str) -> dict:
@@ -14,7 +15,7 @@ def _row(file: str) -> dict:
 
 
 def _finding(file: str) -> Finding:
-    return Finding(practice_id="P1", verdict="violation", file=file, line=1)
+    return Finding(practice_id="P1", verdict="violation", file=file, line=1, reason="rescored")
 
 
 def _write_eval(tmp_path: Path, stored: dict) -> Path:
@@ -24,21 +25,21 @@ def _write_eval(tmp_path: Path, stored: dict) -> Path:
     return base
 
 
-def test_rows_the_rescore_hid_are_dropped_from_the_flat_lists(tmp_path) -> None:
+def test_the_flat_lists_are_the_rescored_lists(tmp_path) -> None:
     base = _write_eval(tmp_path, {
         "dimension": "security", "overallScore": "6.0/10", "overallGrade": "Adequate",
         "principles": [{"name": "P1", "violations": [_row("kept.py"), _row("hidden.py")], "compliance": [_row("ok.py")]}],
         "violations": [_row("kept.py"), _row("hidden.py")], "compliance": [_row("ok.py"), _row("gone.py")],
     })
-    rescored = [DimensionResult(
+    rescored = {"dimensions": [to_camel_dict(DimensionResult(
         dimension="security", violations=[_finding("kept.py")], compliance=[_finding("ok.py")],
-    )]
-    with patch("quodeq.services.scoring.scored_run_dimensions", return_value=rescored):
+    ))]}
+    with patch("quodeq.services.scoring.get_scores_raw", return_value=rescored):
         out = resolve_dimension_eval(base, "proj", "run", "security")
 
     assert [v["file"] for v in out["violations"]] == ["kept.py"]
     assert [c["file"] for c in out["compliance"]] == ["ok.py"]
-    assert out["violations"][0]["reason"] == "r"
+    assert out["violations"][0]["reason"] == "rescored"
 
 
 def test_rows_are_kept_when_the_rescore_is_unavailable(tmp_path) -> None:
@@ -46,6 +47,6 @@ def test_rows_are_kept_when_the_rescore_is_unavailable(tmp_path) -> None:
         "dimension": "security", "overallScore": "6.0/10", "overallGrade": "Adequate",
         "principles": [], "violations": [_row("a.py")], "compliance": [],
     })
-    with patch("quodeq.services.scoring.scored_run_dimensions", side_effect=FileNotFoundError):
+    with patch("quodeq.services.scoring.get_scores_raw", side_effect=FileNotFoundError):
         out = resolve_dimension_eval(base, "proj", "run", "security")
     assert [v["file"] for v in out["violations"]] == ["a.py"]

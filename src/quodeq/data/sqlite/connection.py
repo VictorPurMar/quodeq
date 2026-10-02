@@ -11,12 +11,19 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+from quodeq.data.sqlite._db_stamp_memo import db_stamp
 from quodeq.data.sqlite._migrations import apply_evaluation_schema
 from quodeq.data.sqlite.constants import SQLITE_BUSY_TIMEOUT_MS
 from quodeq.data.sqlite.errors import SqliteStoreUnreadableError, as_store_error
 from quodeq.shared import request_metrics
 
 EVALUATION_DB_FILENAME = "evaluation.db"
+
+
+def evaluation_db_stamp(run_dir: Path) -> tuple | None:
+    """Identity of the run database's contents on disk (main file and WAL),
+    or None when the run has none. For memos that hold while it is unchanged."""
+    return db_stamp(run_dir / EVALUATION_DB_FILENAME)
 
 
 def _configure(conn: sqlite3.Connection) -> None:
