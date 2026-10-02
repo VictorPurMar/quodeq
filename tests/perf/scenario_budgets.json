@@ -31,11 +31,11 @@
     "eval_report_reads": 67,
     "evaluation_db_opens": 66,
     "response_bytes": 1792,
-    "score_cache_opens": 88
+    "score_cache_opens": 22
   },
   "project_list_settled": {
     "response_bytes": 2232,
-    "score_cache_opens": 11
+    "score_cache_opens": 12
   },
   "project_warm_10": {
     "eval_report_reads": 60,
@@ -68,7 +68,7 @@
   "scores_as_of_warm": {
     "eval_report_reads": 2,
     "evaluation_db_opens": 10,
-    "peak_kib": 203,
+    "peak_kib": 179,
     "response_bytes": 3894
   }
 }

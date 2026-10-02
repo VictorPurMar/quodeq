@@ -6,7 +6,7 @@ from quodeq.core.run.state import RunState
 from quodeq.core.scoring.params import DEFAULT_PARAMS
 from quodeq.services.score_cache import (
     accumulated_cache_version,
-    load_run_keys,
+    load_run_key_sets,
     open_score_cache,
     per_run_versions,
 )
@@ -75,7 +75,7 @@ def test_per_run_versions_does_not_persist_in_progress_keys(tmp_path, monkeypatc
     """Non-terminal runs must not freeze a partial run_keys snapshot.
 
     Persisting an in-progress run's partial findings set would freeze it
-    (load_run_keys short-circuits any re-read), so a suppression targeting a key
+    (a persisted key set short-circuits any re-read), so a suppression targeting a key
     that appears only after the run is observed mid-scan would silently
     under-invalidate.
     """
@@ -84,11 +84,11 @@ def test_per_run_versions_does_not_persist_in_progress_keys(tmp_path, monkeypatc
 
     per_run_versions(pd, "proj", DEFAULT_PARAMS, [("r1", RunState.RUNNING)], keys=_NO_KEYS)
     with open_score_cache() as conn:
-        assert load_run_keys(conn, "proj") == {}  # nothing persisted
+        assert load_run_key_sets(conn, "proj", "r2") is None  # nothing persisted
 
     per_run_versions(pd, "proj", DEFAULT_PARAMS, [("r2", RunState.DONE)], keys=_NO_KEYS)
     with open_score_cache() as conn:
-        assert "r2" in load_run_keys(conn, "proj")  # terminal run persisted
+        assert load_run_key_sets(conn, "proj", "r2") is not None  # terminal run persisted
 
 
 @pytest.mark.skipif(

@@ -100,3 +100,30 @@ def test_build_runs_unit_end_to_end(monkeypatch, tmp_path):
     assert [r["runId"] for r in rows] == ["b", "a"]
     assert rows[0]["overallScore"] == 5.0
     assert rows[0]["dimensionScores"] == {"security": 5.0}
+
+
+def test_fill_scores_reads_a_terminal_run_once_while_its_files_are_unchanged(monkeypatch, tmp_path):
+    """The runs list is requested on every History visit; a 234-run project
+    re-read every run's scalars each time (1 s warm). A terminal run's scalars
+    are memoized on its database, events and evaluation-dir stamps."""
+    run_dir = tmp_path / "P" / "r1"
+    (run_dir / "evaluation").mkdir(parents=True)
+    events = run_dir / "events.jsonl"
+    events.write_text("{}\n")
+    calls = []
+
+    def reader(root, proj, rid):
+        calls.append(rid)
+        return [_Dim("security", "6.0/10", "GOOD")]
+
+    monkeypatch.setattr(ru, "read_run_scalars", reader)
+    for _ in range(3):
+        entry = ru._row_to_run_entry(_row(run_id="r1", state="done"))
+        ru._fill_scores(entry, tmp_path, "P", "r1")
+        assert entry["overallScore"] == 6.0
+    assert calls == ["r1"]
+
+    events.write_text("{}\n{}\n")  # a grown events log must miss
+    entry = ru._row_to_run_entry(_row(run_id="r1", state="done"))
+    ru._fill_scores(entry, tmp_path, "P", "r1")
+    assert calls == ["r1", "r1"]

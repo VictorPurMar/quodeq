@@ -152,62 +152,35 @@ def _keys_json(keys: set[tuple]) -> str:
     Ordered by each key's JSON form rather than by element comparison: a
     dismiss key ends in an int line or a str fingerprint for the same finding
     (``finding_dismiss_keys``), and Python refuses to order an int against a
-    str. ``load_run_keys`` rebuilds a set, so only determinism matters here.
+    str. ``load_run_key_sets`` rebuilds a set, so only determinism matters here.
     """
     return json.dumps(sorted((list(k) for k in keys), key=json.dumps))
 
 
-def load_run_keys(
-    conn: sqlite3.Connection, project: str,
-) -> dict[str, tuple[set[tuple], set[tuple]]]:
-    """Return ``{run_id: (dismiss_keys, class_keys)}`` for *project* (empty on error)."""
-    out: dict[str, tuple[set[tuple], set[tuple]]] = {}
-    try:
-        rows = conn.execute(
-            "SELECT run_id, dismiss_keys, class_keys FROM run_keys WHERE project=?",
-            (project,),
-        ).fetchall()
-    except sqlite3.Error:
-        return {}
-    for run_id, dj, cj in rows:
-        try:
-            out[run_id] = ({tuple(k) for k in json.loads(dj)},
-                           {tuple(k) for k in json.loads(cj)})
-        except (ValueError, TypeError):
-            continue
-    return out
+def load_run_key_sets(
+    conn: sqlite3.Connection, project: str, run_id: str,
+) -> tuple[set[tuple], set[tuple]] | None:
+    """One run's persisted ``(dismiss_keys, class_keys)``; None when absent or unreadable.
 
-
-def load_run_keys_or_empty(
-    project: str,
-) -> dict[str, tuple[set[tuple], set[tuple]]]:
-    """Open the cache, load a project's run keys, close.
-
-    {} on any sqlite3 error, including one from ``open_score_cache`` itself
-    (an unopenable db raises past its one rebuild attempt): the callers
-    expect this disposable cache to degrade to recompute, never raise.
+    A single primary-key row, decoded on demand. A large project's blobs run
+    to megabytes per run, so the per-run paths (trend fetch, scoped versions)
+    must never decode the whole table to answer for one run.
     """
     try:
-        with open_score_cache() as conn:
-            return load_run_keys(conn, project)
+        row = conn.execute(
+            "SELECT dismiss_keys, class_keys FROM run_keys WHERE project=? AND run_id=?",
+            (project, run_id),
+        ).fetchone()
     except sqlite3.Error:
-        return {}
+        return None
+    return _decode_keys(*row) if row else None
 
 
-def store_run_keys_best_effort(
-    project: str, run_id: str,
-    dismiss_keys: set[tuple], class_keys: set[tuple],
-) -> None:
-    """Open the cache, store a run's key sets, close.
-
-    Best-effort: an open/rebuild failure is logged the way ``store_run_keys``
-    logs a write failure (see :func:`load_run_keys_or_empty`).
-    """
+def _decode_keys(dj: str, cj: str) -> tuple[set[tuple], set[tuple]] | None:
     try:
-        with open_score_cache() as conn:
-            store_run_keys(conn, project, run_id, dismiss_keys, class_keys)
-    except sqlite3.Error:
-        _logger.warning("run_keys open failed for %s/%s", project, run_id, exc_info=True)
+        return ({tuple(k) for k in json.loads(dj)}, {tuple(k) for k in json.loads(cj)})
+    except (ValueError, TypeError):
+        return None
 
 
 def read_all_cached_rows(
