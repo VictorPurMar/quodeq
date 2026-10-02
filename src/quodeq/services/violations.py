@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -76,72 +77,65 @@ def _try_evidence_formats(
     return None
 
 
-def _finding_identity(row: Any) -> tuple:
-    """The identity /compliance-detail matches rows by, for a camelCase dict
-    row or a ``Finding``."""
-    if isinstance(row, dict):
-        return (row.get("file"), row.get("line"), row.get("endLine"), row.get("practiceId"), row.get("title"))
-    return (row.file, row.line, row.end_line, row.practice_id, row.title)
+def _adopt_rescored_rows(result: dict[str, Any], dim: dict[str, Any]) -> None:
+    """The eval's flat lists become the run's rescored lists.
 
-
-def _keep_rescored_rows(result: dict[str, Any], dim: Any) -> None:
-    """Drop flat eval rows the rescore hid (a pattern suppression, say), so
-    the eval lists the same findings the run's rescored lists do and every
-    row has detail to refill. The per-principle rows (``file:line``, no
-    principle) have no such identity and are left to the wire, which omits
-    them."""
-    kept = {
-        "violations": {_finding_identity(f) for f in dim.violations},
-        "compliance": {_finding_identity(f) for f in dim.compliance},
-    }
-    for key, identities in kept.items():
+    The run page and the detail refill serve those rows; the eval must list
+    the same findings with the same identity (``file, line, endLine,
+    principle, title``) or the refill has nothing to match. Rows parsed
+    from the eval file differ in the fields they carry (no ``endLine``, no
+    ``title``) from rows read back from the run, so filtering them by
+    identity is not enough: adopt the run's rows outright. The per-principle
+    rows (``file:line``, no principle) have no such identity and are left to
+    the wire, which omits them."""
+    for key in ("violations", "compliance"):
         if isinstance(result.get(key), list):
-            result[key] = [row for row in result[key] if _finding_identity(row) in identities]
+            result[key] = list(dim.get(key) or [])
 
 
 def _apply_rescored_grades(
     result: "dict[str, Any] | None", base: Path, project: str, run_id: str, dimension: str,
 ) -> "dict[str, Any] | None":
-    """Overlay the current score/grade onto a parsed eval dict, and keep only
-    the rows the rescore kept.
+    """Overlay the run's current score/grade onto a parsed eval dict, and
+    replace its flat lists with the run's rescored lists.
 
     ``parse_eval_from_json`` carries the overall + principle grades frozen at
     eval time (in ``principleGrades`` / ``principles``). Those go stale in two
-    ways: dismissed and deleted violations are filtered from the lists, and
-    the grade tables are re-derived whenever the scoring formula changes.
-    Recompute with the SAME ``scored_run_dimensions`` transform the
-    accumulated overview, the per-run explorer, and the dashboard selected
-    run use (it reads the grade tables and applies suppressions), then
-    substitute the dimension's overall score/grade (the ``isOverall`` entry)
-    and its per-principle score/grade so the dimension detail agrees with
-    every other view. The lists are narrowed to the rescored rows for the
-    same reason: a suppressed row must not show here when no other view
-    has it, and the wire defers each row's detail to the rescored lists.
+    ways: dismissed, deleted and rule-suppressed violations are filtered from
+    the lists, and the grade tables are re-derived whenever the scoring
+    formula changes. Read the run through ``get_scores_raw``, the SAME read
+    ``/scores/<run>`` and ``/compliance-detail?run=`` serve, so the dimension
+    detail, the run page and the detail refill agree by construction: one
+    read, one suppressed set, one score. Substitute the dimension's overall
+    score/grade (the ``isOverall`` entry) and its per-principle score/grade,
+    then adopt the rescored lists: a suppressed row must not show here when
+    no other view has it, and the wire defers each row's detail to those
+    same lists.
     """
     if not isinstance(result, dict):
         return result
-    from quodeq.services.scoring import scored_run_dimensions  # noqa: PLC0415
+    from quodeq.services.scoring import get_scores_raw  # noqa: PLC0415
 
     reports_root = base.parent.parent
     try:
-        rescored = scored_run_dimensions(reports_root, project, run_id)
-    except (ValueError, FileNotFoundError, OSError):
+        rescored = get_scores_raw(reports_root, project, run_id)["dimensions"]
+    except (ValueError, OSError, sqlite3.Error):
         return result
-    dim = next((d for d in rescored if (d.dimension or "") == dimension), None)
+    dim = next((d for d in rescored if (d.get("dimension") or "") == dimension), None)
     if dim is None:
         return result
 
-    principle_grade = {p.principle: (p.score, p.grade) for p in dim.principles}
+    principle_grade = {p.get("principle"): (p.get("score"), p.get("grade")) for p in dim.get("principles") or []}
     for pg in result.get("principleGrades", []):
         if pg.get("isOverall") or pg.get("principle") == OVERALL_PRINCIPLE:
-            pg["score"] = dim.overall_score
-            pg["grade"] = dim.overall_grade
+            pg["score"] = dim.get("overallScore")
+            pg["grade"] = dim.get("overallGrade")
         elif pg.get("principle") in principle_grade:
             pg["score"], pg["grade"] = principle_grade[pg["principle"]]
     for p in result.get("principles", []):
         if p.get("name") in principle_grade:
             p["score"], p["grade"] = principle_grade[p["name"]]
-    _keep_rescored_rows(result, dim)
+    _adopt_rescored_rows(result, dim)
     return result
 
 

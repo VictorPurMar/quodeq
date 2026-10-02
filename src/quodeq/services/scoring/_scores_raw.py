@@ -6,23 +6,34 @@ re-exported from there.
 """
 from __future__ import annotations
 
+import copy
 import logging
 from pathlib import Path
 
 from quodeq.services.grade_formula import load_params
 from quodeq.services.ports import StoreUnreadableError
+from quodeq.services.score_cache import params_fingerprint
 from quodeq.services.deleted import deleted_keys
 from quodeq.services.dismissed import dismissed_keys
-from quodeq.services.wiring import SQLiteStateStore, SqliteFindingsRepository, count_eval_files
+from quodeq.services.wiring import (
+    SQLiteStateStore, SqliteFindingsRepository, count_eval_files, evaluation_db_stamp,
+    load_suppression_rules,
+)
 from quodeq.services.scoring._deps import ScoringDeps, NO_DEPS
 from quodeq.services.scoring._response_builders import (
     build_response_from_eval_files,
     build_response_from_grade_tables,
 )
+from quodeq.shared.stamp_memo import StampCache, file_stamp, memoized_by_stamp
 from quodeq.shared.validation import validate_path_segment
 from quodeq.services.scoring.compliance_detail import defer_dimension_detail
 
 _logger = logging.getLogger(__name__)
+
+#: SQL grade-tables responses, per run and params, held while the run's
+#: database and event log are unchanged. The run page, the detail refill and
+#: the dimension eval all read the same run; the first pays, the rest copy.
+_SQL_SCORES_CACHE = StampCache(name="run_scores_sql")
 
 
 def _prefer_eval_rescore(deps: ScoringDeps, project_dir: Path, run_dir: Path) -> bool:
@@ -31,18 +42,21 @@ def _prefer_eval_rescore(deps: ScoringDeps, project_dir: Path, run_dir: Path) ->
 
     The SQL grade tables are frozen per run and, on a stale projection,
     reflect only the dismissals already projected into THIS run's own findings
-    table -- NOT project-wide dismissals/deletions that accrued later. So when
-    the project has active dismissals/deletions AND this run has eval JSON to
-    rescore from, defer to the eval-file path, which applies the project-wide
-    dismiss set authoritatively via ``rescore_dimensions`` -- the SAME
-    transform the accumulated view uses, so every per-run read agrees on the
-    dismiss-adjusted score. Event-log-only runs (no eval JSON) can't be
-    rescored that way; they keep the SQL path, whose ``_ensure_fresh``
-    re-projection applies the dismissals directly to the findings table.
+    table -- NOT project-wide dismissals/deletions that accrued later, and
+    never the pattern suppression rules, which no projection applies. So when
+    the project has any suppression state (dismissals, deletions or rules)
+    AND this run has eval JSON to rescore from, defer to the eval-file path,
+    which applies all of it via ``rescore_dimensions`` -- the SAME transform
+    the accumulated view and the dimension eval use, so every per-run read
+    agrees on the suppressed set and score. Event-log-only runs (no eval
+    JSON) can't be rescored that way; they keep the SQL path, whose
+    ``_ensure_fresh`` re-projection applies the dismissals directly to the
+    findings table.
     """
     has_project_wide_filters = bool(
         (deps.dismissed_keys or dismissed_keys)(project_dir)
         or (deps.deleted_keys or deleted_keys)(project_dir)
+        or (deps.load_suppression_rules or load_suppression_rules)(project_dir)
     )
     # strict=True: an eval dir that exists but can't be listed (a permissions
     # problem, say) must still raise here, not silently read as "no eval
@@ -54,9 +68,33 @@ def _prefer_eval_rescore(deps: ScoringDeps, project_dir: Path, run_dir: Path) ->
 def _scores_from_sql_grade_tables(
     run_dir: Path, project: str, run_id: str, params, deps: ScoringDeps,
 ) -> dict | None:
-    """Return the SQL-grade-tables response, or None to fall back to the
-    eval-JSON path (no events.jsonl, empty grade tables, or an unreadable
-    evaluation.db)."""
+    """The SQL-grade-tables response, or None to fall back to the eval-JSON
+    path (no events.jsonl, empty grade tables, or an unreadable
+    evaluation.db).
+
+    Memoized on the database's stamp and the event log's: the projection
+    inside ``ensure_projected`` is what folds new events into the database,
+    so a grown ``events.jsonl`` must miss even while the database is
+    untouched. Injected *deps* bypass the memo; they are a test seam and may
+    not read the files the stamp describes. Callers get their own copy.
+    """
+    if deps is not NO_DEPS:
+        return _read_sql_grade_tables(run_dir, project, run_id, params, deps)
+    db_stamp = evaluation_db_stamp(run_dir)
+    if db_stamp is None:
+        return _read_sql_grade_tables(run_dir, project, run_id, params, deps)
+    stamp = (db_stamp, file_stamp(run_dir / "events.jsonl"))
+    hit = memoized_by_stamp(
+        f"{run_dir}|{params_fingerprint(params)}", stamp,
+        lambda: _read_sql_grade_tables(run_dir, project, run_id, params, deps),
+        cache=_SQL_SCORES_CACHE,
+    )
+    return copy.deepcopy(hit) if hit is not None else None
+
+
+def _read_sql_grade_tables(
+    run_dir: Path, project: str, run_id: str, params, deps: ScoringDeps,
+) -> dict | None:
     try:
         repo = (deps.findings_repo_factory or SqliteFindingsRepository)(run_dir)
         repo.ensure_projected()

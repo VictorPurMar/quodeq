@@ -114,6 +114,7 @@ from quodeq.data.sqlite.findings_queries import read_run_key_sets as read_run_ke
 # check that decides between the two.
 from quodeq.data.fs.report_parser import has_evaluation_db, read_report_key_sets  # noqa: F401
 from quodeq.data.sqlite.row_mappers import row_to_finding  # noqa: F401
+from quodeq.data.sqlite.connection import evaluation_db_stamp  # noqa: F401
 
 # Custom-standard file mechanics (see StandardsStore in services/ports.py).
 from quodeq.data.fs.standards_store import (  # noqa: F401
