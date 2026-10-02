@@ -241,14 +241,12 @@ from quodeq.data.sqlite.score_cache_db import (  # noqa: F401
 )
 from quodeq.data.sqlite.score_cache_rows import row_dimension, scalar_dimension  # noqa: F401
 from quodeq.data.sqlite.score_cache_store import (  # noqa: F401
-    load_run_keys,
-    load_run_keys_or_empty,
+    load_run_key_sets,
     read_all_cached_rows,
     read_cached_project_summary,
     read_cached_rows,
     read_project_summary_cached,
     store_run_keys,
-    store_run_keys_best_effort,
     write_cached_project_summary,
     write_cached_rows,
 )

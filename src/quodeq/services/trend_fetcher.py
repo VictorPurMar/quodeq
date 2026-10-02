@@ -96,15 +96,15 @@ def make_rescoring_fetcher(
 
 def _make_version_for(
     project_dir: Path, project: str, inputs: VersionInputs,
-    load_keys: Callable[[], dict], cacheable_run_ids: set[str] | None,
+    load_keys: Callable[[str], tuple | None], cacheable_run_ids: set[str] | None,
 ) -> Callable[[str], str]:
     """Per-run scoped version for the cache-backed trend fetcher.
 
     *inputs* is the params + suppression state every run's version hashes
-    against. *load_keys* returns the project's persisted key sets and runs
-    at most once per fetcher, and only when some run's version is not
-    already in ``score_cache.memoized_run_version``: decoding every run's
-    key blobs is the expensive part, and a warm process rarely needs it.
+    against. *load_keys* returns one run's persisted key sets (None when not
+    persisted) and is consulted only when that run's version is not already
+    in ``score_cache.memoized_run_version``: decoding a run's key blobs is
+    the expensive part, and a warm process rarely needs it.
     """
     from quodeq.services.run_keys import read_run_key_sets  # noqa: PLC0415
     from quodeq.services.score_cache import (  # noqa: PLC0415
@@ -113,21 +113,17 @@ def _make_version_for(
     )
 
     state_fp = inputs.fingerprint
-    keys_cache: dict | None = None
+    keys_cache: dict[str, tuple] = {}
 
     def version_for(run_id: str) -> str:
-        nonlocal keys_cache
         cacheable = cacheable_run_ids is None or run_id in cacheable_run_ids
         if cacheable:
             memoized = memoized_run_version(project_dir, run_id, state_fp)
             if memoized is not None:
                 return memoized
-        if keys_cache is None:
-            keys_cache = load_keys()
-        keys = keys_cache.get(run_id)
+        keys = keys_cache.get(run_id) or load_keys(run_id)
         if keys is None:
             keys = read_run_key_sets(project_dir / run_id)
-            keys_cache[run_id] = keys
             if cacheable:
                 try:
                     with open_score_cache() as _c:
@@ -137,6 +133,7 @@ def _make_version_for(
                         "Could not store run keys in score cache for %s/%s",
                         project, run_id, exc_info=True,
                     )
+        keys_cache[run_id] = keys
         version = run_scoped_version(
             inputs.params, keys[0], keys[1], inputs.dismissed, inputs.deleted,
             standards=inputs.standards)
@@ -200,7 +197,7 @@ def _read_untouched_runs_as_scalars(
     if load_suppression_rules(project_dir):
         return rescoring
     from quodeq.services.run_keys import read_run_key_sets  # noqa: PLC0415
-    from quodeq.services.score_cache import load_run_keys_or_empty  # noqa: PLC0415
+    from quodeq.services.score_cache import persisted_run_key_sets  # noqa: PLC0415
     from quodeq.services.suppression_keys import as_dismissed_keys  # noqa: PLC0415
 
     dismissed = as_dismissed_keys((deps.dismissed_keys or _default_dismissed_keys)(project_dir))
@@ -213,14 +210,11 @@ def _read_untouched_runs_as_scalars(
 
     if not dismissed and not deleted:
         return scalars
-    persisted: dict | None = None
 
     def fetch(run_id: str) -> list[DimensionResult]:
-        nonlocal persisted
-        if persisted is None:
-            persisted = load_run_keys_or_empty(project)
         validate_path_segment(run_id)
-        dismiss_keys, class_keys = persisted.get(run_id) or read_run_key_sets(project_dir / run_id)
+        dismiss_keys, class_keys = (
+            persisted_run_key_sets(project, run_id) or read_run_key_sets(project_dir / run_id))
         if dismissed.touching(dismiss_keys) or deleted & class_keys:
             return rescoring(run_id)
         return scalars(run_id)
@@ -234,12 +228,12 @@ def _suppression_version_for(
 ) -> Callable[[str], str]:
     """Per-run cache version keyed on *params* plus the project's current
     dismissals and deletions (read through *deps*)."""
-    from quodeq.services.score_cache import load_run_keys_or_empty  # noqa: PLC0415
+    from quodeq.services.score_cache import persisted_run_key_sets  # noqa: PLC0415
     dismissed = (deps.dismissed_keys or _default_dismissed_keys)(project_dir)
     deleted = (deps.deleted_keys or _default_deleted_keys)(project_dir)
     return _make_version_for(
         project_dir, project, VersionInputs.of(params, dismissed, deleted, project_dir),
-        lambda: load_run_keys_or_empty(project), cacheable_run_ids,
+        lambda rid: persisted_run_key_sets(project, rid), cacheable_run_ids,
     )
 
 

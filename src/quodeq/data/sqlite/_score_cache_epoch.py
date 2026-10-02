@@ -17,7 +17,7 @@ from __future__ import annotations
 # no longer evaluates; the run-fingerprint could never invalidate them, so this
 # bump rebuilds them once against the latest run's configured-dimension set.
 # "4": earlier writers persisted in-progress runs' PARTIAL run_keys sets (the
-# per-run version path had no completeness gate), which load_run_keys froze
+# per-run version path had no completeness gate), which the persisted run_keys froze
 # forever; the gate now persists only terminal runs, and this bump purges the
 # non-version-keyed run_keys table once so stranded partial snapshots rebuild.
 # "5": dismiss/delete rescoring switched basis from the legacy report-JSON

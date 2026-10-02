@@ -181,3 +181,38 @@ def test_make_rescoring_fetcher_rejects_traversal_run_id(tmp_path: Path, monkeyp
     fetch = make_rescoring_fetcher(tmp_path, "proj", base_fetcher=lambda run_id: [], deps=deps)
     with pytest.raises(ValueError):
         fetch("../../etc/passwd")
+
+
+def test_fetching_one_run_does_not_decode_the_projects_whole_key_table(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """A non-terminal run is never persisted, so its fetch used to decode every
+    other run's key blobs for nothing (1 s per request on a 234-run project)."""
+    reports, project = _make_project(tmp_path, runs=("r1", "r2"))
+    monkeypatch.setenv("QUODEQ_SCORE_CACHE_PATH", str(tmp_path / "sc.db"))
+    _run_holds(monkeypatch, {("R1", "a.py", 1)}, set())
+
+    def fake_rescoring_fetcher(rr, p, params=None, *, base_fetcher=None, **_kw):
+        def fetch(run_id: str) -> list[DimensionResult]:
+            return [DimensionResult(dimension="security", overall_score="7.0/10", overall_grade="Fair")]
+        return fetch
+
+    monkeypatch.setattr("quodeq.services.trend_fetcher.make_rescoring_fetcher", fake_rescoring_fetcher)
+
+    import quodeq.services.score_cache as sc
+    looked_up: list[tuple[str, str]] = []
+    real = sc.load_run_key_sets
+
+    def one_row(conn, p, rid):
+        looked_up.append((p, rid))
+        return real(conn, p, rid)
+
+    monkeypatch.setattr(sc, "load_run_key_sets", one_row)
+    deps = ScoringDeps(
+        dismissed_keys=lambda _pd: {("R1", "a.py", 1)},
+        deleted_keys=lambda _pd: set(),
+    )
+    fetcher = make_scoring_trend_fetcher(reports, project, cacheable_run_ids={"r1"}, deps=deps)
+    assert [d.overall_score for d in fetcher("r2")] == ["7.0/10"]
+    assert [d.overall_score for d in fetcher("r1")] == ["7.0/10"]
+    assert set(looked_up) == {("proj", "r2"), ("proj", "r1")}  # only the runs asked for
